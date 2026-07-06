@@ -8,7 +8,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from mnemosyne import Mnemosyne, VaultMemory
+from birkin_mnemosyne import Mnemosyne, VaultMemory
 
 vault = Path(tempfile.mkdtemp()) / "vault"
 

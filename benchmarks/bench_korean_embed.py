@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from mnemosyne.mnemosyne import bm25_scores, tokenize
+from birkin_mnemosyne.mnemosyne import bm25_scores, tokenize
 
 # (topic, note_body, [(exact_q, partial_q, mixed_q), ...]) — hand-written so
 # queries share *meaning* with the note, not just a planted unique token.

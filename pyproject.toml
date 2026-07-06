@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mnemosyne-memory"
+name = "birkin-mnemosyne"
 version = "0.1.0"
 description = "Zero-dependency memory palace + safe model-agnostic curation for LLM agents"
 readme = "README.md"
@@ -24,11 +24,11 @@ dev = ["pytest", "ruff"]
 bench = ["fastembed", "numpy"]                        # embedding baselines only
 
 [project.urls]
-Homepage = "https://github.com/ashmoonori/mnemosyne"
-Source = "https://github.com/ashmoonori/mnemosyne"
+Homepage = "https://github.com/ashmoonori/birkin-mnemosyne"
+Source = "https://github.com/ashmoonori/birkin-mnemosyne"
 
 [tool.setuptools]
-packages = ["mnemosyne"]
+packages = ["birkin_mnemosyne"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

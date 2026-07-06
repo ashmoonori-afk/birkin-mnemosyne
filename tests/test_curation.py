@@ -13,8 +13,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from mnemosyne import curation, mnemosyne
-from mnemosyne import VaultMemory
+from birkin_mnemosyne import curation, mnemosyne
+from birkin_mnemosyne import VaultMemory
 
 
 NOW = datetime(2026, 7, 3, 12, 0, 0, tzinfo=timezone.utc)

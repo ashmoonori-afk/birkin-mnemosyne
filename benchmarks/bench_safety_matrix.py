@@ -26,9 +26,9 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from mnemosyne import mnemosyne, curation
-from mnemosyne.curation_contract import OPS
-from mnemosyne.mnemosyne import Mnemosyne, slug
+from birkin_mnemosyne import mnemosyne, curation
+from birkin_mnemosyne.curation_contract import OPS
+from birkin_mnemosyne.mnemosyne import Mnemosyne, slug
 
 PROTECTED_TITLE = "ftp deploy corrupted the build"     # polarity: negative
 CLUSTER = [("Kubernetes ingress", "cluster ingress dns"),

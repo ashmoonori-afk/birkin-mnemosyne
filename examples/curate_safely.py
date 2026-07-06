@@ -17,7 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from mnemosyne import VaultMemory, run_curation_pass, get_completer
+from birkin_mnemosyne import VaultMemory, run_curation_pass, get_completer
 
 vault = Path(tempfile.mkdtemp()) / "vault"
 mem = VaultMemory({"vault_path": str(vault)})

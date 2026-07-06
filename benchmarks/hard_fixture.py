@@ -180,7 +180,7 @@ def truth_pairs(slug_fn) -> set:
 
 def seed(vault: Path) -> dict:
     """Write all cluster + distractor notes into the inbox (vault root)."""
-    from mnemosyne.mnemosyne import slug
+    from birkin_mnemosyne.mnemosyne import slug
     vault.mkdir(parents=True, exist_ok=True)
 
     def _note(title: str, body: str) -> str:

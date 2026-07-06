@@ -1,10 +1,16 @@
-# Mnemosyne
+# Birkin-Mnemosyne
 
 **A zero-dependency memory palace + safe, model-agnostic curation for LLM agents.**
 
+> **On the name.** "Mnemosyne" is also the name of an unrelated concurrent
+> system (a graph memory for edge LLMs, [Jonelagadda et al. 2025](https://arxiv.org/abs/2510.08601)).
+> The two share only the mythological name — this is a stdlib BM25 vault with a
+> curation-safety interface, not a graph store. The package imports as
+> `birkin_mnemosyne` to keep them apart.
+
 Long-term memory for an LLM agent usually means infrastructure — an embedding
 model, a vector database, a graph server, and an LLM call on every write.
-Mnemosyne asks how much a *personal-scale* agent (one user, one machine,
+Birkin-Mnemosyne asks how much a *personal-scale* agent (one user, one machine,
 thousands of notes) actually needs, and answers with the Python standard
 library alone:
 
@@ -21,7 +27,7 @@ personal agent, packaged so it can be dropped into **any** agent runtime —
 openclaw, hermes, or your own loop.
 
 ```python
-from mnemosyne import Mnemosyne, run_curation_pass, get_completer
+from birkin_mnemosyne import Mnemosyne, run_curation_pass, get_completer
 
 mem = Mnemosyne("my_vault"); mem.refresh()
 hits = mem.search("kubernetes ingress dns")          # BM25 + usage/zone boosts
@@ -215,7 +221,7 @@ The only model surface is a `str -> str` callable, so you plug in whatever your
 runtime already has:
 
 ```python
-from mnemosyne import Mnemosyne, run_curation_pass
+from birkin_mnemosyne import Mnemosyne, run_curation_pass
 
 # 1) retrieval — give your agent a memory tool
 mem = Mnemosyne(vault_path)
@@ -240,7 +246,7 @@ did not clamp.
 ## API surface
 
 ```python
-from mnemosyne import (
+from birkin_mnemosyne import (
     Mnemosyne,          # the mechanical index/ranking engine
     VaultMemory,        # ergonomic write_note / rezone / digest wrapper
     run_curation_pass,  # the safe curation driver
@@ -279,10 +285,37 @@ The same **mechanical/judgment split** recurs throughout:
 > Let arithmetic do what arithmetic can, enforce safety in code, and spend the
 > model only where judgment is genuinely required.
 
+## Prior art & positioning
+
+We are **not** first to any single idea here — memory palaces, local-first /
+file-based agent memory, Ebbinghaus forgetting, and BM25 as a strong retriever
+all have prior art. What we haven't found combined elsewhere is *this* pairing:
+a **stdlib-only lexical substrate** (BM25 + usage decay + zone priority) with a
+**provider-agnostic, plan-only curation interface whose file-safety is enforced
+by a deterministic executor**. Where we sit relative to close concurrent work:
+
+| system | shares | how we differ |
+|---|---|---|
+| [ByteRover](https://arxiv.org/abs/2604.01599) | local markdown memory, **no vector/graph DB, no embeddings** | ByteRover lets the LLM curate *and* retrieve; we reduce the model to a typed-plan generator and let a deterministic executor make + bound every file change |
+| [Infini Memory](https://arxiv.org/abs/2606.10677) | text topic-documents, no mandatory vector DB | it consolidates + does multi-step agentic retrieval; we keep the vault verbatim and retrieval a single mechanical BM25 pass |
+| [MemPalace](https://github.com/mempalace/mempalace) | local-first memory-palace, high LongMemEval band | MemPalace uses ChromaDB + embeddings; an [independent analysis](https://arxiv.org/abs/2604.21284) attributes its band to verbatim+embedding, not the metaphor — we reach a comparable band with **no vector store at all** |
+| [Structured Distillation](https://arxiv.org/abs/2603.13017) | one-user memory, thematic "room" assignments | it *compresses* exchanges 11× (and finds BM25 degrades under that); we keep full notes, where lexical retrieval stays strong |
+| [A-MEM](https://arxiv.org/abs/2502.12110) | Zettelkasten links, memory evolution | A-MEM judges links at write time over embedding candidates; we defer judgment to an offline batch and keep the hot path deterministic |
+| [MemoryBank](https://arxiv.org/abs/2305.10250) | Ebbinghaus forgetting | we wire forgetting into the BM25 **ranking**, not into delete/update |
+| [CaMeL](https://arxiv.org/abs/2503.18813) | plan-then-execute safety boundary | general tool-injection defense; we specialize it to the narrow `rezone/link/supersede/archive` file operations of memory curation |
+
+**Honest framing:** *To our knowledge this specific stdlib-lexical + plan-only
+safe-curation combination is new; the individual ingredients are not.* The
+load-bearing empirical claims are (1) the zero-dependency substrate reaches a
+competitive retrieval band with no embedding stack, and (2) safety comes from
+the clamping executor, not the model or the schema.
+
 ## Design notes / constants
 
 `BM25 k1=1.5 b=0.75 · strength +0.25/access cap 5.0 · stability init 7d ×1.5/spaced-access cap 365d · eff floor 0.05 · spacing gate 1h · zone EMA decay 0.9/day · rank boost W_dyn=0.3 W_zone=0.2 · stale: eff<0.1 & >90d · archive cap max(2, ⌈0.20·active⌉)`
 
 ## License
 
-MIT. Extracted from the Birkin project.
+MIT. Extracted from the Birkin project. The retrieval + curation design is
+described in the companion paper *"Birkin-Mnemosyne: A Zero-Dependency Lexical
+Memory Palace with Safe, Model-Agnostic Curation for Personal LLM Agents"*.

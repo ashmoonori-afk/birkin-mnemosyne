@@ -6,7 +6,7 @@ import config
 
 import pytest
 
-from mnemosyne import VaultMemory, VersionMismatchError
+from birkin_mnemosyne import VaultMemory, VersionMismatchError
 
 
 # ---------------- Polarity --------------------------------------------------

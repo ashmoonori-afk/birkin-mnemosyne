@@ -1,5 +1,5 @@
 import config
-from mnemosyne import VaultMemory
+from birkin_mnemosyne import VaultMemory
 
 
 def _mem():

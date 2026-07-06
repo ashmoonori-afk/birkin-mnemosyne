@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne import mnemosyne
-from mnemosyne import VaultMemory
+from birkin_mnemosyne import mnemosyne
+from birkin_mnemosyne import VaultMemory
 
 
 def _vault() -> Path:
@@ -226,7 +226,7 @@ def test_search_korean_query_roundtrip():
 
 
 def _slug_kr() -> str:
-    from mnemosyne.mnemosyne import slug
+    from birkin_mnemosyne.mnemosyne import slug
     return slug("메모리 설계")
 
 

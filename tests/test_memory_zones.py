@@ -6,8 +6,8 @@ import config
 
 from pathlib import Path
 
-from mnemosyne import mnemosyne
-from mnemosyne import VaultMemory
+from birkin_mnemosyne import mnemosyne
+from birkin_mnemosyne import VaultMemory
 
 
 def _mem() -> VaultMemory:

@@ -13,7 +13,7 @@ Two things, both built from the Python standard library alone:
 
 Quick start::
 
-    from mnemosyne import Mnemosyne, run_curation_pass, get_completer
+    from birkin_mnemosyne import Mnemosyne, run_curation_pass, get_completer
 
     mem = Mnemosyne("my_vault")
     mem.refresh()

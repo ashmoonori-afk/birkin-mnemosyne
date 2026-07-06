@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from mnemosyne import providers
+from birkin_mnemosyne import providers
 
 
 def test_codex_completer_uses_readonly_isolated_home_and_cwd(
