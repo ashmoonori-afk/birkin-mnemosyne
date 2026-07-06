@@ -22,7 +22,7 @@ library alone:
   invariants enforced in code**, so a weak or adversarial model *cannot* delete,
   mass-archive, escape the vault, or archive a protected note.
 
-It is the memory subsystem extracted from the [Birkin](https://github.com/ashmoonori/birkin)
+It is the memory subsystem extracted from the [Birkin](https://github.com/ashmoonori-afk/birkin)
 personal agent, packaged so it can be dropped into **any** agent runtime —
 openclaw, hermes, or your own loop.
 

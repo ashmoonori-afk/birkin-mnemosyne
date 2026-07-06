@@ -24,8 +24,8 @@ dev = ["pytest", "ruff"]
 bench = ["fastembed", "numpy"]                        # embedding baselines only
 
 [project.urls]
-Homepage = "https://github.com/ashmoonori/birkin-mnemosyne"
-Source = "https://github.com/ashmoonori/birkin-mnemosyne"
+Homepage = "https://github.com/ashmoonori-afk/birkin-mnemosyne"
+Source = "https://github.com/ashmoonori-afk/birkin-mnemosyne"
 
 [tool.setuptools]
 packages = ["birkin_mnemosyne"]
