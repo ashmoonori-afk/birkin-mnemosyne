@@ -60,9 +60,8 @@ def _now_iso() -> str:
 
 
 def _vault_dir(cfg):
-    from pathlib import Path
     raw = (cfg or {}).get("vault_path")
-    d = Path(raw).expanduser() if raw else Path(cfg.get("vault", "vault"))
+    d = Path(raw).expanduser() if raw else Path("vault")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -268,10 +267,12 @@ class VaultMemory:
                 body = parsed or body
             except OSError:
                 pass
+            # related capped at 3 (top-k link policy: beyond a note's closest
+            # neighbors, extra links are injection dead weight)
             out.append({"title": h["slug"],
-                        "snippet": _snippet(body, terms[0] if terms else ""),
+                        "snippet": _snippet(body, terms),
                         "zone": h["zone"] or "inbox",
-                        "related": [_slug(t) for t in h["links"]]})
+                        "related": [_slug(t) for t in h["links"][:3]]})
         return out
 
     def neighbors(self, title: str) -> list[str]:
@@ -310,10 +311,15 @@ class VaultMemory:
 
     # -- prompt digest -----------------------------------------------------
 
-    def render(self, limit: int = 25) -> str:
+    def render(self, limit: int = 10) -> str:
         """Zone-aware digest for the system prompt: identity first, then
         zones by priority (effective strength orders notes inside a zone),
-        inbox last as a standing filing nudge. ``_archive`` is excluded."""
+        inbox last as a standing filing nudge. ``_archive`` is excluded.
+
+        The digest is a map, not the territory — beyond identity + the
+        hottest notes, agents reach for search anyway, and each digest line
+        costs every turn.
+        """
         dex = self.dex
         now = datetime.now(timezone.utc)
         by_zone: dict[str, list[tuple[float, dict[str, Any]]]] = {}
@@ -389,19 +395,42 @@ def _is_expired(meta: dict[str, Any]) -> bool:
         return False
 
 
-def _snippet(text: str, term: str, width: int = 100) -> str:
+def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
+    """Best multi-term window: the ``width``-char span containing the most
+    DISTINCT query terms (earliest on ties); falls back to the head.
+
+    A single-term/100-char snippet routinely missed the passage that made a
+    note relevant, pushing agents to fetch whole notes — the dominant
+    context-token cost. A denser snippet is the cheap fix: pay ~240 chars in
+    the search result, save a full-note read.
+    """
+    if isinstance(terms, str):
+        terms = [terms]
     low = text.lower()
-    i = low.find(term)
-    if i < 0:
+    hits: list[tuple[int, str]] = []              # (position, term)
+    for term in {t for t in terms if t}:
+        start = 0
+        while True:
+            i = low.find(term, start)
+            if i < 0:
+                break
+            hits.append((i, term))
+            start = i + 1
+    if not hits:
         return text.strip()[:width]
-    start = max(0, i - width // 2)
+    hits.sort()
+    from collections import Counter
+    inwin: Counter = Counter()
+    best_start, best_distinct = hits[0][0], 1
+    j = 0
+    for i, (pos, term) in enumerate(hits):
+        inwin[term] += 1
+        while hits[j][0] < pos - width:
+            inwin[hits[j][1]] -= 1
+            if not inwin[hits[j][1]]:
+                del inwin[hits[j][1]]
+            j += 1
+        if len(inwin) > best_distinct:
+            best_distinct, best_start = len(inwin), hits[j][0]
+    start = max(0, best_start - width // 8)
     return text[start:start + width].replace("\n", " ").strip()
-
-
-def _title_from(note: str) -> str:
-    words = re.sub(r"\s+", " ", note.strip()).split(" ")
-    return " ".join(words[:6])[:60] or "Note"
-
-
-# Backwards-compatible alias used by runtime.py
-Memory = VaultMemory

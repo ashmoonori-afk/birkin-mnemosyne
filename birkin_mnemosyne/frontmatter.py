@@ -10,8 +10,7 @@ used by skill frontmatter:
 - block lists (``- item``)
 
 It is forgiving: anything it cannot parse degrades to a raw string rather than
-raising, and ``extract_meta`` adds regex fallbacks for the fields the loader cares
-about most (``name``, ``description``, ``tags``).
+raising.
 """
 
 from __future__ import annotations
@@ -130,18 +129,3 @@ def _parse_block(lines: list[str], i: int, base: int):
             sub, i = _parse_block(lines, i + 1, ind + 1)
             result[key] = {} if sub is None else sub
     return result, i
-
-
-def extract_meta(text: str) -> tuple[dict[str, Any], str]:
-    """``parse`` plus regex fallbacks for the key fields."""
-    meta, body = parse(text)
-    fm, _ = split_frontmatter(text)
-    if "name" not in meta:
-        m = re.search(r'(?m)^name:\s*"?([^"\n]+)"?\s*$', fm)
-        if m:
-            meta["name"] = m.group(1).strip().strip("'\"")
-    if "description" not in meta:
-        m = re.search(r'(?m)^description:\s*"?(.+?)"?\s*$', fm)
-        if m:
-            meta["description"] = m.group(1).strip().strip("'\"")
-    return meta, body

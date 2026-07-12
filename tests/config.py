@@ -13,8 +13,7 @@ from typing import Any
 
 
 def _home() -> Path:
-    raw = os.environ.get("MNEMOSYNE_TEST_HOME") or os.environ.get("BIRKIN_HOME")
-    home = Path(raw).expanduser() if raw else Path.home() / ".mnemosyne-test"
+    home = Path(os.environ["MNEMOSYNE_TEST_HOME"]).expanduser()
     home.mkdir(parents=True, exist_ok=True)
     return home
 

@@ -1,6 +1,6 @@
 # Birkin-Mnemosyne
 
-**A zero-dependency memory palace + safe, model-agnostic curation for LLM agents.**
+**A zero-dependency memory palace + safe, provider-portable curation for LLM agents.**
 
 > **On the name.** "Mnemosyne" is also the name of an unrelated concurrent
 > system (a graph memory for edge LLMs, [Jonelagadda et al. 2025](https://arxiv.org/abs/2510.08601)).
@@ -57,15 +57,23 @@ have added**, in the same harness over the identical sessions.
 
 | system | R@1 | R@5 | R@10 | MRR |
 |---|---|---|---|---|
-| **BM25 + bigram (this library)** | **0.870** | **0.968** | 0.981 | 0.910 |
-| dense embedding (bge-small-en-v1.5) | 0.770 | 0.932 | 0.966 | 0.842 |
-| hybrid (RRF of BM25 + embedding) | 0.868 | 0.966 | **0.989** | **0.914** |
+| BM25 + bigram (this library) | 0.870 | 0.968 | 0.981 | 0.910 |
+| dense embedding, truncated (bge-small) | 0.770 | 0.932 | 0.966 | 0.842 |
+| dense embedding, chunked + max-pool | 0.855 | 0.968 | 0.981 | 0.908 |
+| best hybrid (RRF k=20, BM25 + chunked) | 0.894 | 0.977 | **0.994** | 0.931 |
+| **tuned lexical stack (no encoder)** | **0.900** | **0.977** | 0.981 | **0.933** |
 | substring scan (the naive baseline) | 0.089 | 0.343 | 0.577 | 0.223 |
 
-BM25 **beats** a standard dense retriever here (+0.10 R@1, +0.068 MRR), and the
-hybrid adds essentially nothing over BM25 alone. The fairness control: rerun
-BM25 on the *same* 6k-char-truncated text the embedder saw and it still wins
-(R@5 0.953 vs 0.932) — the lexical edge is not an input-length artifact.
+Read honestly, in three steps. (1) BM25 beats *truncated* dense retrieval
+(+0.10 R@1) — but that gap is a **truncation artifact**: chunked dense ties
+BM25. (2) A tuned RRF hybrid buys a small, real margin (+0.02 MRR) over BM25.
+(3) A dev-tuned, arithmetic-only lexical stack (query-side idf weighting,
+user-turn field weighting, a relative-date prior — every ingredient classic
+IR) **buys that margin back with no encoder at all**: parity with the best
+embedding hybrid we measured. Fairness control: rerun BM25 on the *same*
+6k-char-truncated text the embedder saw and it still wins (R@5 0.953 vs
+0.932) — the lexical edge over truncated dense is not an input-length
+artifact.
 
 ### From retrieval to answers (end-to-end QA)
 
@@ -318,4 +326,4 @@ the clamping executor, not the model or the schema.
 
 MIT. Extracted from the Birkin project. The retrieval + curation design is
 described in the companion paper *"Birkin-Mnemosyne: A Zero-Dependency Lexical
-Memory Palace with Safe, Model-Agnostic Curation for Personal LLM Agents"*.
+Memory Palace with Safe, Provider-Portable Curation for Personal LLM Agents"*.
