@@ -60,7 +60,10 @@ def _now_iso() -> str:
 
 
 def _vault_dir(cfg):
-    raw = (cfg or {}).get("vault_path")
+    cfg = cfg or {}
+    # Honor both keys: the documented "vault_path" and the legacy "vault"
+    # fallback (dropping it silently sent a configured vault to ./vault).
+    raw = cfg.get("vault_path") or cfg.get("vault")
     d = Path(raw).expanduser() if raw else Path("vault")
     d.mkdir(parents=True, exist_ok=True)
     return d
@@ -460,7 +463,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     hits.sort()
     from collections import Counter
     inwin: Counter = Counter()
-    best_start, best_distinct = hits[0][0], 1
+    best_start, best_end, best_distinct = hits[0][0], hits[0][0] + len(hits[0][1]), 1
     j = 0
     for i, (pos, term) in enumerate(hits):
         inwin[term] += 1
@@ -470,6 +473,9 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
                 del inwin[hits[j][1]]
             j += 1
         if len(inwin) > best_distinct:
-            best_distinct, best_start = len(inwin), hits[j][0]
+            best_distinct, best_start, best_end = len(inwin), hits[j][0], pos + len(term)
+    # extend (don't shift) the slice so the boundary hit that made this window
+    # best isn't cut off the right edge
     start = max(0, best_start - width // 8)
-    return text[start:start + width].replace("\n", " ").strip()
+    end = max(best_start + width, best_end)
+    return text[start:end].replace("\n", " ").strip()

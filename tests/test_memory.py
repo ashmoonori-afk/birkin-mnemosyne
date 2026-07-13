@@ -85,3 +85,16 @@ def test_korean_query_snippet_finds_bigram_match():
     assert hits
     # snippet uses the bigram tokenizer, so it locates the matched passage
     assert "배포" in hits[0]["snippet"]
+
+
+def test_vault_dir_honors_legacy_vault_key(tmp_path):
+    from birkin_mnemosyne.memory import _vault_dir
+    d = _vault_dir({"vault": str(tmp_path / "legacy")})
+    assert d.name == "legacy" and d.exists()          # not ./vault
+
+
+def test_snippet_boundary_term_survives():
+    from birkin_mnemosyne.memory import _snippet
+    text = "alpha" + ("x" * 233) + "beta"
+    s = _snippet(text, ["alpha", "beta"], width=240)
+    assert "alpha" in s and "beta" in s
