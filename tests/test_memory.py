@@ -54,3 +54,34 @@ def test_list_notes_counts():
 
 def test_get_missing_note_returns_none():
     assert _mem().get_note("does-not-exist") is None
+
+
+def test_near_duplicates_flags_twin(tmp_path):
+    m = _mem()
+    body = "the rsync deploy to staging failed twice before the fix " * 3
+    m.write_note("deploy failure", body)
+    dups = m.near_duplicates("deploy failure copy", body)
+    assert dups and dups[0][0] == "deploy-failure"
+    assert dups[0][1] >= 0.6
+
+
+def test_near_duplicates_excludes_self_and_unrelated():
+    m = _mem()
+    m.write_note("deploy failure", "rsync staging deploy failed twice fix " * 3)
+    # re-writing the same note never flags itself
+    same = m.near_duplicates("deploy failure",
+                             "rsync staging deploy failed twice fix " * 3)
+    assert all(slug != "deploy-failure" for slug, _ in same)
+    # an unrelated note is below the link threshold
+    un = m.near_duplicates("tomato care",
+                           "garden tomato seedlings sunlight water weekly " * 3)
+    assert all(sim < 0.35 for _, sim in un)
+
+
+def test_korean_query_snippet_finds_bigram_match():
+    m = _mem()
+    m.write_note("배포 실패", "어제 저녁 스테이징 서버 배포가 두 번 실패했다 " * 3)
+    hits = m.search("배포 실패")
+    assert hits
+    # snippet uses the bigram tokenizer, so it locates the matched passage
+    assert "배포" in hits[0]["snippet"]

@@ -20,7 +20,6 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 
 from __future__ import annotations
 
-import re
 import threading
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -30,6 +29,7 @@ from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
                         Mnemosyne)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
+from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
 
 VALID_TYPES = {"person", "project", "preference", "fact", "topic", "session"}
@@ -256,7 +256,10 @@ class VaultMemory:
     def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
         """Index-backed search (BM25 × dynamics × zone priority). Reads only
         the top ``limit`` note files for snippets — never the whole vault."""
-        terms = [t for t in re.split(r"\s+", query.lower()) if t]
+        # Use the SAME tokenizer the index/BM25 use (Hangul bigrams included),
+        # so the snippet locator finds the tokens that actually matched — a
+        # plain whitespace split misses every Korean bigram hit.
+        terms = _tokenize(query)
         out: list[dict[str, Any]] = []
         for h in self.dex.search(query, limit=limit):
             body = h["summary"]
@@ -279,6 +282,42 @@ class VaultMemory:
         """Titles linked from a note (outgoing ``[[wikilinks]]``)."""
         text = self.get_note(title) or ""
         return sorted(set(WIKILINK_RE.findall(text)))
+
+    def near_duplicates(self, title: str, body: str,
+                        limit: int = 3) -> list[tuple[str, float]]:
+        """Mechanical near-duplicate candidates for a note being written:
+        token-set cosine between the new text and each BM25 candidate's
+        indexed ``terms`` (already in the index — no extra I/O, no model).
+
+        The *recall* is instant and mechanical; the *judgment* (merge /
+        supersede) is left to the caller or a nightly curator. Returns
+        ``[(slug, similarity)]`` highest first, excluding the note's own slug
+        so re-writing a note never flags itself. Adopted from TencentDB Agent
+        Memory's write-time candidate recall (see the birkin project's
+        docs/tdai-comparison.md); useful before ``write_note`` to catch a
+        duplicate or to suggest a link.
+        """
+        import math
+        new_tokens = set(_tokenize(f"{title} {body}"))
+        if not new_tokens:
+            return []
+        self_slug = _slug(title)
+        entries = self.dex.entries()
+        out: list[tuple[str, float]] = []
+        seen: set[str] = set()
+        for h in self.dex.search(f"{title} {body[:400]}", limit=limit + 2):
+            slug = h["slug"]
+            if slug == self_slug or slug in seen:
+                continue
+            seen.add(slug)
+            terms = set((entries.get(slug) or {}).get("terms", {}))
+            if not terms:
+                continue
+            sim = len(new_tokens & terms) / math.sqrt(len(new_tokens)
+                                                      * len(terms))
+            out.append((slug, round(sim, 3)))
+        out.sort(key=lambda t: -t[1])
+        return out[:limit]
 
     def add_link(self, from_title: str, to_title: str) -> bool:
         text = self.get_note(from_title)
