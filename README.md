@@ -251,12 +251,53 @@ outcome = run_curation_pass(vault_path, my_complete, provider="custom")
 the archive cap, and an audit summary — nothing is applied that the executor
 did not clamp.
 
+## Automatic role profiles
+
+`ProfileMemory` records a conversation exchange immediately and reviews it on
+one owned background worker. The reviewer returns JSON; `flush()` is the
+durability boundary and surfaces malformed reviewer output.
+
+```python
+import json
+from birkin_mnemosyne import ProfileMemory
+
+def review(exchange):
+    # Replace this deterministic example with your model client.
+    return json.dumps({"profiles": {
+        "preferences": "Prefers evidence before conclusions.",
+        "soul": "Use direct Korean.",
+    }})
+
+with ProfileMemory(vault_path, review) as profiles:
+    profiles.record_exchange(user_message, assistant_message)
+    profiles.flush()
+```
+
+The protected `system/` directory contains exactly five role files:
+
+| File | Guidance stored |
+|---|---|
+| `user.md` | User characteristics and stable personal context |
+| `preferences.md` | Preferences and favored choices |
+| `soul.md` | Conversation style and interaction guidance |
+| `workflow.md` | Work process and execution guidance |
+| `automation.md` | Workflow automation guidance |
+
+The reviewer contract is a JSON object with one `profiles` object. Profile keys
+must be from the table and each value must be a non-empty string. Unknown keys,
+invalid JSON, and non-string values raise `ProfileReviewError` through
+`flush()`. `close()` stops new submissions and releases the worker; the context
+manager flushes and closes automatically. Run
+`python examples/automatic_profiles.py` for an offline end-to-end example.
+
 ## API surface
 
 ```python
 from birkin_mnemosyne import (
     Mnemosyne,          # the mechanical index/ranking engine
     VaultMemory,        # ergonomic write_note / rezone / digest wrapper
+    ProfileMemory,      # background-reviewed role-profile persistence
+    ProfileReviewError, # invalid reviewer output
     run_curation_pass,  # the safe curation driver
     get_completer,      # provider registry (claude|codex|api|gemini|local)
     validate_clamp,     # the gate, if you want to inspect a plan without applying
