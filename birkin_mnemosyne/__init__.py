@@ -29,17 +29,6 @@ your own client from openclaw, hermes, or a raw HTTP call.
 
 from __future__ import annotations
 
-from .mnemosyne import (
-    ARCHIVE_ZONE,
-    Mnemosyne,
-    bm25_scores,
-    default_dynamics,
-    effective_strength,
-    potentiate,
-    slug,
-    tokenize,
-)
-from .memory import VaultMemory, VersionMismatchError
 from .curation import run_curation_pass
 from .curation_contract import (
     ARCHIVE_CAP_FRACTION,
@@ -50,20 +39,54 @@ from .curation_contract import (
 )
 from .curation_gate import validate_clamp
 from .curation_prompt import build_plan_prompt, extract_plan, mechanical_catalog
+from .memory import VaultMemory, VersionMismatchError
+from .mnemosyne import (
+    ARCHIVE_ZONE,
+    Mnemosyne,
+    bm25_scores,
+    default_dynamics,
+    effective_strength,
+    potentiate,
+    slug,
+    tokenize,
+)
+from .profiles import (
+    PROFILE_DESCRIPTIONS,
+    ProfileExchange,
+    ProfileMemory,
+    ProfileReviewer,
+    ProfileReviewError,
+)
 from .providers import get_completer
 
 __version__ = "0.1.0"
 
 __all__ = [
-    # retrieval
-    "Mnemosyne", "VaultMemory", "VersionMismatchError",
-    "slug", "tokenize", "bm25_scores",
-    "default_dynamics", "effective_strength", "potentiate", "ARCHIVE_ZONE",
-    # curation
-    "run_curation_pass", "CurationOutcome", "validate_clamp",
-    "build_plan_prompt", "extract_plan", "mechanical_catalog",
-    "OPS", "PLAN_VERSION", "ARCHIVE_CAP_FRACTION", "ARCHIVE_CAP_MIN",
-    # providers
-    "get_completer",
+    "ARCHIVE_CAP_FRACTION",
+    "ARCHIVE_CAP_MIN",
+    "ARCHIVE_ZONE",
+    "OPS",
+    "PLAN_VERSION",
+    "PROFILE_DESCRIPTIONS",
+    "CurationOutcome",
+    "Mnemosyne",
+    "ProfileExchange",
+    "ProfileMemory",
+    "ProfileReviewError",
+    "ProfileReviewer",
+    "VaultMemory",
+    "VersionMismatchError",
     "__version__",
+    "bm25_scores",
+    "build_plan_prompt",
+    "default_dynamics",
+    "effective_strength",
+    "extract_plan",
+    "get_completer",
+    "mechanical_catalog",
+    "potentiate",
+    "run_curation_pass",
+    "slug",
+    "tokenize",
+    "validate_clamp",
 ]
