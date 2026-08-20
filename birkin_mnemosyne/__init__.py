@@ -29,64 +29,50 @@ your own client from openclaw, hermes, or a raw HTTP call.
 
 from __future__ import annotations
 
-from .curation import run_curation_pass
-from .curation_contract import (
-    ARCHIVE_CAP_FRACTION,
-    ARCHIVE_CAP_MIN,
-    OPS,
-    PLAN_VERSION,
-    CurationOutcome,
-)
-from .curation_gate import validate_clamp
-from .curation_prompt import build_plan_prompt, extract_plan, mechanical_catalog
-from .memory import VaultMemory, VersionMismatchError
-from .mnemosyne import (
-    ARCHIVE_ZONE,
-    Mnemosyne,
-    bm25_scores,
-    default_dynamics,
-    effective_strength,
-    potentiate,
-    slug,
-    tokenize,
-)
-from .profiles import (
-    PROFILE_DESCRIPTIONS,
-    ProfileExchange,
-    ProfileMemory,
-    ProfileReviewer,
-    ProfileReviewError,
-)
-from .providers import get_completer
+from importlib import import_module
+from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 
-__all__ = [
-    "ARCHIVE_CAP_FRACTION",
-    "ARCHIVE_CAP_MIN",
-    "ARCHIVE_ZONE",
-    "OPS",
-    "PLAN_VERSION",
-    "PROFILE_DESCRIPTIONS",
-    "CurationOutcome",
-    "Mnemosyne",
-    "ProfileExchange",
-    "ProfileMemory",
-    "ProfileReviewError",
-    "ProfileReviewer",
-    "VaultMemory",
-    "VersionMismatchError",
-    "__version__",
-    "bm25_scores",
-    "build_plan_prompt",
-    "default_dynamics",
-    "effective_strength",
-    "extract_plan",
-    "get_completer",
-    "mechanical_catalog",
-    "potentiate",
-    "run_curation_pass",
-    "slug",
-    "tokenize",
-    "validate_clamp",
-]
+_EXPORTS = {
+    "ARCHIVE_CAP_FRACTION": "birkin_mnemosyne.curation_contract",
+    "ARCHIVE_CAP_MIN": "birkin_mnemosyne.curation_contract",
+    "ARCHIVE_ZONE": "birkin_mnemosyne.mnemosyne",
+    "OPS": "birkin_mnemosyne.curation_contract",
+    "PLAN_VERSION": "birkin_mnemosyne.curation_contract",
+    "PROFILE_DESCRIPTIONS": "birkin_mnemosyne.profiles",
+    "CurationOutcome": "birkin_mnemosyne.curation_contract",
+    "Mnemosyne": "birkin_mnemosyne.mnemosyne",
+    "ProfileAction": "birkin_mnemosyne.profiles",
+    "ProfileExchange": "birkin_mnemosyne.profiles",
+    "ProfileMemory": "birkin_mnemosyne.profiles",
+    "ProfileProposal": "birkin_mnemosyne.profiles",
+    "ProfileReviewError": "birkin_mnemosyne.profiles",
+    "ProfileReviewer": "birkin_mnemosyne.profiles",
+    "ProfileSaver": "birkin_mnemosyne.profiles",
+    "VaultMemory": "birkin_mnemosyne.memory",
+    "VersionMismatchError": "birkin_mnemosyne.memory",
+    "bm25_scores": "birkin_mnemosyne.mnemosyne",
+    "build_plan_prompt": "birkin_mnemosyne.curation_prompt",
+    "default_dynamics": "birkin_mnemosyne.mnemosyne",
+    "effective_strength": "birkin_mnemosyne.mnemosyne",
+    "extract_plan": "birkin_mnemosyne.curation_prompt",
+    "get_completer": "birkin_mnemosyne.providers",
+    "mechanical_catalog": "birkin_mnemosyne.curation_prompt",
+    "potentiate": "birkin_mnemosyne.mnemosyne",
+    "run_curation_pass": "birkin_mnemosyne.curation",
+    "slug": "birkin_mnemosyne.mnemosyne",
+    "tokenize": "birkin_mnemosyne.mnemosyne",
+    "validate_clamp": "birkin_mnemosyne.curation_gate",
+}
+
+__all__ = [*_EXPORTS, "__version__"]
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(_EXPORTS[name])
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
