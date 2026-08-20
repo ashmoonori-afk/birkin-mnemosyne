@@ -8,7 +8,6 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
 
 from .mnemosyne import atomic_write
 
@@ -68,7 +67,7 @@ class ProfileMemory:
         self._closed = False
         self._bootstrap()
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> "ProfileMemory":
         return self
 
     def __exit__(self, *_exc: object) -> None:
