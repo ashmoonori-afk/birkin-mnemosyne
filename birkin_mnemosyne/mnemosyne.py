@@ -33,13 +33,13 @@ import json
 import math
 import os
 import re
-import tempfile
 import threading
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from . import frontmatter
+from .atomic import atomic_write
 
 # -- constants (single tuning source; see design §8) -------------------------
 
@@ -81,25 +81,6 @@ def slug(title: str) -> str:
     s = re.sub(r"[^\w\s-]", "", title.strip().lower())
     s = re.sub(r"[\s_-]+", "-", s).strip("-")
     return s or "note"
-
-
-def atomic_write(path: Path, text: str) -> None:
-    """Write via temp sibling + os.replace so a crash can't truncate the file
-    and a concurrent reader never sees a half-written one."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent),
-                                    prefix=path.name + ".", suffix=".tmp")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(tmp, path)
-    except OSError:
-        try:
-            tmp.unlink()
-        except OSError:
-            pass
-        raise
 
 
 # -- pure functions -----------------------------------------------------------

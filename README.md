@@ -283,12 +283,22 @@ The protected `system/` directory contains exactly five role files:
 | `workflow.md` | Work process and execution guidance |
 | `automation.md` | Workflow automation guidance |
 
+By default, `ProfileMemory(vault_path, review)` bootstraps those files and
+appends de-duplicated guidance lines. If you pass `save=callable`, no `system/`
+directory or files are created; each reviewed exchange is parsed into a tuple of
+`ProfileProposal` objects and delivered to that sink for caller-owned
+persistence. Sink-mode instances cannot `read_profiles()` because they own no
+files.
+
 The reviewer contract is a JSON object with one `profiles` object. Profile keys
-must be from the table and each value must be a non-empty string. Unknown keys,
-invalid JSON, and non-string values raise `ProfileReviewError` through
-`flush()`. `close()` stops new submissions and releases the worker; the context
-manager flushes and closes automatically. Run
-`python examples/automatic_profiles.py` for an offline end-to-end example.
+must be from the table. Values may be legacy non-empty strings, which become
+`add` proposals after whitespace normalization, or ordered proposal lists such
+as `[{"action":"replace","old_text":"old","content":"new"}]`. Actions are
+`add`, `replace`, or `remove`; malformed JSON, unknown keys/actions, non-string
+fields, and missing required text raise `ProfileReviewError` through `flush()`.
+`close()` stops new submissions and releases the worker; the context manager
+flushes and closes automatically. Run `python examples/automatic_profiles.py`
+for an offline end-to-end example.
 
 ## API surface
 
