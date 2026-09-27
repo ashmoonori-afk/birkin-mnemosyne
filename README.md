@@ -219,6 +219,7 @@ in openclaw, hermes, or a hosted gateway (see below).
 pip install -e .                 # zero runtime deps
 pip install -e ".[dev]"          # + pytest, ruff
 pip install -e ".[bench]"        # + fastembed, numpy (embedding baselines only)
+pip install -e ".[mcp]"          # + the MCP server (official `mcp` SDK)
 ```
 
 Requires Python ≥ 3.10.
@@ -249,7 +250,90 @@ outcome = run_curation_pass(vault_path, my_complete, provider="custom")
 
 `run_curation_pass` returns a `CurationOutcome` with the accepted/dropped ops,
 the archive cap, and an audit summary — nothing is applied that the executor
-did not clamp.
+did not clamp. Already have a plan as data (for example from an agent's tool
+call)? `evaluate_plan(vault_path, plan)` runs the same gate as a dry run;
+pass `apply=True` to apply it.
+
+## MCP server (Claude Code, Claude Desktop, Codex CLI, Cursor)
+
+The vault can be served over the [Model Context Protocol](https://modelcontextprotocol.io)
+so any MCP client can remember, recall and curate. The server is an optional
+extra — the core library stays stdlib-only — and runs with one command over
+stdio:
+
+```bash
+uvx --from "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne" \
+    mnemosyne-mcp --vault ~/mnemosyne
+```
+
+(or `pip install "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne"`
+and run `mnemosyne-mcp`). The first launch downloads the SDK; if your client
+times out on that first start, run the command once in a terminal.
+
+| setting | how |
+|---|---|
+| vault directory | `--vault PATH`, else `$MNEMOSYNE_VAULT`, else `~/.birkin-mnemosyne/vault` |
+| require a `source` for new notes | `--evidence-required` or `MNEMOSYNE_EVIDENCE_REQUIRED=1` |
+
+**Claude Code**
+
+```bash
+claude mcp add --scope user mnemosyne -- \
+  uvx --from "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne" \
+  mnemosyne-mcp --vault ~/mnemosyne
+```
+
+**Claude Desktop** (`claude_desktop_config.json`) and **Cursor**
+(`~/.cursor/mcp.json` or `.cursor/mcp.json`) use the same shape:
+
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "uvx",
+      "args": [
+        "--from", "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne",
+        "mnemosyne-mcp", "--vault", "~/mnemosyne"
+      ]
+    }
+  }
+}
+```
+
+**Codex CLI** (`~/.codex/config.toml`, or `codex mcp add mnemosyne -- uvx ...`):
+
+```toml
+[mcp_servers.mnemosyne]
+command = "uvx"
+args = ["--from", "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne",
+        "mnemosyne-mcp", "--vault", "~/mnemosyne"]
+```
+
+Point several clients at the same `--vault` to share one memory; writes are
+serialized across server processes with a lock file.
+
+### Tools
+
+| tool | what it does | safe default |
+|---|---|---|
+| `memory_search` | BM25 + decay + zone ranked hits with snippets | read-only |
+| `memory_get_note` | full note with its `version`; counts as a use | — |
+| `memory_list` | notes by zone, paginated | read-only |
+| `memory_remember` | write a note: `mode="create"` / `"append"` / `"replace"` | `create` never overwrites; `replace` needs `expected_version` |
+| `memory_related` | mechanical link candidates for a note | read-only |
+| `memory_forget` | move a note to `_archive` through the curation gate | dry run unless `confirm=true`; never deletes |
+| `memory_restore` | move a note back out of `_archive` | — |
+| `memory_curation_catalog` | structured catalog for writing a CurationPlan | read-only |
+| `memory_curate` | run a CurationPlan/1 through the deterministic gate | dry run unless `apply=true` |
+
+Plus the resources `mnemosyne://digest` (the prompt digest) and
+`mnemosyne://note/{slug}`, and the prompt `curate_vault`. The calling agent is
+the curator: it reads the catalog, writes a plan, and `memory_curate` clamps it
+exactly like `run_curation_pass` would — protected notes stay put and the
+archive cap applies to every call. Nothing exposed over MCP can hard-delete a
+file (`purge_expired` stays a Python-only maintenance call). Note text returned
+by the tools is stored data from earlier sessions; the server tells clients
+not to follow instructions found inside it.
 
 ## Automatic role profiles
 
@@ -309,6 +393,7 @@ from birkin_mnemosyne import (
     ProfileMemory,      # background-reviewed role-profile persistence
     ProfileReviewError, # invalid reviewer output
     run_curation_pass,  # the safe curation driver
+    evaluate_plan,      # gate a structured plan (dry run by default)
     get_completer,      # provider registry (claude|codex|api|gemini|local)
     validate_clamp,     # the gate, if you want to inspect a plan without applying
     build_plan_prompt, extract_plan, mechanical_catalog,
