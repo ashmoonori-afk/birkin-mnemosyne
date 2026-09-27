@@ -488,3 +488,55 @@ def test_run_pass_empty_output_is_noop():
                                      now=NOW)
     after = {p.relative_to(vault).as_posix() for p in vault.rglob("*.md")}
     assert before == after and out.effected == []
+
+
+# ---------------- evaluate_plan (structured plan, dry run) ------------------
+
+def _vault_state(vault: Path) -> dict[str, str]:
+    files = {p.relative_to(vault).as_posix(): p.read_text(encoding="utf-8")
+             for p in vault.rglob("*.md")}
+    dyn = vault / mnemosyne.DYNAMICS_FILE
+    files["<dynamics>"] = dyn.read_text(encoding="utf-8") if dyn.exists() else ""
+    return files
+
+
+def _mass_archive_plan(vault: Path) -> dict[str, object]:
+    return {"plan_version": 1, "summary": "archive all",
+            "ops": [{"op": "archive", "slug": s} for s in _snap(vault)]}
+
+
+def test_evaluate_plan_dry_run_changes_no_notes_or_dynamics():
+    vault = _seed_vault()
+    before = _vault_state(vault)
+    out = curation.evaluate_plan(vault, _mass_archive_plan(vault), now=NOW)
+    assert out.dry_run is True and out.effected == []
+    assert sum(o["op"] == "archive" for o in out.accepted) == out.archive_cap
+    assert _vault_state(vault) == before
+
+
+def test_evaluate_plan_apply_is_clamped_like_run_pass():
+    vault = _seed_vault()
+    out = curation.evaluate_plan(vault, _mass_archive_plan(vault), apply=True,
+                                 now=NOW)
+    archived = [e for e in out.effected if e["op"] == "archive"]
+    assert out.dry_run is False
+    assert len(archived) == out.archive_cap
+    neg = mnemosyne.slug("Ftp deploy failure")
+    assert neg not in {e["slug"] for e in archived}
+    assert (vault / "_archive").is_dir()
+
+
+def test_evaluate_plan_dry_run_matches_apply_decisions():
+    vault = _seed_vault()
+    plan = {"plan_version": 1, "ops": [
+        {"op": "rezone", "slug": mnemosyne.slug("Budget plan"),
+         "zone": "finance"},
+        {"op": "rezone", "slug": mnemosyne.slug("Tax filing"),
+         "zone": "finance"},
+        {"op": "archive", "slug": mnemosyne.slug("Ftp deploy failure")},
+    ]}
+    dry = curation.evaluate_plan(vault, plan, now=NOW)
+    wet = curation.evaluate_plan(vault, plan, apply=True, now=NOW)
+    assert dry.accepted == wet.accepted and dry.dropped == wet.dropped
+    assert {"op": "rezone", "slug": mnemosyne.slug("Tax filing"),
+            "zone": "finance"} in wet.effected

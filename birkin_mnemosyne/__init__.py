@@ -56,6 +56,7 @@ _EXPORTS = {
     "build_plan_prompt": "birkin_mnemosyne.curation_prompt",
     "default_dynamics": "birkin_mnemosyne.mnemosyne",
     "effective_strength": "birkin_mnemosyne.mnemosyne",
+    "evaluate_plan": "birkin_mnemosyne.curation",
     "extract_plan": "birkin_mnemosyne.curation_prompt",
     "get_completer": "birkin_mnemosyne.providers",
     "mechanical_catalog": "birkin_mnemosyne.curation_prompt",
