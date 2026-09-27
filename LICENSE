@@ -19,10 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Portions of the bundled skill catalog (`skills/`) are adapted or ported from
-MIT-licensed open-source projects — NousResearch/hermes-agent, openclaw, and
-Yeachan-Heo/gajae-code (the deep-interview lineage behind the `neurosis` skill).
-Their upstream copyright and attribution are preserved; see `NOTICE`.
