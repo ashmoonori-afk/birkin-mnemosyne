@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-
 PLAN_VERSION = 1
 ARCHIVE_CAP_FRACTION = 0.20
 ARCHIVE_CAP_MIN = 2
@@ -44,6 +43,7 @@ class CurationOutcome:
     summary: str
     raw_text: str
     plan_ops: int
+    dry_run: bool = False
 
 
 def sanitize_summary(summary: str) -> str:
