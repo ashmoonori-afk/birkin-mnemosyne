@@ -408,7 +408,7 @@ Key `Mnemosyne` methods: `refresh()`, `search(query, limit, zone)`,
 ## Tests & benchmarks
 
 ```bash
-pytest -q                                  # 93 tests, stdlib only
+pytest -q                                  # stdlib only; MCP tests skip without [mcp]
 python examples/quickstart.py              # write, search, decay (offline)
 python benchmarks/bench_safety_matrix.py   # the defense-layer ablation above
 python benchmarks/bench_korean_embed.py    # Korean/mixed vs multilingual-e5 (needs [bench])
