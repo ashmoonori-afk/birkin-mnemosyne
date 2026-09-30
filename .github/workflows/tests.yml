@@ -7,10 +7,11 @@ on:
 
 jobs:
   core:
-    name: core (stdlib only, py${{ matrix.python }})
-    runs-on: ubuntu-latest
+    name: core (stdlib only, ${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v4

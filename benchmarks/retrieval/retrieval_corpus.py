@@ -18,8 +18,9 @@ Gold notes whose index is 1 mod 4 get deterministic filler paragraphs so the
 corpus also contains long notes (the case where truncation/chunking matters).
 ``corpus(n)`` pads the gold notes with template-generated distractors in all
 six languages up to ``n`` notes (the 1k / 10k scale runs). The dev/test split
-is by note (every third note of each language is dev), so fusion constants
-can be tuned on dev and reported on test.
+is by topic: a note with cross-language siblings takes its sibling group's
+split, every other note is dev when its index is a multiple of three. Fusion
+constants are tuned on dev and reported on test.
 
 Many topics recur across languages (a Spanish and a German note about the
 same car service, say). Those notes are declared in ``SIBLING_GROUPS``; a
@@ -980,6 +981,13 @@ SIBLING_GROUPS: tuple[tuple[str, ...], ...] = (
 )
 
 
+def _group_split() -> dict[str, str]:
+    """Whole sibling groups go to one split (every third group is dev), so a
+    topic tuned on dev never reappears, translated, in test."""
+    return {slug: "dev" if i % 3 == 0 else "test"
+            for i, group in enumerate(SIBLING_GROUPS) for slug in group}
+
+
 def _siblings_of() -> dict[str, frozenset[str]]:
     out: dict[str, frozenset[str]] = {}
     for group in SIBLING_GROUPS:
@@ -1156,6 +1164,7 @@ def _filler(slug: str, lang: str) -> str:
 
 def gold_notes() -> list[Note]:
     sibs = _siblings_of()
+    group_split = _group_split()
     out: list[Note] = []
     for lang in LANGS:
         for idx, (title, body, exact, para, mixed) in enumerate(_GOLD[lang]):
@@ -1164,7 +1173,7 @@ def gold_notes() -> list[Note]:
                 body = body + "\n\n" + _filler(slug, lang)
             out.append(Note(
                 slug=slug, title=title, body=body, lang=lang,
-                split="dev" if idx % 3 == 0 else "test",
+                split=group_split.get(slug, "dev" if idx % 3 == 0 else "test"),
                 queries={"exact": exact, "para": para, "mixed": mixed},
                 siblings=sibs.get(slug, frozenset())))
     return out

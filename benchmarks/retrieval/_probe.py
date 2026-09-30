@@ -5,7 +5,7 @@
 Prints one JSON line: ``load_ms`` (library import + engine construction +
 first query, timed after the stdlib imports; the parent adds the
 process wall time) and ``peak_rss`` in bytes
-(None where the platform offers no reading)."""
+(None only on platforms with neither psapi nor ``resource``)."""
 
 import json
 import os
@@ -38,7 +38,7 @@ def peak_rss_bytes() -> int | None:
         get_info.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
         handle = ctypes.WinDLL("kernel32").GetCurrentProcess()
         if not get_info(handle, ctypes.byref(counters), counters.cb):
-            return None
+            raise ctypes.WinError()
         return int(counters.PeakWorkingSetSize)
     try:
         import resource

@@ -104,6 +104,9 @@ def test_sibling_groups_are_valid():
         seen |= set(group)
         langs = [s[2:4] for s in group]
         assert len(set(langs)) == len(langs), group
+    split_of = {g.slug: g.split for g in rc.gold_notes()}
+    for group in rc.SIBLING_GROUPS:
+        assert len({split_of[slug] for slug in group}) == 1, group
     for g in rc.gold_notes():
         for sib in g.siblings:
             assert g.slug in next(n for n in rc.gold_notes() if n.slug == sib).siblings
@@ -167,5 +170,5 @@ def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
     [row] = json.loads(out.read_text())["results"]
     assert row["size"] == 160 and row["index_bytes"] > 0
     assert row["cold_wall_ms"] >= row["cold_load_ms"] > 0
-    assert row["peak_rss"] is None or row["peak_rss"] > 0
+    assert row["peak_rss"] > 0
     assert set(row["by_lang"]) == {f"{s}/{lang}" for s in SPLITS for lang in rc.LANGS}

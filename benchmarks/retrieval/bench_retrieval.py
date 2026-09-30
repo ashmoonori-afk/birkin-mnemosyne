@@ -7,8 +7,9 @@ reports per split (dev/test), per language and per query kind:
   R@1, R@5, MRR@10, nDCG@10   one gold note per query; the gold note's
                               declared cross-language siblings are removed
                               from the ranking before scoring
-  latency p50 / p95           warm, per query, wall clock (includes the
-                              library's per-query index refresh)
+  latency p50 / p95           warm, per query, wall clock over ALL queries
+                              (dev + test pooled; includes the library's
+                              per-query index refresh)
   index on disk               every sidecar file in the vault (dot-files)
                               after build + all queries
   build                       full index build
@@ -239,7 +240,7 @@ def render(results: list[dict[str, Any]], split: str = "test") -> str:
             cells = " | ".join(f"{r['by_kind_lang'][(split, kind, lang)]['mrr']:.3f}"
                                for kind in rc.QUERY_KINDS)
             lines.append(f"| {r['engine']} | {r['size']} | {lang} | {cells} |")
-    lines += ["", "### Footprint", "",
+    lines += ["", "### Footprint (latency pooled over dev + test queries)", "",
               ("| engine | notes | index on disk | build | p50 | p95 | cold wall "
                "| cold load | peak RSS |"),
               "|---|---|---|---|---|---|---|---|---|"]
