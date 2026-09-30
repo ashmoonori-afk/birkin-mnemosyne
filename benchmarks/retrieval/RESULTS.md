@@ -420,9 +420,218 @@ shipped. A Korean sentence with one English word has the same surface form
 whether the word is quoted from an English note or glosses a Korean one; a
 lexical ranker cannot tell the two apart, and only the size of the boost
 trades them. The Korean number in the core therefore stays at 0.559 (10k,
-test); Korean paraphrase-level gains need the optional semantic mode, which is
-measured in its own PR.
+test); Korean paraphrase-level gains need the optional semantic mode (next
+section).
 
 The same authors also wrote one more `exact` / `para` / `mixed` triple for each
 zh and de dev note, the two thinnest dev slices (15 queries per author each).
 They are used for tuning only; the frozen test questions are untouched.
+
+## Optional semantic mode (`[semantic]` extra)
+
+The core stays standard library only. The `[semantic]` extra (numpy,
+safetensors, huggingface_hub) adds a second ranking that finds notes by
+meaning and is fused with the lexical one:
+
+```bash
+pip install -e ".[semantic]"
+python -m birkin_mnemosyne.semantic    # once: download (~530 MB) and convert the model
+```
+
+A search never downloads or converts anything: until the model is prepared,
+or when the extra is missing, or with `MNEMOSYNE_SEMANTIC=0`, search is the
+core ranking and one log line says why.
+
+How it works:
+
+- **Model**: `minishlab/potion-multilingual-128M`, static embeddings (500k
+  Unigram pieces x 256 dimensions), no transformer at query time.
+- **Runtime** (`static_model.py`): the model is converted once into an int8
+  table (128 MB on disk, memory-mapped, only the rows of tokens actually seen
+  are paged in) plus a sorted table of 64-bit piece hashes; tokenizing is a
+  pure-Python Unigram Viterbi search whose token ids equal the reference
+  tokenizer's on all 2,440 corpus and query texts of this benchmark. The
+  reference stack (model2vec + `tokenizers`) holds ~770 MB for the tokenizer
+  alone.
+- **Index**: each note is cut into chunks of about 400 characters (a longer
+  paragraph is cut); a chunk is stored as the sign bits of its vector, 32
+  bytes. A query is scored against the packed bytes through a 32 x 256 lookup
+  table; a note scores its best chunk.
+- **Fusion**: reciprocal-rank fusion (k = 5) of the top 100 of each ranking.
+  The lexical ranking is the core's, usage and zone boosts included, and
+  nothing multiplies the fused score. The semantic vote counts 0.4 (1.0 for
+  queries written mostly in Han/kana). Notes that contain every original unit
+  of the query keep their lexical order ahead of everything else, so an exact
+  keyword lookup returns what the core returns; fused ties go to the lexical
+  rank (both ideas follow the "never worse than today, per query" rule and the
+  exact-phrase floor of oh-my-openagent PR #9209).
+
+Measured once on the frozen test split with the configuration above, after it
+was fixed on dev (`git c0657fb`, Apple M1, Python 3.13, macOS). Reproduce with
+`python benchmarks/retrieval/bench_retrieval.py --engines bm25 hybrid --sizes 160 1000 10000 --json run.json --install-size --install-extras semantic`
+and `python benchmarks/retrieval/compare.py run.json run.json --engine-before bm25 --engine-after hybrid`;
+the committed run is `semantic_test_run.json`.
+
+#### core -> semantic mode (test split): R@5 and MRR per slice
+
+| notes | slice | n | R@5 | MRR |
+|---|---|---|---|---|
+| 160 | en | 252 | 0.698 -> 0.746 (+0.048) | 0.591 -> 0.640 (+0.049) |
+| 160 | ko | 243 | 0.654 -> 0.728 (+0.074) | 0.579 -> 0.640 (+0.060) |
+| 160 | ja | 99 | 0.848 -> 0.899 (+0.051) | 0.794 -> 0.843 (+0.049) |
+| 160 | zh | 135 | 0.867 -> 0.926 (+0.059) | 0.818 -> 0.871 (+0.053) |
+| 160 | es | 108 | 0.769 -> 0.861 (+0.093) | 0.698 -> 0.744 (+0.046) |
+| 160 | de | 135 | 0.756 -> 0.822 (+0.067) | 0.689 -> 0.749 (+0.060) |
+| 160 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 160 | para (all langs) | 324 | 0.370 -> 0.525 (+0.154) | 0.269 -> 0.383 (+0.115) |
+| 160 | mixed (all langs) | 324 | 0.855 -> 0.892 (+0.037) | 0.729 -> 0.775 (+0.046) |
+| 1000 | en | 252 | 0.679 -> 0.714 (+0.036) | 0.581 -> 0.620 (+0.038) |
+| 1000 | ko | 243 | 0.613 -> 0.683 (+0.070) | 0.554 -> 0.614 (+0.061) |
+| 1000 | ja | 99 | 0.848 -> 0.909 (+0.061) | 0.782 -> 0.809 (+0.027) |
+| 1000 | zh | 135 | 0.830 -> 0.881 (+0.052) | 0.766 -> 0.823 (+0.058) |
+| 1000 | es | 108 | 0.694 -> 0.713 (+0.019) | 0.655 -> 0.686 (+0.031) |
+| 1000 | de | 135 | 0.741 -> 0.770 (+0.030) | 0.664 -> 0.708 (+0.044) |
+| 1000 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 1000 | para (all langs) | 324 | 0.302 -> 0.417 (+0.114) | 0.219 -> 0.307 (+0.087) |
+| 1000 | mixed (all langs) | 324 | 0.830 -> 0.855 (+0.025) | 0.701 -> 0.750 (+0.049) |
+| 10000 | en | 252 | 0.655 -> 0.675 (+0.020) | 0.568 -> 0.604 (+0.035) |
+| 10000 | ko | 243 | 0.609 -> 0.658 (+0.049) | 0.559 -> 0.608 (+0.049) |
+| 10000 | ja | 99 | 0.848 -> 0.879 (+0.030) | 0.782 -> 0.816 (+0.033) |
+| 10000 | zh | 135 | 0.822 -> 0.815 (-0.007) | 0.764 -> 0.782 (+0.018) |
+| 10000 | es | 108 | 0.704 -> 0.704 (=0.000) | 0.673 -> 0.681 (+0.009) |
+| 10000 | de | 135 | 0.741 -> 0.748 (+0.007) | 0.681 -> 0.708 (+0.027) |
+| 10000 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 10000 | para (all langs) | 324 | 0.281 -> 0.321 (+0.040) | 0.205 -> 0.262 (+0.057) |
+| 10000 | mixed (all langs) | 324 | 0.830 -> 0.852 (+0.022) | 0.722 -> 0.761 (+0.039) |
+
+#### MRR per query author (test split)
+
+| notes | author | exact | para | mixed |
+|---|---|---|---|---|
+| 160 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.348 -> 0.459 (+0.111) | 0.707 -> 0.772 (+0.065) |
+| 160 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.197 -> 0.314 (+0.117) | 0.820 -> 0.856 (+0.037) |
+| 160 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.261 -> 0.378 (+0.116) | 0.660 -> 0.696 (+0.036) |
+| 1000 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.301 -> 0.368 (+0.068) | 0.664 -> 0.738 (+0.074) |
+| 1000 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.154 -> 0.230 (+0.076) | 0.780 -> 0.815 (+0.035) |
+| 1000 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.203 -> 0.322 (+0.118) | 0.660 -> 0.697 (+0.037) |
+| 10000 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.271 -> 0.318 (+0.048) | 0.698 -> 0.763 (+0.064) |
+| 10000 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.146 -> 0.214 (+0.068) | 0.780 -> 0.810 (+0.029) |
+| 10000 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.198 -> 0.253 (+0.055) | 0.686 -> 0.711 (+0.025) |
+
+#### MRR per query author and language (test split)
+
+| notes | author | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|---|
+| 160 | claude-fable-5.1 | 0.643 -> 0.691 (+0.048) | 0.530 -> 0.581 (+0.051) | 0.781 -> 0.876 (+0.095) | 0.822 -> 0.884 (+0.062) | 0.775 -> 0.814 (+0.039) | 0.761 -> 0.844 (+0.082) |
+| 160 | claude-opus-5.5 | 0.606 -> 0.672 (+0.066) | 0.597 -> 0.668 (+0.071) | 0.773 -> 0.812 (+0.039) | 0.820 -> 0.852 (+0.032) | 0.692 -> 0.707 (+0.015) | 0.694 -> 0.739 (+0.045) |
+| 160 | gpt-6.1-sol | 0.524 -> 0.559 (+0.035) | 0.612 -> 0.671 (+0.060) | 0.827 -> 0.840 (+0.013) | 0.811 -> 0.877 (+0.066) | 0.628 -> 0.711 (+0.083) | 0.612 -> 0.663 (+0.052) |
+| 1000 | claude-fable-5.1 | 0.641 -> 0.673 (+0.032) | 0.487 -> 0.548 (+0.061) | 0.742 -> 0.781 (+0.039) | 0.785 -> 0.829 (+0.044) | 0.736 -> 0.761 (+0.025) | 0.726 -> 0.804 (+0.077) |
+| 1000 | claude-opus-5.5 | 0.592 -> 0.644 (+0.053) | 0.565 -> 0.622 (+0.056) | 0.784 -> 0.795 (+0.011) | 0.750 -> 0.794 (+0.044) | 0.653 -> 0.646 (-0.007) | 0.671 -> 0.692 (+0.021) |
+| 1000 | gpt-6.1-sol | 0.512 -> 0.542 (+0.030) | 0.609 -> 0.674 (+0.064) | 0.821 -> 0.851 (+0.030) | 0.762 -> 0.847 (+0.085) | 0.577 -> 0.652 (+0.075) | 0.595 -> 0.629 (+0.034) |
+| 10000 | claude-fable-5.1 | 0.621 -> 0.655 (+0.035) | 0.493 -> 0.548 (+0.055) | 0.759 -> 0.790 (+0.032) | 0.770 -> 0.807 (+0.037) | 0.756 -> 0.763 (+0.007) | 0.749 -> 0.787 (+0.039) |
+| 10000 | claude-opus-5.5 | 0.588 -> 0.639 (+0.051) | 0.570 -> 0.608 (+0.038) | 0.763 -> 0.828 (+0.065) | 0.746 -> 0.764 (+0.017) | 0.653 -> 0.639 (-0.014) | 0.671 -> 0.687 (+0.016) |
+| 10000 | gpt-6.1-sol | 0.496 -> 0.517 (+0.020) | 0.613 -> 0.668 (+0.055) | 0.826 -> 0.828 (+0.003) | 0.777 -> 0.776 (-0.001) | 0.609 -> 0.643 (+0.034) | 0.622 -> 0.648 (+0.026) |
+
+#### R@5 per query author and language (test split)
+
+| notes | author | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|---|
+| 160 | claude-fable-5.1 | 0.762 -> 0.821 (+0.060) | 0.580 -> 0.679 (+0.099) | 0.879 -> 0.909 (+0.030) | 0.889 -> 0.933 (+0.044) | 0.833 -> 0.972 (+0.139) | 0.822 -> 0.911 (+0.089) |
+| 160 | claude-opus-5.5 | 0.726 -> 0.786 (+0.060) | 0.704 -> 0.765 (+0.062) | 0.848 -> 0.909 (+0.061) | 0.844 -> 0.911 (+0.067) | 0.778 -> 0.833 (+0.056) | 0.756 -> 0.800 (+0.044) |
+| 160 | gpt-6.1-sol | 0.607 -> 0.631 (+0.024) | 0.679 -> 0.741 (+0.062) | 0.818 -> 0.879 (+0.061) | 0.867 -> 0.933 (+0.067) | 0.694 -> 0.778 (+0.083) | 0.689 -> 0.756 (+0.067) |
+| 1000 | claude-fable-5.1 | 0.750 -> 0.774 (+0.024) | 0.556 -> 0.617 (+0.062) | 0.818 -> 0.879 (+0.061) | 0.867 -> 0.867 (=0.000) | 0.750 -> 0.806 (+0.056) | 0.822 -> 0.889 (+0.067) |
+| 1000 | claude-opus-5.5 | 0.702 -> 0.750 (+0.048) | 0.617 -> 0.704 (+0.086) | 0.848 -> 0.939 (+0.091) | 0.800 -> 0.822 (+0.022) | 0.667 -> 0.667 (=0.000) | 0.733 -> 0.756 (+0.022) |
+| 1000 | gpt-6.1-sol | 0.583 -> 0.619 (+0.036) | 0.667 -> 0.728 (+0.062) | 0.879 -> 0.909 (+0.030) | 0.822 -> 0.956 (+0.133) | 0.667 -> 0.667 (=0.000) | 0.667 -> 0.667 (=0.000) |
+| 10000 | claude-fable-5.1 | 0.738 -> 0.750 (+0.012) | 0.543 -> 0.593 (+0.049) | 0.818 -> 0.848 (+0.030) | 0.867 -> 0.844 (-0.022) | 0.778 -> 0.778 (=0.000) | 0.800 -> 0.822 (+0.022) |
+| 10000 | claude-opus-5.5 | 0.690 -> 0.738 (+0.048) | 0.617 -> 0.654 (+0.037) | 0.848 -> 0.909 (+0.061) | 0.778 -> 0.800 (+0.022) | 0.667 -> 0.667 (=0.000) | 0.733 -> 0.733 (=0.000) |
+| 10000 | gpt-6.1-sol | 0.536 -> 0.536 (=0.000) | 0.667 -> 0.728 (+0.062) | 0.879 -> 0.879 (=0.000) | 0.822 -> 0.800 (-0.022) | 0.667 -> 0.667 (=0.000) | 0.689 -> 0.689 (=0.000) |
+
+#### Queries whose gold rank improved / worsened (test split)
+
+| notes | en | ko | ja | zh | es | de | exact | para | mixed |
+|---|---|---|---|---|---|---|---|---|---|
+| 160 | 55 up / 9 down of 252 | 58 up / 8 down of 243 | 16 up / 10 down of 99 | 24 up / 3 down of 135 | 27 up / 3 down of 108 | 27 up / 5 down of 135 | 0 up / 0 down of 324 | 142 up / 21 down of 324 | 65 up / 17 down of 324 |
+| 1000 | 42 up / 6 down of 252 | 41 up / 4 down of 243 | 12 up / 10 down of 99 | 19 up / 5 down of 135 | 17 up / 1 down of 108 | 18 up / 5 down of 135 | 0 up / 0 down of 324 | 91 up / 14 down of 324 | 58 up / 17 down of 324 |
+| 10000 | 28 up / 4 down of 252 | 32 up / 3 down of 243 | 9 up / 9 down of 99 | 10 up / 8 down of 135 | 5 up / 1 down of 108 | 9 up / 2 down of 135 | 0 up / 0 down of 324 | 53 up / 16 down of 324 | 40 up / 11 down of 324 |
+
+#### Footprint: size and memory (core -> semantic mode)
+
+| notes | index on disk | peak RSS, search in a fresh process | peak RSS, indexing the whole vault in a fresh process |
+|---|---|---|---|
+| 160 | 0.07 MB -> 0.09 MB | 25 -> 48 MB (+23) | 26 -> 83 MB (+57) |
+| 1000 | 0.35 MB -> 0.43 MB | 34 -> 56 MB (+22) | 40 -> 101 MB (+61) |
+| 10000 | 3.27 MB -> 4.08 MB | 138 -> 159 MB (+21) | 170 -> 231 MB (+61) |
+
+The memory budget for this mode was 150 MB on top of the core; the largest
+measured addition is 61 MB, while indexing. Peak RSS was the same within 8 MB
+in a second identical run. Install size: core 0.18 MB, with the extra 38.2 MB
+(numpy, safetensors, huggingface_hub and their dependencies).
+
+Reading:
+
+- **The mode is opt-in and is not the recommended default.** The bar for it was
+  "no slice below the core". On the test split it misses that bar in one
+  pooled slice and three author slices:
+  - Chinese at 10k notes: R@5 0.822 -> 0.815 (one query of 135), while MRR
+    rises 0.764 -> 0.782. By author: gpt-6.1-sol R@5 0.822 -> 0.800 (MRR
+    0.777 -> 0.776), claude-fable-5.1 R@5 0.867 -> 0.844 (MRR 0.770 -> 0.807),
+    claude-opus-5.5 R@5 0.778 -> 0.800.
+  - Spanish, claude-opus-5.5's questions: MRR 0.653 -> 0.646 at 1k and
+    0.653 -> 0.639 at 10k (R@5 unchanged), while the other two authors gain.
+
+  The same configuration had no slice below the core for any author on dev at
+  160, 1k and 10k notes. It was frozen before this run and not retuned after
+  it. Turn the mode on with `Mnemosyne(vault, semantic=True)` or
+  `MNEMOSYNE_SEMANTIC=1` when questions are usually worded differently from
+  the notes; leave it off when lookups are mostly keywords.
+- Everything else gains: MRR is higher in every language at every size (+0.009
+  to +0.061), R@5 is higher or equal in every other pooled slice, and
+  paraphrase queries go from 0.269 / 0.219 / 0.205 to 0.383 / 0.307 / 0.262
+  MRR at 160 / 1k / 10k notes. Korean, flat in the core, gains 0.049-0.061 MRR.
+- Exact keyword queries are untouched: no query moves at any size (the
+  full-match rule), where plain fusion lost rank on several.
+- Gains shrink with corpus size, and single queries do get worse: at 10k notes
+  Japanese is 9 up / 9 down and Chinese 10 up / 8 down.
+
+Limits:
+
+- The first use needs a ~530 MB download and a one-time conversion, both only
+  through the explicit prepare command; the compact model is ~140 MB on disk.
+- Footprint was measured on macOS arm64 only. CI runs the tests of this mode
+  on Linux, macOS and Windows but measures nothing there.
+- Token ids were compared with the reference tokenizer on this benchmark's
+  2,440 texts only, and vocabulary pieces longer than 24 characters are not
+  used.
+- The benchmark is synthetic, and its dev slices for Chinese and German are
+  small (5 notes each): the dev gate passed where the test split did not.
+
+How the design was chosen (dev split only, all three authors, plus the extra
+zh/de dev triples; "below core" lists every slice - six languages, three
+kinds - whose MRR or R@5 is lower than the core's for at least one author):
+
+| fusion rule | below core at 160 | at 1k | at 10k | 10k MRR: en / ko / ja / zh / es / de | exact | para |
+|---|---|---|---|---|---|---|
+| core (no semantic mode) | - | - | - | 0.528 / 0.597 / 0.694 / 0.710 / 0.646 / 0.685 | 0.996 | 0.169 |
+| plain RRF, vote 1.0 | exact (all authors), mixed R@5 (opus), zh (fable) | exact (all), ja (sol), mixed R@5 (opus, fable), zh (fable) | exact (all), ja (sol) | 0.586 / 0.687 / 0.734 / 0.739 / 0.740 / 0.789 | 0.974 | 0.320 |
+| + full-match tier, vote 1.0 | mixed R@5 (opus), zh R@5 (fable) | mixed R@5 (opus, fable) | none | 0.586 / 0.687 / 0.761 / 0.770 / 0.740 / 0.789 | 1.000 | 0.320 |
+| + tier, vote 0.5 (1.0 for Han/kana) | mixed R@5 (opus) | none | none | 0.578 / 0.657 / 0.763 / 0.779 / 0.713 / 0.759 | 1.000 | 0.274 |
+| **+ tier, vote 0.4 (1.0 for Han/kana)** | **none** | **none** | **none** | **0.569 / 0.657 / 0.759 / 0.779 / 0.703 / 0.750** | **1.000** | **0.259** |
+| + tier, vote 0.3 (1.0 for Han/kana) | en (fable) | none | none | 0.569 / 0.643 / 0.758 / 0.779 / 0.697 / 0.742 | 1.000 | 0.252 |
+| + tier, vote 0.4 for every query | zh (sol) | none | none | 0.569 / 0.657 / 0.732 / 0.734 / 0.703 / 0.750 | 1.000 | 0.228 |
+
+The chosen rule is the largest semantic vote with no slice below the core for
+any author at any size. A larger vote gains more on paraphrases and costs
+single queries in the code-switched and Chinese slices.
+
+Measured and rejected (dev, 1k notes, MRR averaged over the six languages
+unless stated; core 0.664, reference-runtime hybrid 0.741):
+
+| option | memory / time | quality | why not |
+|---|---|---|---|
+| reference runtime (model2vec + `tokenizers`) | 666-970 MB peak RSS, 5.7-7.3 s cold start | 0.741 | 4-6x over the memory budget |
+| vocabulary pruned to the top 32k / 64k / 128k pieces | 51 / 90 / 181 MB | 0.625 / 0.658 / 0.678 | English falls below the core |
+| `static-similarity-mrl-multilingual-v1`, 256 dims, int8 | 36 MB | 0.691 | zh 0.780 -> 0.753, es 0.656 -> 0.653 |
+| 128 or 64 sign bits per chunk | - | semantic ranking alone 0.694 -> 0.556 / 0.407 | too lossy |
+| cross-encoder reranker on the top 20 (`mmarco-mMiniLMv2-L12-H384-v1`) | ~1 GB with PyTorch, 47 s first load, +200 ms per query | en 0.622 -> 0.729, ko 0.705 -> 0.833, but es 0.790 -> 0.747 | one language worse, far over budget |
+| semantic vote only when the lexical top-2 margin is small | - | exact 0.997, but para 0.393 -> 0.343, es 0.790 -> 0.744 | trades slices |
+| vote 0.7 instead of 1.0 for Han/kana queries | - | 10k notes: ja 0.759 -> 0.748, zh 0.779 -> 0.765 | Han/kana queries want the full vote |
