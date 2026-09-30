@@ -392,6 +392,87 @@ def _slug_kr() -> str:
     return slug("메모리 설계")
 
 
+# ---------------- search-time query expansion -------------------------------
+
+def test_expansions_find_a_note_the_query_words_miss():
+    m = _mem()
+    m.write_note("Sourdough", "feed the starter twice a day")
+    m.write_note("Taxes", "annual filing checklist")
+    eng = _engine()
+    assert eng.search("bread culture upkeep", now=NOW) == []
+    hits = eng.search("bread culture upkeep", now=NOW,
+                      expansions={"synonyms": ["starter", "levain"]})
+    assert [h["slug"] for h in hits] == ["sourdough"]
+
+
+def test_expansion_terms_rank_below_the_query_words_and_by_tier():
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    m.write_note("Gamma", "wombat habitat notes")
+    m.write_note("Omega", "numbat habitat notes")
+    eng = _engine()
+    # the expansion matches are the warmer notes: only the grading keeps the
+    # literal match first and the closer tier second
+    for i in range(3):
+        for s in ("gamma", "omega"):
+            eng.record_access(s, now=NOW + timedelta(hours=2 * i))
+    hits = eng.search("quokka", now=NOW + timedelta(hours=6),
+                      expansions={"related": ["numbat"], "synonyms": ["wombat"]})
+    assert [h["slug"] for h in hits] == ["alpha", "gamma", "omega"]
+
+
+def test_a_note_holding_every_query_word_stays_ahead_of_expansion_matches():
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    m.write_note("Gamma", "wombat burrow marsupial nocturnal grazing pouch")
+    eng = _engine()
+    for i in range(3):
+        eng.record_access("gamma", now=NOW + timedelta(hours=2 * i))
+    later = NOW + timedelta(hours=6)
+    hits = eng.search("quokka", now=later, expansions={"synonyms": [
+        "wombat", "burrow", "marsupial", "nocturnal", "grazing", "pouch"]})
+    assert [h["slug"] for h in hits] == ["alpha", "gamma"]
+    assert hits[0]["score"] == eng.search("quokka", now=later)[0]["score"]
+
+
+def test_expansion_weights_skip_query_words_and_keep_the_highest_tier():
+    got = mnemosyne.expansion_weights(
+        {"related": ["pizza dough"], "synonyms": "dough", "note_line": None},
+        mnemosyne.tokenize("pizza"))
+    assert got == {"dough": mnemosyne.EXPANSION_WEIGHTS["synonyms"]}
+
+
+def test_search_without_expansions_ranks_as_before():
+    m = _mem()
+    for i in range(6):
+        m.write_note(f"Note {i}", f"python tips number {i} " + "python " * i)
+    eng = _engine()
+    plain = eng.search("python tips", now=NOW)
+    assert eng.search("python tips", now=NOW, expansions={}) == plain
+    assert eng.search("python tips", now=NOW,
+                      expansions={"synonyms": None, "related": []}) == plain
+
+
+@pytest.mark.parametrize("bad", [
+    {"nicknames": ["x"]}, {"synonyms": [1, 2]}, {"synonyms": {"a": "b"}},
+    {"related": 7}, {"note_line": b"bytes"}])
+def test_malformed_expansions_are_refused(bad):
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    with pytest.raises(ValueError):
+        _engine().search("quokka", now=NOW, expansions=bad)
+
+
+def test_snippet_shows_the_passage_an_expansion_matched():
+    m = _mem()
+    m.write_note("Sourdough", "weekend baking log. " * 30
+                 + "feed the starter twice a day")
+    hits = m.search("bread culture upkeep",
+                    expansions={"synonyms": ["starter"]})
+    assert [h["title"] for h in hits] == ["sourdough"]
+    assert "starter" in hits[0]["snippet"]
+
+
 # ---------------- related / stale / rezone ----------------------------------
 
 def test_related_excludes_self_and_existing_links():

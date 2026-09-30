@@ -21,12 +21,13 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 from __future__ import annotations
 
 import threading
+from collections.abc import Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
-                        Mnemosyne)
+                        Mnemosyne, expansion_weights)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
@@ -260,15 +261,20 @@ class VaultMemory:
             self.dex.record_access(_slug(title))   # writing = using
             return p
 
-    def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 8,
+               expansions: Mapping[str, Any] | None = None
+               ) -> list[dict[str, Any]]:
         """Index-backed search (BM25 × dynamics × zone priority). Reads only
-        the top ``limit`` note files for snippets — never the whole vault."""
+        the top ``limit`` note files for snippets — never the whole vault.
+        ``expansions``: see :meth:`Mnemosyne.search`."""
         # Use the SAME tokenizer the index/BM25 use (Hangul bigrams included),
         # so the snippet locator finds the tokens that actually matched — a
         # plain whitespace split misses every Korean bigram hit.
         terms = _tokenize(query)
+        if expansions:
+            terms += list(expansion_weights(expansions, terms))
         out: list[dict[str, Any]] = []
-        for h in self.dex.search(query, limit=limit):
+        for h in self.dex.search(query, limit=limit, expansions=expansions):
             body = h["summary"]
             try:
                 _, parsed = frontmatter.parse(
