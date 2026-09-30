@@ -254,9 +254,26 @@ def test_concurrent_creates_of_one_note_yield_exactly_one(tmp_path):
     assert len(list(tmp_path.rglob("race.md"))) == 1
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX flock probe")
-def test_vault_lock_excludes_other_processes(tmp_path):
+def _try_lock(fh) -> bool:
+    """Non-blocking probe of the vault lock, in each OS's own form (the
+    same byte and call family as ``_mcp_app._lock_file``)."""
+    if os.name == "nt":
+        import msvcrt
+        os.lseek(fh.fileno(), 0, os.SEEK_SET)
+        try:
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError:
+            return False
+        return True
     import fcntl
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+    return True
+
+
+def test_vault_lock_excludes_other_processes(tmp_path):
     holder = subprocess.Popen(
         [sys.executable, "-c",
          ("import sys; from pathlib import Path; "
@@ -268,11 +285,10 @@ def test_vault_lock_excludes_other_processes(tmp_path):
     try:
         assert holder.stdout.readline().strip() == "LOCKED"
         with open(tmp_path / LOCK_FILE, "a+b") as fh:
-            with pytest.raises(BlockingIOError):
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            assert not _try_lock(fh)
             holder.stdin.close()
             assert holder.wait(timeout=30) == 0
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            assert _try_lock(fh)
     finally:
         holder.kill()
 
