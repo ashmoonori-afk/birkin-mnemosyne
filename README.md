@@ -57,6 +57,32 @@ Obsidian) at most once every 2 seconds (`refresh()` looks immediately). The
 compressed cache is rebuildable, while usage
 history persists separately. Usage decay and zone activity adjust ranking.
 
+### Widen a query at search time (optional)
+
+Matching is lexical, so a question worded differently from the note can miss
+it. A host model can widen its own query when it searches. Nothing is stored,
+the index is untouched, and a search without `expansions` ranks as before:
+
+```python
+mem.search(
+    "why can't the pods find each other by name",
+    expansions={
+        "synonyms": ["service discovery", "name resolution"],  # weight 0.75
+        "keywords": ["Namensauflösung", "Dienst"],   # 0.75: your other language(s)
+        "related": ["ingress", "firewall"],                    # 0.4
+        "note_line": "The ingress resolves service DNS names.",  # 0.4
+    },
+)
+```
+
+The query's own words weigh 1.0, and a note that contains all of them stays
+first. Over MCP the same four fields are parameters of `memory_search`. On
+the benchmark's test split at 10,000 notes, expansions written by two models
+that saw only the question moved paraphrase MRR from 0.205 to 0.981 and
+0.952. Questions and expansions are both model-written, so read that as an
+upper bound: see
+[Search-time query expansion](benchmarks/retrieval/RESULTS.md#search-time-query-expansion-core-zero-dependencies-opt-in-per-search).
+
 ## What the numbers say
 
 All retrieval quality below is the **final frozen test split**, copied from
@@ -261,6 +287,12 @@ use the separately measured start-up and latency table in RESULTS.md.
   multilingual coverage. Low-overlap paraphrases remain difficult for the
   lexical core. Scripts with combining vowel signs, such as Devanagari and
   Thai, are split at those signs by the current tokenizer.
+- **Query expansion is only as good as its writer.** The expansion numbers
+  come from model-written questions and model-written expansions. With one of
+  the two writers, code-switched questions about Spanish and German notes fell
+  about 0.05 MRR below the core, because it answered in English and Korean.
+  Each widened search costs the host about 115-200 output tokens and about
+  twice the ranking time.
 - **Semantic results can be irrelevant.** With the mode on, even a query
   without a lexical match receives semantic candidates; there is no relevance
   floor. Tokenizer equivalence was checked on this benchmark only, and memory
@@ -283,6 +315,14 @@ Core (no optional runtime dependencies):
 
 ```bash
 python benchmarks/retrieval/bench_retrieval.py --sizes 160 1000 10000 --install-size
+```
+
+Search-time query expansion, replaying the committed expansions of two
+writers (no model call, no optional dependency):
+
+```bash
+python benchmarks/retrieval/bench_retrieval.py --engines bm25 expanded-claude expanded-gpt --sizes 160 1000 10000 --json run.json
+python benchmarks/retrieval/compare.py run.json run.json --engine-before bm25 --engine-after expanded-claude
 ```
 
 Semantic mode uses `minishlab/potion-multilingual-128M` static embeddings,
@@ -427,7 +467,7 @@ serialized across server processes with a lock file.
 
 | tool | what it does | safe default |
 |---|---|---|
-| `memory_search` | BM25 + decay + zone ranked hits with snippets | read-only |
+| `memory_search` | BM25 + decay + zone ranked hits with snippets; optional `synonyms` / `keywords` / `related` / `note_line` widen the query | read-only |
 | `memory_get_note` | full note with its `version`; counts as a use | — |
 | `memory_list` | notes by zone, paginated | read-only |
 | `memory_remember` | write a note: `mode="create"` / `"append"` / `"replace"` | `create` never overwrites; `replace` needs `expected_version` |
@@ -513,7 +553,8 @@ from birkin_mnemosyne import (
 )
 ```
 
-Key `Mnemosyne` methods: `refresh()`, `search(query, limit, zone)`,
+Key `Mnemosyne` methods: `refresh()`,
+`search(query, limit, zone, expansions=None)`,
 `related(slug)`, `record_access(slug)`, `stale()`, `rezone(slug, zone)`,
 `zone_priorities()`, `stats()`.
 
