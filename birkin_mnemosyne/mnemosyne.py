@@ -11,7 +11,13 @@ the Mnemosyne memory palace:
   the *inbox*. ``_archive`` is the soft-forget zone (hermes curator's
   "archive, never delete").
 - **BM25** — Okapi ranking over the index (k1/b as in mempalace's searcher),
-  with a Korean-aware tokenizer (Hangul runs + character bigrams).
+  with a Unicode-aware tokenizer (NFKC + casefold, accent-folded Latin words,
+  Hangul runs + bigrams, CJK unigrams + bigrams) and a small bonus for notes
+  that match every script of a code-switched query. Limits: scripts whose
+  words contain combining vowel signs (Devanagari, Thai) are split at those
+  signs, because the stdlib ``re`` has no ``\\p{M}``; a TypeScript port
+  should use ``[\\p{L}\\p{M}\\p{N}]`` with the ``u`` flag, iterate code points
+  (astral Han), and emulate ``casefold`` (``ß`` -> ``ss``).
 - **Dynamics** — per-note Ebbinghaus decay + Hebbian potentiation adapted
   from mempalace ``dynamics.py`` and — unlike mempalace — wired into ranking.
 - **Zone priority** — per-zone EMA of accesses with daily decay; boosts
@@ -34,6 +40,7 @@ import math
 import os
 import re
 import threading
+import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -55,7 +62,9 @@ STALE_EFF, STALE_DAYS = 0.1, 90       # hermes curator archive tier
 MAX_ZONES = 24
 RELATED_LIMIT = 5                     # A-MEM: keep top-k small
 RELATED_QUERY_TERMS = 12
-INDEX_VERSION = 1
+INDEX_VERSION = 3                     # 2-3: Unicode tokenizer, stems (older rebuild)
+SCRIPT_BONUS = 0.5                    # per extra query script a note matches
+STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
 
 INDEX_FILE = ".mnemosyne-index.json"
 DYNAMICS_FILE = ".mnemosyne-dynamics.json"
@@ -65,8 +74,12 @@ IDENTITY_ZONE = "identity"
 
 ZONE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
-_ASCII_RE = re.compile(r"[a-z0-9]+")
-_HANGUL_RE = re.compile(r"[가-힣]+")
+_CJK = ("\u3005\u3007\u3040-\u309f\u30a1-\u30fa\u30fc-\u30ff\u31f0-\u31ff"
+        "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003134f")
+_HANGUL = "\uac00-\ud7a3"
+# one match per run: (CJK run | Hangul run | any other letters/digits)
+_CJK_CHAR = re.compile(f"[{_CJK}]")
+_RUN_RE = re.compile(rf"([{_CJK}]+)|([{_HANGUL}]+)|([^\W_{_CJK}{_HANGUL}]+)")
 
 # Mechanical default placement for *new* notes (mempalace FOLDER_ROOM_MAP
 # analog); Morpheus refines placement nightly via memory_rezone.
@@ -85,37 +98,120 @@ def slug(title: str) -> str:
 
 # -- pure functions -----------------------------------------------------------
 
-def tokenize(text: str) -> list[str]:
-    """Lowercased ASCII words + Hangul runs + Hangul character bigrams.
+def _fold_char(c: str) -> str:
+    """Strip accents from Latin letters only (é -> e, ệ -> e); other scripts
+    keep their marks (kana voicing marks, Cyrillic й)."""
+    if ord(c) >= 0x250 and not "\u1e00" <= c <= "\u1eff":
+        return c
+    base = "".join(x for x in unicodedata.normalize("NFD", c)
+                   if not unicodedata.combining(x))
+    return base if len(base) == 1 else c
 
-    Bigrams give substring-ish recall for Korean without a morphological
-    analyzer — the zero-dependency answer to CJK tokenization.
+
+_HALFWIDTH_VOICING = frozenset("\uff9e\uff9f")
+
+
+def normalize_with_offsets(text: str) -> tuple[str, list[int]]:
+    """``text`` normalised exactly like :func:`tokenize` sees it (NFKC,
+    casefold, Latin accent folding) plus, for every normalised character,
+    the index of the original character it came from (and ``len(text)`` as
+    a final sentinel), so a match found in the normalised text can be cut
+    out of the original. Works per base character + the marks that compose
+    with it (combining marks, halfwidth voicing marks, Hangul medial/final
+    jamo)."""
+    if text.isascii():
+        return text.lower(), list(range(len(text) + 1))
+    out: list[str] = []
+    offsets: list[int] = []
+    i, n = 0, len(text)
+    while i < n:
+        j = i + 1
+        while j < n and (unicodedata.combining(text[j])
+                         or text[j] in _HALFWIDTH_VOICING
+                         or "\u1160" <= text[j] <= "\u11ff"):
+            j += 1
+        cluster = unicodedata.normalize("NFKC", text[i:j]).casefold()
+        if not cluster.isascii():
+            cluster = "".join(map(_fold_char, cluster))
+        out.append(cluster)
+        offsets.extend([i] * len(cluster))
+        i = j
+    offsets.append(n)
+    return "".join(out), offsets
+
+
+def tokenize(text: str) -> list[str]:
+    """NFKC + casefold, then per run of one script class:
+
+    - Latin/Cyrillic/... words -> one accent-folded token (``azafrán`` ->
+      ``azafran``, ``Straße`` -> ``strasse``), plus for words of 6+ letters
+      a truncation stem of their first 5 letters (``verlangerung`` ->
+      ``verla~``) so inflections and compounds meet (``verlängert``);
+    - Hangul runs -> the run + character bigrams (Korean without a
+      morphological analyzer, unchanged from v1);
+    - Han/kana runs -> character unigrams + bigrams (Chinese/Japanese have no
+      spaces; unigrams keep one-character words, bigrams keep precision).
     """
-    low = text.lower()
-    toks = _ASCII_RE.findall(low)
-    for run in _HANGUL_RE.findall(low):
-        toks.append(run)
-        if len(run) >= 2:
-            toks.extend(run[i:i + 2] for i in range(len(run) - 1))
+    toks: list[str] = []
+    norm = unicodedata.normalize("NFKC", text).casefold()
+    for cjk, hangul, word in _RUN_RE.findall(norm):
+        if word:
+            folded = word if word.isascii() else "".join(map(_fold_char, word))
+            toks.append(folded)
+            if len(folded) >= STEM_MIN and folded.isalpha():
+                toks.append(folded[:STEM_PREFIX] + STEM_MARK)
+        elif hangul:
+            toks.append(hangul)
+            toks.extend(hangul[i:i + 2] for i in range(len(hangul) - 1))
+        else:
+            toks.extend(cjk)
+            toks.extend(cjk[i:i + 2] for i in range(len(cjk) - 1))
     return toks
+
+
+def _script(token: str) -> str:
+    """Script class used by the code-switch bonus: "hangul", "cjk" (Han and
+    kana together - one Japanese phrase mixes both), "latin" for every other
+    letter, and "" for digit-only tokens, which belong to no language."""
+    c = token[0]
+    if "\uac00" <= c <= "\ud7a3":
+        return "hangul"
+    if _CJK_CHAR.match(c):
+        return "cjk"
+    return "" if token.isdigit() else "latin"
 
 
 def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
                 doclens: dict[str, int], avgdl: float,
                 n_docs: int) -> dict[str, float]:
-    """Okapi BM25 over an inverted index; returns {slug: score}."""
+    """Okapi BM25 over an inverted index; returns {slug: score}.
+
+    Queries that mix scripts get a coordination factor ``1 + SCRIPT_BONUS x
+    (scripts matched - 1)``: in a code-switched query ("moving checklist
+    手続き") the rare English words otherwise let English notes that match
+    only them outrank the note that matches both halves. Single-script
+    queries are plain BM25.
+    """
     scores: dict[str, float] = {}
+    scripts: dict[str, set[str]] = {}
     avgdl = avgdl or 1.0
-    for t in dict.fromkeys(terms):          # unique, order-preserving
+    uniq = list(dict.fromkeys(terms))       # unique, order-preserving
+    for t in uniq:
         post = postings.get(t)
         if not post:
             continue
         df = len(post)
         idf = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
+        script = _script(t)
         for s, tf in post.items():
             dl = doclens.get(s, avgdl)
             denom = tf + K1 * (1 - B + B * dl / avgdl)
             scores[s] = scores.get(s, 0.0) + idf * tf * (K1 + 1) / denom
+            if script:
+                scripts.setdefault(s, set()).add(script)
+    if len({_script(t) for t in uniq} - {""}) > 1:
+        for s in scores:
+            scores[s] *= 1 + SCRIPT_BONUS * max(0, len(scripts.get(s, ())) - 1)
     return scores
 
 
@@ -224,8 +320,16 @@ def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
                        if meta.get("expires_at") else None),
         "summary": summary,
         "mtime": st.st_mtime, "size": st.st_size,
-        "doclen": sum(terms.values()), "terms": terms,
+        "doclen": _doc_length(terms), "terms": terms,
     }
+
+
+def _doc_length(terms: dict[str, int]) -> int:
+    """BM25 document length. Single Han/kana characters are left out: they
+    repeat what the CJK bigrams already count, and letting them in inflates
+    the average length every note is normalised against."""
+    return sum(tf for t, tf in terms.items()
+               if len(t) > 1 or _script(t) != "cjk")
 
 
 def _entry_expired(entry: dict[str, Any], today: date) -> bool:
@@ -574,7 +678,8 @@ class Mnemosyne:
         e = self.note_meta(s)
         if e is None:
             return []
-        top_terms = [t for t, _ in sorted(e.get("terms", {}).items(),
+        top_terms = [t for t, _ in sorted(((t, n) for t, n in e.get("terms", {}).items()
+                                           if not t.endswith(STEM_MARK)),
                                           key=lambda kv: kv[1], reverse=True)
                      [:RELATED_QUERY_TERMS]]
         linked = {slug(t) for t in e.get("links", [])} | {s}

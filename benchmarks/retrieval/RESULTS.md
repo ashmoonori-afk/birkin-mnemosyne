@@ -153,10 +153,117 @@ toward specific fact questions, the Fable set toward longer multi-part
 questions, the inline set toward short topical questions; reporting per author
 shows whether a ranker only wins on one author's style.
 
-Code-switched queries are audited too: no digits anywhere (tested), one or
+Code-switched queries are audited too: no standalone numbers (tested), one or
 two native words (tested; for es/de: at most three words shared with the note,
 names included), and no restated answer such as an amount or a duration
 (checked by review, since number words cannot be matched reliably). Violations were sent back to their own
 author, who rewrote them in isolation; nobody edited another author's
 queries. The test split (108 notes) and its 972 query texts are pinned by
 checksum tests and were frozen before any tuning; tuning uses dev only.
+
+## Unicode tokenizer (core, zero dependencies)
+
+The tokenizer now handles every script in the benchmark: NFKC + casefold;
+Han/kana runs as character unigrams + bigrams; Hangul as before; every other
+word accent-folded, plus a 5-letter truncation stem for words of 6+ letters
+(`verlängerung` and `verlängert` meet at `verla~`); queries that mix scripts
+(Hangul / CJK / Latin; digits are neutral) favour notes that match every
+script; single Han/kana characters are left out of BM25 document length.
+Every choice was made on the dev split (see the PR); the test numbers below
+were measured once, back to back (before = main at `b8e68ca`'s tree, after =
+this branch), same machine and corpus. Reproduce with
+`python benchmarks/retrieval/compare.py before.json after.json`.
+
+#### BM25 v1 (main) -> Unicode tokenizer (test split): R@5 and MRR per slice
+
+| notes | slice | n | R@5 | MRR |
+|---|---|---|---|---|
+| 160 | en | 252 | 0.679 -> 0.698 (+0.020) | 0.552 -> 0.591 (+0.039) |
+| 160 | ko | 243 | 0.658 -> 0.654 (-0.004) | 0.583 -> 0.579 (-0.004) |
+| 160 | ja | 99 | 0.061 -> 0.848 (+0.788) | 0.061 -> 0.794 (+0.733) |
+| 160 | zh | 135 | 0.000 -> 0.867 (+0.867) | 0.000 -> 0.818 (+0.818) |
+| 160 | es | 108 | 0.722 -> 0.769 (+0.046) | 0.615 -> 0.698 (+0.083) |
+| 160 | de | 135 | 0.733 -> 0.756 (+0.022) | 0.612 -> 0.689 (+0.077) |
+| 160 | exact (all langs) | 324 | 0.778 -> 1.000 (+0.222) | 0.778 -> 1.000 (+0.222) |
+| 160 | para (all langs) | 324 | 0.225 -> 0.370 (+0.145) | 0.137 -> 0.269 (+0.131) |
+| 160 | mixed (all langs) | 324 | 0.583 -> 0.855 (+0.272) | 0.430 -> 0.729 (+0.298) |
+| 1000 | en | 252 | 0.635 -> 0.679 (+0.044) | 0.529 -> 0.581 (+0.053) |
+| 1000 | ko | 243 | 0.613 -> 0.613 (=0.000) | 0.558 -> 0.554 (-0.004) |
+| 1000 | ja | 99 | 0.061 -> 0.848 (+0.788) | 0.061 -> 0.782 (+0.722) |
+| 1000 | zh | 135 | 0.000 -> 0.830 (+0.830) | 0.000 -> 0.766 (+0.766) |
+| 1000 | es | 108 | 0.648 -> 0.694 (+0.046) | 0.593 -> 0.655 (+0.062) |
+| 1000 | de | 135 | 0.674 -> 0.741 (+0.067) | 0.579 -> 0.664 (+0.085) |
+| 1000 | exact (all langs) | 324 | 0.778 -> 1.000 (+0.222) | 0.778 -> 1.000 (+0.222) |
+| 1000 | para (all langs) | 324 | 0.139 -> 0.302 (+0.164) | 0.096 -> 0.219 (+0.123) |
+| 1000 | mixed (all langs) | 324 | 0.552 -> 0.830 (+0.278) | 0.414 -> 0.701 (+0.288) |
+| 10000 | en | 252 | 0.635 -> 0.655 (+0.020) | 0.523 -> 0.568 (+0.046) |
+| 10000 | ko | 243 | 0.617 -> 0.609 (-0.008) | 0.569 -> 0.559 (-0.010) |
+| 10000 | ja | 99 | 0.061 -> 0.848 (+0.788) | 0.061 -> 0.782 (+0.722) |
+| 10000 | zh | 135 | 0.000 -> 0.822 (+0.822) | 0.000 -> 0.764 (+0.764) |
+| 10000 | es | 108 | 0.648 -> 0.704 (+0.056) | 0.599 -> 0.673 (+0.073) |
+| 10000 | de | 135 | 0.659 -> 0.741 (+0.081) | 0.590 -> 0.681 (+0.091) |
+| 10000 | exact (all langs) | 324 | 0.778 -> 1.000 (+0.222) | 0.776 -> 1.000 (+0.224) |
+| 10000 | para (all langs) | 324 | 0.117 -> 0.281 (+0.164) | 0.083 -> 0.205 (+0.122) |
+| 10000 | mixed (all langs) | 324 | 0.571 -> 0.830 (+0.259) | 0.439 -> 0.722 (+0.283) |
+
+#### MRR per query author (test split)
+
+| notes | author | exact | para | mixed |
+|---|---|---|---|---|
+| 160 | claude-fable-5.1 | 0.778 -> 1.000 (+0.222) | 0.183 -> 0.348 (+0.164) | 0.391 -> 0.707 (+0.316) |
+| 160 | claude-opus-5.5 | 0.778 -> 1.000 (+0.222) | 0.102 -> 0.197 (+0.095) | 0.581 -> 0.820 (+0.239) |
+| 160 | gpt-6.1-sol | 0.778 -> 1.000 (+0.222) | 0.128 -> 0.261 (+0.134) | 0.319 -> 0.660 (+0.341) |
+| 1000 | claude-fable-5.1 | 0.778 -> 1.000 (+0.222) | 0.144 -> 0.301 (+0.157) | 0.367 -> 0.664 (+0.298) |
+| 1000 | claude-opus-5.5 | 0.778 -> 1.000 (+0.222) | 0.060 -> 0.154 (+0.094) | 0.558 -> 0.780 (+0.222) |
+| 1000 | gpt-6.1-sol | 0.778 -> 1.000 (+0.222) | 0.084 -> 0.203 (+0.120) | 0.316 -> 0.660 (+0.345) |
+| 10000 | claude-fable-5.1 | 0.778 -> 1.000 (+0.222) | 0.121 -> 0.271 (+0.150) | 0.403 -> 0.698 (+0.296) |
+| 10000 | claude-opus-5.5 | 0.773 -> 1.000 (+0.227) | 0.053 -> 0.146 (+0.093) | 0.558 -> 0.780 (+0.223) |
+| 10000 | gpt-6.1-sol | 0.778 -> 1.000 (+0.222) | 0.074 -> 0.198 (+0.124) | 0.356 -> 0.686 (+0.330) |
+
+#### Footprint
+
+| notes | index on disk | p50 | p95 | cold wall | peak RSS |
+|---|---|---|---|---|---|
+| 160 | 0.17 MB -> 0.27 MB | 0.5 -> 0.6 ms | 0.6 -> 0.7 ms | 35 -> 40 ms | 22 -> 23 MB |
+| 1000 | 0.97 MB -> 1.57 MB | 3.0 -> 3.1 ms | 3.8 -> 3.9 ms | 52 -> 58 ms | 27 -> 31 MB |
+| 10000 | 9.61 MB -> 15.79 MB | 37.1 -> 37.6 ms | 39.8 -> 42.2 ms | 198 -> 340 ms | 81 -> 122 MB |
+
+Queries whose gold rank improved / worsened (test split):
+
+| notes | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|
+| 160 | 26 up / 16 down of 252 | 12 up / 15 down of 243 | 91 up / 0 down of 99 | 124 up / 0 down of 135 | 23 up / 8 down of 108 | 26 up / 9 down of 135 |
+| 1000 | 33 up / 10 down of 252 | 8 up / 11 down of 243 | 82 up / 0 down of 99 | 114 up / 0 down of 135 | 16 up / 3 down of 108 | 26 up / 5 down of 135 |
+| 10000 | 28 up / 12 down of 252 | 6 up / 10 down of 243 | 80 up / 0 down of 99 | 114 up / 0 down of 135 | 14 up / 0 down of 108 | 25 up / 5 down of 135 |
+
+Reading:
+
+- Japanese and Chinese go from unretrievable to MRR 0.76-0.82; exact keyword
+  queries are solved in every language; English, Spanish and German gain
+  0.04-0.09 MRR at every size; every query author gains on every query kind.
+- **Korean does not improve in this mode** (MRR -0.004 / -0.004 / -0.010,
+  i.e. 3, 3 and 4 more queries worsened than improved). At 10k notes all 10
+  Korean queries that lost rank are code-switched ones: their English words
+  now also match English notes through the truncation stems. Korean text
+  itself is tokenized exactly as before. Paraphrase-level gains for Korean need
+  the optional semantic leg.
+- The accent folding that fixes split words (`azafr` + `n`) also costs some
+  Spanish paraphrase queries on its own (measured on the test split without the truncation
+  stem, as a diagnostic after the fact: paraphrase MRR 0.146 folded vs 0.194
+  unfolded at 160 notes); the truncation
+  stem more than recovers it (Spanish +0.06-0.08 overall).
+- The index grows by ~65 % (CJK unigrams + bigrams, stems, JSON escapes) and
+  cold start by ~140 ms at 10k notes.
+
+How the design was chosen (dev split, 1k notes, MRR; the test split was not
+used for any decision):
+
+| variant | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|
+| BM25 v1 (main) | 0.482 | 0.605 | 0.096 | 0.000 | 0.589 | 0.661 |
+| Unicode tokenizer without stems | 0.481 | 0.602 | 0.708 | 0.794 | 0.581 | 0.623 |
+| + 5-letter truncation stem (this PR) | 0.536 | 0.594 | 0.702 | 0.780 | 0.656 | 0.714 |
+
+Rejected on dev: suffix stemmers, Hangul unigrams, title weighting, k1/b
+changes, Korean particle stripping, Japanese script segmentation, a
+term-coverage bonus, per-script average document length.
