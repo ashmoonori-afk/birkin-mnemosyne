@@ -1,139 +1,163 @@
 # Birkin-Mnemosyne
 
-**A zero-dependency memory palace + safe, provider-portable curation for LLM agents.**
+**Local Markdown memory for agents: multilingual BM25 retrieval, usage-driven
+ranking, and model-independent curation with a deterministic safety gate.**
+
+The core uses only the Python standard library. Your notes remain readable
+files on your machine; the optional MCP server connects them to agent clients.
+
+<!-- HERO: add docs/assets/hero.webp when image generation is available.
+Alt text: A local memory palace of note cards with Latin, Hangul, kana and Han
+glyphs connected by teal and amber retrieval threads.
+-->
+
+## Why use it?
+
+- **Own the vault.** Edit, grep, diff and back up ordinary Markdown notes.
+- **Recall named anchors.** Find projects, people, commands and error strings
+  without an embedding model, vector database or model call on the search path.
+- **Remember what gets used.** Note accesses reinforce memory; zone priorities
+  help bring active topics forward.
+- **Separate judgment from execution.** Any `str -> str` model client can
+  propose curation; the executor validates and limits file operations.
+
+Extracted from the [Birkin](https://github.com/ashmoonori-afk/birkin) personal
+agent, the library can be used in openclaw, hermes or your own loop.
+
+## Quick start
+
+Requires Python >= 3.10. From a checkout:
+
+```bash
+pip install -e .
+```
+
+```python
+from birkin_mnemosyne import VaultMemory
+
+mem = VaultMemory({"vault_path": "my_vault"})
+mem.write_note(
+    "Ingress DNS",
+    "nginx ingress resolves service DNS; allow port 443 through the firewall.",
+    zone="devops",
+)
+hits = mem.dex.search("ingress dns", limit=5)
+for hit in hits:
+    print(hit)
+# Record the note your agent actually used, not every search candidate.
+mem.dex.record_access("ingress-dns")
+```
+
+For an existing vault, use `Mnemosyne("my_vault")`, call `refresh()`, then
+`search(query)`. Curation is optional:
+
+```python
+from birkin_mnemosyne import get_completer, run_curation_pass
+
+run_curation_pass("my_vault", get_completer("codex"), provider="codex")
+# Or pass your own complete(prompt: str) -> str callable.
+```
+
+## How retrieval works
+
+1. **Index the notes.** The engine tracks file changes and reparses changed
+   Markdown files rather than rereading every body on each search.
+2. **Match words and characters.** Unicode normalization and case folding
+   handle equivalent forms; Latin accents are folded and long words receive
+   a short prefix stem. Hangul uses runs and bigrams; Han and kana use
+   individual characters and adjacent pairs.
+3. **Rank lexical matches.** BM25 rewards useful, uncommon query terms.
+   Queries mixing scripts get a bonus when a note matches every query script.
+4. **Apply memory dynamics.** Usage-driven decay and zone activity adjust
+   ranking. `record_access()` reinforces the notes the agent actually uses.
+
+Retrieval makes no model calls. The compressed index is a rebuildable cache;
+usage history is separate persistent state. Curation asks a model for a typed
+plan, then lets deterministic code validate, clamp and apply it.
+
+## Benchmark results
+
+These are the frozen test-split results from
+[`benchmarks/retrieval/RESULTS.md`](benchmarks/retrieval/RESULTS.md), not claims
+about every real-world vault. The synthetic corpus has 160 gold notes in six
+languages, padded with distractors to 10,000 notes. Three independent query
+authors supply exact, low-overlap paraphrase and code-switched queries.
+Cross-language sibling notes are excluded from scoring; tuning uses dev only.
+
+### Unicode tokenizer: MRR at 10,000 notes
+
+MRR measures how early the correct note appears; higher is better. The table
+combines all query kinds, with rankings evaluated at `k=10`.
+
+| Language | Previous tokenizer | Unicode tokenizer |
+|---|---|---|
+| English | 0.523 | 0.568 |
+| Korean | 0.569 | 0.559 |
+| Japanese | 0.061 | 0.782 |
+| Chinese | 0.000 | 0.764 |
+| Spanish | 0.599 | 0.673 |
+| German | 0.590 | 0.681 |
+
+### Lossless compressed index: 10,000 notes
+
+| Measurement | Plain JSON cache | Compressed cache |
+|---|---|---|
+| Index on disk (decimal MB) | 15.79 MB | 3.27 MB |
+| Retrieval rankings | Reference | Unchanged on every measured query |
+
+Compression changes storage, not the tokenizer or scoring. See the source
+report for query counts, per-author results, timings and reproduction commands.
+
+<!-- SEMANTIC-RESULTS -->
+
+### Retrieval credit
+
+Credit to **omo recall PR #9209** for the fused-tie-break idea and the
+evaluation lesson **"English must never get worse, per query"**. This is an
+evaluation requirement, not a claim that the Unicode tokenizer has no
+per-query regressions: its English average improves, but some queries lose rank.
+
+## Install extras
+
+```bash
+pip install -e .                 # stdlib-only core
+pip install -e ".[dev]"          # pytest, ruff
+pip install -e ".[bench]"        # fastembed, numpy: embedding baselines only
+pip install -e ".[mcp]"          # official MCP SDK and server
+```
+
+The extras are optional. `[bench]` reproduces embedding baselines; it does not
+enable a semantic retrieval mode in this checkout.
+
+## Trade-offs and honest limits
+
+- **Korean does not improve in zero-dependency core mode.** MRR changes by
+  -0.004 to -0.010 versus the previous tokenizer. At 10,000 notes the losses
+  come from code-switched queries: English prefix stems also match English
+  distractor notes. Hangul tokenization itself is unchanged.
+- **Paraphrase recall is low.** Across the measured corpus sizes, low-overlap
+  paraphrase MRR is about 0.2-0.27. Lexical matching cannot reliably bridge
+  different words for the same idea or translate concepts between languages.
+- **Smaller caches cost more to save.** At 10,000 notes cache saves are about
+  75 ms slower because every save compresses the whole cache. Peak memory
+  during loading is also higher.
+- **Personal scale is the target.** Refresh checks note files, and latency
+  grows with vault size. The laptop timings are single-run observations, not
+  service-level guarantees.
+- **Unicode coverage is not universal.** Scripts with combining vowel signs,
+  such as Devanagari and Thai, are split at those signs by the current tokenizer.
+- **Curation safety is narrower than correctness.** The gate bounds file
+  operations; model choice still affects placement and linking quality.
+  Python's explicit `purge_expired()` maintenance call can delete expired
+  notes and is not exposed over MCP.
+
+## Reference
 
 > **On the name.** "Mnemosyne" is also the name of an unrelated concurrent
 > system (a graph memory for edge LLMs, [Jonelagadda et al. 2025](https://arxiv.org/abs/2510.08601)).
 > The two share only the mythological name — this is a stdlib BM25 vault with a
 > curation-safety interface, not a graph store. The package imports as
 > `birkin_mnemosyne` to keep them apart.
-
-Long-term memory for an LLM agent usually means infrastructure — an embedding
-model, a vector database, a graph server, and an LLM call on every write.
-Birkin-Mnemosyne asks how much a *personal-scale* agent (one user, one machine,
-thousands of notes) actually needs, and answers with the Python standard
-library alone:
-
-- **Retrieval** — Markdown notes in *zone* directories, an Okapi-BM25 inverted
-  index with a Korean-aware bigram tokenizer, and a usage-driven Ebbinghaus
-  decay wired straight into the ranking. Greppable, diffable, no dependencies.
-- **Curation** — *CurationPlan/1*: the model emits only a typed JSON plan; a
-  deterministic executor validates, clamps, and applies it under **file-safety
-  invariants enforced in code**, so a weak or adversarial model *cannot* delete,
-  mass-archive, escape the vault, or archive a protected note.
-
-It is the memory subsystem extracted from the [Birkin](https://github.com/ashmoonori-afk/birkin)
-personal agent, packaged so it can be dropped into **any** agent runtime —
-openclaw, hermes, or your own loop.
-
-```python
-from birkin_mnemosyne import Mnemosyne, run_curation_pass, get_completer
-
-mem = Mnemosyne("my_vault"); mem.refresh()
-hits = mem.search("kubernetes ingress dns")          # BM25 + usage/zone boosts
-
-run_curation_pass("my_vault", get_completer("codex"), provider="codex")
-# ...or pass any complete(prompt: str) -> str you already have.
-```
-
-- 🧱 **Zero runtime dependencies** (stdlib only). `fastembed`/`numpy` are needed
-  *only* to reproduce the embedding baselines.
-- 🔌 **Any model**: Claude / Codex / Gemini / Ollama CLIs, the Anthropic API, or
-  your own `str -> str` function.
-- 🛡️ **Safe by construction**: the executor clamps every plan; safety does not
-  depend on the model following instructions.
-- 📄 Backed by a benchmark suite and a companion paper (excerpts below).
-
----
-
-## Why lexical, at personal scale?
-
-Personal-memory queries are dominated by named anchors — project names, people,
-commands, error strings — exactly the high-idf tokens BM25 rewards. We did not
-just *assume* the embedding stack was unnecessary; we **measured what it would
-have added**, in the same harness over the identical sessions.
-
-### Session retrieval — LongMemEval-S (470 questions, cleaned split)
-
-| system | R@1 | R@5 | R@10 | MRR |
-|---|---|---|---|---|
-| BM25 + bigram (this library) | 0.870 | 0.968 | 0.981 | 0.910 |
-| dense embedding, truncated (bge-small) | 0.770 | 0.932 | 0.966 | 0.842 |
-| dense embedding, chunked + max-pool | 0.855 | 0.968 | 0.981 | 0.908 |
-| best hybrid (RRF k=20, BM25 + chunked) | 0.894 | 0.977 | **0.994** | 0.931 |
-| **tuned lexical stack (no encoder)** | **0.900** | **0.977** | 0.981 | **0.933** |
-| substring scan (the naive baseline) | 0.089 | 0.343 | 0.577 | 0.223 |
-
-Read honestly, in three steps. (1) BM25 beats *truncated* dense retrieval
-(+0.10 R@1) — but that gap is a **truncation artifact**: chunked dense ties
-BM25. (2) A tuned RRF hybrid buys a small, real margin (+0.02 MRR) over BM25.
-(3) A dev-tuned, arithmetic-only lexical stack (query-side idf weighting,
-user-turn field weighting, a relative-date prior — every ingredient classic
-IR) **buys that margin back with no encoder at all**: parity with the best
-embedding hybrid we measured. Fairness control: rerun BM25 on the *same*
-6k-char-truncated text the embedder saw and it still wins (R@5 0.953 vs
-0.932) — the lexical edge over truncated dense is not an input-length
-artifact.
-
-### From retrieval to answers (end-to-end QA)
-
-BM25 top-5 → a cheap reader (Claude haiku) → an LLM judge vs the gold answer,
-all 500 questions:
-
-| condition | n | accuracy |
-|---|---|---|
-| answerable questions | 470 | **0.538** |
-| abstention questions | 30 | **0.80** |
-
-Retrieval finds the evidence for 96.8 % of questions but the small reader
-answers 53.8 % — **the binding constraint is usually the reader, not the memory
-layer.** An oracle-evidence control (hand the reader the labeled sessions)
-decomposes the two losses:
-
-| condition | single-session-user | multi-session |
-|---|---|---|
-| BM25 top-5 → reader | 0.72 | 0.41 |
-| oracle evidence → reader | **0.80** | **0.67** |
-
-Single-evidence questions are reader-bound (0.72 already near the 0.80 ceiling);
-multi-session questions are where retrieval *also* costs ~26 points and a higher
-`k` or a stronger reader would pay off.
-
-### Korean & code-switched queries
-
-BM25 + Hangul bigrams vs a real multilingual encoder (`multilingual-e5-large`),
-16 notes × 3 query styles:
-
-| Korean query style | BM25 + bigram R@5 | multilingual-e5 R@5 |
-|---|---|---|
-| exact | 1.00 | 1.00 |
-| partial / reworded | 1.00 | 1.00 |
-| mixed (Korean + English) | 0.94 | 1.00 |
-
-The bigram tokenizer ties the multilingual model on monolingual Korean; the
-model's only edge is **code-switching**, where an English word must map to a
-Korean concept — the one case a lexical tokenizer can't bridge. (Dropping the
-bigrams leaves the English numbers unchanged: the feature costs English
-nothing.)
-
-### The ranking signals do their job
-
-Identical-body twin notes, one rehearsed and in a hot zone; fraction of pairs
-where it outranks its cold twin:
-
-| ranking | wins | ties |
-|---|---|---|
-| BM25 only | 0.00 | 1.00 |
-| BM25 + decay | 1.00 | 0.00 |
-| BM25 + zone priority | 1.00 | 0.00 |
-| BM25 + decay + zone | 1.00 | 0.00 |
-
-With identical text BM25 is a dead tie; either usage-decay or zone-priority
-breaks it deterministically. Forgetting is a *ranking signal* — a well-rehearsed
-note (5 spaced reads) stays retrievable ~166 days; an untouched one fades toward
-the floor in ~2–3 weeks.
-
----
 
 ## CurationPlan/1 — safe curation on any model
 
@@ -162,16 +186,6 @@ co-placed notes.
 
 ### Safety comes from the layer, not the schema
 
-Five attack plans × three defense levels on a 6-note vault (one protected note):
-
-| attack | raw apply | schema-only | **full executor** |
-|---|---|---|---|
-| mass-archive-all | all 6 gone, protected GONE | all 6 gone, protected GONE | **capped at 2, protected safe** |
-| archive protected note | protected GONE | protected GONE | **intact** |
-| injection-canary plan | all 6 gone, protected GONE | all 6 gone, protected GONE | **capped at 2, protected safe** |
-| path-traversal zone/slug | intact | intact | intact |
-| invented slugs | intact | intact | intact |
-
 **A JSON schema does not stop a mass-archive** — every op is individually
 well-formed. Only the executor's clamp holds. (Path-traversal and invented
 slugs are inert even raw, because the file mover and slug lookup handle them one
@@ -180,19 +194,9 @@ layer down — an honest null, not the gate's doing.) Reproduce with
 
 ### Curation accuracy is model-bound, safety is not
 
-On a deliberately hard 232-pair fixture (13 clusters with overlapping
-vocabulary + 15 distractors), scored with a decontaminated prompt, over 3 runs
-each:
-
-| engine | link recall | link precision | distractor links |
-|---|---|---|---|
-| Claude · sonnet | 0.87 | **0.85** | 0 |
-| Claude · haiku | 0.88 | 0.76 | 0 |
-| Codex · gpt-5.3-codex-spark | 0.83 | 0.74 | ≤6 |
-
-Different engines curate at different accuracy — but **every pass from every
-engine stayed within the file-safety invariants.** Model choice maximizes
-accuracy; the deterministic layer guarantees safety.
+Different engines curate at different accuracy. Model choice affects placement
+and linking quality; the deterministic layer enforces the file-safety rules
+regardless of the provider.
 
 ### Providers
 
@@ -212,17 +216,6 @@ Or skip the registry entirely and pass your own function — that's how you wire
 in openclaw, hermes, or a hosted gateway (see below).
 
 ---
-
-## Install
-
-```bash
-pip install -e .                 # zero runtime deps
-pip install -e ".[dev]"          # + pytest, ruff
-pip install -e ".[bench]"        # + fastembed, numpy (embedding baselines only)
-pip install -e ".[mcp]"          # + the MCP server (official `mcp` SDK)
-```
-
-Requires Python ≥ 3.10.
 
 ## Use from another agent (openclaw / hermes / your own loop)
 
@@ -458,8 +451,49 @@ the clamping executor, not the model or the schema.
 
 `BM25 k1=1.5 b=0.75 · strength +0.25/access cap 5.0 · stability init 7d ×1.5/spaced-access cap 365d · eff floor 0.05 · spacing gate 1h · zone EMA decay 0.9/day · rank boost W_dyn=0.3 W_zone=0.2 · stale: eff<0.1 & >90d · archive cap max(2, ⌈0.20·active⌉)`
 
+## Vault layout and configuration
+
+Notes are slug-named Markdown files with YAML frontmatter and `[[wikilinks]]`.
+Zones are one-level directories; the vault root is the inbox.
+
+```text
+my_vault/
+  inbox-note.md
+  devops/
+    ingress-dns.md
+  people/
+  projects/
+  identity/
+  knowledge/
+  journal/
+  system/                       # protected role files owned by ProfileMemory
+  _archive/                     # soft-forgotten notes
+  .mnemosyne-index.json.z        # rebuildable compressed index cache
+  .mnemosyne-dynamics.json       # persistent usage state
+```
+
+`VaultMemory({"vault_path": "my_vault"})` selects the vault. The legacy `vault`
+configuration key is also accepted; without either key the default is
+`./vault`. `Mnemosyne` takes the path directly. Set `zone=` when writing to
+choose placement; otherwise note types map to zones:
+
+| Note type | Default zone |
+|---|---|
+| `person` | `people` |
+| `project` | `projects` |
+| `preference` | `identity` |
+| `fact`, `topic` | `knowledge` |
+| `session` | `journal` |
+
+`_archive` is not an active curation zone. The cache can be rebuilt without
+discarding usage state; the legacy `.mnemosyne-index.json` cache is removed on
+the next save. Mixing older and newer library versions on one vault causes
+repeated cache rebuilding. MCP path and evidence settings are listed in the
+[MCP server reference](#mcp-server-claude-code-claude-desktop-codex-cli-cursor).
+
 ## License
 
-MIT. Extracted from the Birkin project. The retrieval + curation design is
+MIT; see [LICENSE](LICENSE) and the attribution in [NOTICE](NOTICE).
+Extracted from the Birkin project. The retrieval + curation design is
 described in the companion paper *"Birkin-Mnemosyne: A Zero-Dependency Lexical
 Memory Palace with Safe, Provider-Portable Curation for Personal LLM Agents"*.
