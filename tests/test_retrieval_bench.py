@@ -312,6 +312,34 @@ def test_bm25_run_on_gold_corpus(tmp_path):
     assert br.sidecar_bytes(vault) > 0
 
 
+@pytest.mark.parametrize("engine", ["expanded-claude", "expanded-gpt"])
+def test_expansion_fixtures_cover_every_query_within_the_tool_bounds(engine):
+    writer = br.ENGINES[engine].writer
+    data = json.loads((br.HERE / f"expansions_{writer}.json").read_text(encoding="utf-8"))
+    assert set(data) == {q.text for q in rc.queries() + rc.dev_extra_queries()}
+    for entry in data.values():
+        assert set(entry) == set(mnemosyne.EXPANSION_WEIGHTS)
+        assert 0 < len(entry["note_line"]) <= 300
+        for tier in ("synonyms", "keywords", "related"):
+            assert len(entry[tier]) <= 16
+            assert all(isinstance(x, str) and 0 < len(x) <= 80 for x in entry[tier])
+
+
+def test_expanded_run_lifts_dev_paraphrases_and_keeps_exact_queries(tmp_path):
+    vault = tmp_path / "vault"
+    br.write_vault(vault, rc.corpus())
+    dev = [q for q in rc.queries() if q.split == "dev"]
+    runs = {}
+    for name in ("bm25", "expanded-claude", "expanded-gpt"):
+        engine = br.ENGINES[name](vault)
+        engine.build()
+        runs[name] = br.evaluate(engine, dev)["by_kind"]
+    core = runs.pop("bm25")
+    for by_kind in runs.values():
+        assert by_kind[("dev", "para")]["mrr"] > core[("dev", "para")]["mrr"] + 0.5
+        assert by_kind[("dev", "exact")]["mrr"] >= core[("dev", "exact")]["mrr"]
+
+
 def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
     out = tmp_path / "bench.json"
     br.main(["--sizes", "160", "--json", str(out)])
