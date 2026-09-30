@@ -271,7 +271,8 @@ class SemanticIndex:
 
 
 def enabled_by_env() -> bool | None:
-    """``MNEMOSYNE_SEMANTIC=0`` disables, ``=1`` requires; unset = auto."""
+    """``MNEMOSYNE_SEMANTIC=1`` turns the semantic mode on for
+    ``Mnemosyne(semantic=None)``; ``=0`` or unset leaves it off (None)."""
     raw = os.environ.get("MNEMOSYNE_SEMANTIC", "").strip().lower()
     if raw in ("0", "false", "off", "no"):
         return False

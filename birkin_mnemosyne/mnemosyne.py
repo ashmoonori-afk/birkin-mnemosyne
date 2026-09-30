@@ -412,9 +412,10 @@ class Mnemosyne:
     """
 
     def __init__(self, vault: Path, semantic: bool | None = None):
-        """``semantic``: None = use the optional semantic leg when its extra
-        is installed (``MNEMOSYNE_SEMANTIC=0`` opts out), True = request it
-        (warns if unavailable), False = BM25 only."""
+        """``semantic``: None = the core ranking, unless
+        ``MNEMOSYNE_SEMANTIC=1`` asks for the optional semantic mode; True =
+        request it (warns and stays on the core when it is unavailable);
+        False = core only."""
         self.vault = Path(vault)
         self._semantic_mode = semantic
         self._sem: Any = None
@@ -693,14 +694,13 @@ class Mnemosyne:
             from . import semantic
 
             want = self._semantic_mode
-            if want is None:
-                want = semantic.enabled_by_env()
-            if want is False:
+            if want is None:           # opt-in: the default is the core ranking
+                want = bool(semantic.enabled_by_env())
+            if not want:
                 self._sem = False
             elif not semantic.available():
-                if want:
-                    log.warning("semantic search requested but the [semantic] "
-                                "extra is not installed; using BM25 only")
+                log.warning("semantic search requested but the [semantic] "
+                            "extra is not installed; using BM25 only")
                 self._sem = False
             else:
                 self._sem = semantic.SemanticIndex(self.vault)

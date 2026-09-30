@@ -68,6 +68,12 @@ def test_semantic_leg_finds_synonym_bm25_misses(tmp_path, concept_model):
     assert hits[0]["slug"] == "car"
 
 
+def test_env_switch_turns_the_mode_on(tmp_path, concept_model, monkeypatch):
+    monkeypatch.setenv("MNEMOSYNE_SEMANTIC", "1")
+    hits = mnemosyne.Mnemosyne(_vault(tmp_path)).search("vehicle")
+    assert hits[0]["slug"] == "car"
+
+
 def test_cross_language_query_reaches_english_note(tmp_path, concept_model):
     hits = mnemosyne.Mnemosyne(_vault(tmp_path), semantic=True).search("강아지 산책")
     assert hits[0]["slug"] == "dog"

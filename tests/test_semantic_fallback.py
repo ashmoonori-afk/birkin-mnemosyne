@@ -47,6 +47,13 @@ def test_env_opt_out_wins_over_installed_extra(tmp_path, monkeypatch):
     assert dex._semantic_index() is None
 
 
+def test_semantic_mode_is_opt_in(tmp_path, monkeypatch):
+    # installed extra, nothing asked for: the default stays the core ranking
+    monkeypatch.setattr(semantic, "available", lambda: True)
+    monkeypatch.delenv("MNEMOSYNE_SEMANTIC", raising=False)
+    assert mnemosyne.Mnemosyne(_vault(tmp_path))._semantic_index() is None
+
+
 def test_rrf_sums_reciprocal_ranks():
     fused = mnemosyne._rrf([[("a", 2.0), ("b", 1.0)], [("b", 0.9), ("c", 0.5)]], k=10)
     assert fused["b"] == pytest.approx(1 / 12 + 1 / 11)
