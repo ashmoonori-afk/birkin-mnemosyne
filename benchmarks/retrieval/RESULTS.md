@@ -427,6 +427,32 @@ The same authors also wrote one more `exact` / `para` / `mixed` triple for each
 zh and de dev note, the two thinnest dev slices (15 queries per author each).
 They are used for tuning only; the frozen test questions are untouched.
 
+## Vault scan at most once per 2 s during search (core, zero dependencies)
+
+`search()` used to stat every note file on every call to notice edits made
+outside the library. That stat pass was most of a search: the latency rows
+above (38-43 ms at 10,000 notes) are almost entirely the scan, not BM25.
+`search()` now scans at most once per `SCAN_TTL` (2 s); `refresh()` still
+scans on every call, and notes written through the library are indexed when
+they are written, so they never wait.
+
+Warm latency per search, 300 dev queries, one process, macOS arm64, Python
+3.11, 1-minute load 2.0; "before" is the same build with `SCAN_TTL = 0`:
+
+| notes | scan on every search, p50 / p95 | at most once per 2 s, p50 / p95 | top-10 of the 300 queries |
+|---|---|---|---|
+| 1,000 | 3.04 / 3.52 ms | 0.20 / 0.41 ms | identical |
+| 10,000 | 37.20 / 39.88 ms | 1.46 / 4.09 ms | identical |
+
+Rankings are unchanged (the ranking code is untouched), so every quality
+table in this file still holds. The latency columns of the footprint tables
+above were measured before this change.
+
+The cost: a note created, edited or deleted outside the library while a
+long-lived process is running shows up in `search()` up to 2 s later (a
+deleted note can still be returned during that window). The optional semantic
+mode still scans on every search, through its own sync.
+
 ## Optional semantic mode (`[semantic]` extra)
 
 The core stays standard library only. The `[semantic]` extra (numpy,

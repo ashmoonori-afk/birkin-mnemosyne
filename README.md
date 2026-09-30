@@ -51,7 +51,10 @@ mem.dex.record_access("ingress-dns")
 For an existing vault, use `Mnemosyne("my_vault")`, call `refresh()`, then
 `search(query)`. Unicode normalization, accent folding, Latin prefix stems,
 and Hangul/Han/kana bigrams support multilingual lexical matching. File
-changes refresh the index; the compressed cache is rebuildable, while usage
+changes refresh the index: notes written through the library are searchable
+at once, and `search()` looks for edits made outside it (for example in
+Obsidian) at most once every 2 seconds (`refresh()` looks immediately). The
+compressed cache is rebuildable, while usage
 history persists separately. Usage decay and zone activity adjust ranking.
 
 ## What the numbers say
