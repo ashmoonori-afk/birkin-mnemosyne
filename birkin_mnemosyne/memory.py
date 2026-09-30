@@ -31,6 +31,7 @@ from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import STEM_MIN as _STEM_MIN
+from .mnemosyne import _script
 from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
@@ -440,13 +441,18 @@ def _is_expired(meta: dict[str, Any]) -> bool:
         return False
 
 
+def _word_char(c: str) -> bool:
+    """A letter/digit of a non-CJK word, as tokenize() groups them."""
+    return c.isalnum() and _script(c) not in ("cjk", "hangul")
+
+
 def _stem_word_at(low: str, i: int) -> bool:
     """True when a word starts at ``i`` that tokenize() would stem (alphabetic,
     at least STEM_MIN letters)."""
-    if i and low[i - 1].isalnum():
+    if i and _word_char(low[i - 1]):
         return False
     j = i
-    while j < len(low) and low[j].isalnum():
+    while j < len(low) and _word_char(low[j]):
         j += 1
     word = low[i:j]
     return word.isalpha() and len(word) >= _STEM_MIN

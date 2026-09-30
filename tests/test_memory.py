@@ -143,3 +143,9 @@ def test_stem_snippet_ignores_words_the_tokenizer_would_not_stem():
     passage = "Der Vertrag verlängert sich automatisch"
     text = early + (" filler words here" * 30) + " " + passage + (" tail" * 10)
     assert "verlängert" in _snippet(text, tokenize("Verlängerung"), width=80)
+
+
+def test_stem_snippet_word_ends_at_cjk_like_the_tokenizer():
+    from birkin_mnemosyne.memory import _stem_word_at
+    assert not _stem_word_at("abcde漢字", 0)
+    assert _stem_word_at("abcdef漢字", 0)
