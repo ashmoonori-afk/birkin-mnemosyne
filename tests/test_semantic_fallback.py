@@ -1,5 +1,5 @@
-"""BM25-only fallback of the optional semantic leg: runs without numpy or
-model2vec installed (the core, zero-dependency CI job)."""
+"""BM25-only fallback of the optional semantic leg: runs without numpy,
+safetensors or huggingface_hub installed (the core, zero-dependency CI job)."""
 
 from __future__ import annotations
 

@@ -8,6 +8,7 @@ test_semantic_fallback.py and need nothing).
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -93,6 +94,32 @@ def test_stale_sidecar_from_other_model_is_rebuilt(tmp_path, concept_model):
     idx = semantic.SemanticIndex(vault, model_name="other/model")
     idx.sync(mnemosyne.Mnemosyne(vault, semantic=False).entries())
     assert idx.search("vehicle", 1)[0][0] == "car"
+
+
+def test_model_is_downloaded_and_converted_once(tmp_path, monkeypatch):
+    hub = pytest.importorskip("huggingface_hub")
+    st = pytest.importorskip("safetensors.numpy")
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    vocab = [["[PAD]", -20.0], ["[UNK]", -20.0], ["\u2581car", -1.0], ["\u2581", -3.0]]
+    (snap / "tokenizer.json").write_text(
+        json.dumps({"model": {"type": "Unigram", "unk_id": 1, "vocab": vocab}}),
+        encoding="utf-8")
+    st.save_file({"embeddings": np.eye(4, semantic.DIM, dtype=np.float32)},
+                 str(snap / "model.safetensors"))
+    calls = []
+
+    def fake_snapshot(repo_id, **kwargs):
+        calls.append(kwargs)
+        return str(snap)
+
+    monkeypatch.setattr(hub, "snapshot_download", fake_snapshot)
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
+    first = semantic.SemanticIndex(tmp_path)._encoder()
+    again = semantic.SemanticIndex(tmp_path)._encoder()
+    assert len(calls) == 1
+    assert not any("onnx" in p for p in calls[0]["allow_patterns"])
+    assert first.tokenize("car") == again.tokenize("car") == [2]
 
 
 def test_model_failure_falls_back_to_bm25_with_warning(tmp_path, monkeypatch, caplog):

@@ -1,7 +1,7 @@
 """Optional semantic leg: static multilingual embeddings fused with BM25.
 
-Installed with ``pip install birkin-mnemosyne[semantic]`` (model2vec +
-numpy). The core package never imports this module's dependencies at import
+Installed with ``pip install birkin-mnemosyne[semantic]`` (numpy,
+safetensors, huggingface_hub). The core package never imports this module's dependencies at import
 time; when they are missing, or the model cannot be loaded (offline first
 run, disk full, ...), :class:`Mnemosyne` silently keeps its BM25-only path.
 
@@ -9,7 +9,10 @@ Design (every choice measured in benchmarks/retrieval, dev split):
 
 - Model: ``minishlab/potion-multilingual-128M`` (static embeddings, no
   transformer at query time). English-only potion models could not bridge
-  Korean questions about English notes.
+  Korean questions about English notes. It is downloaded once (~530 MB),
+  converted once in a child process into a compact form (int8 table,
+  hashed vocabulary; see :mod:`.static_model`) under the user cache dir, and
+  from then on loads in ~0.1 s with a few tens of MB resident.
 - Storage: each note is cut into ~400-character chunks (title prefixed); a
   chunk is stored as the SIGN bits of its first 256 dimensions (32 bytes).
   Binary vectors scored as well as float32 on the benchmark.
@@ -40,18 +43,37 @@ log = logging.getLogger(__name__)
 MODEL_NAME = "minishlab/potion-multilingual-128M"
 DIM = 256
 CHUNK_CHARS = 400
+# the repo also ships a 512 MB ONNX export that is never read
+MODEL_FILES = ["model.safetensors", "tokenizer.json"]
 VECTORS_FILE = ".mnemosyne-vectors.npz"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 def available() -> bool:
     """True when the optional dependencies are importable."""
     try:
-        import model2vec  # noqa: F401
+        import huggingface_hub  # noqa: F401
         import numpy  # noqa: F401
+        import safetensors  # noqa: F401
     except ImportError:
         return False
     return True
+
+
+def model_dir(model_name: str = MODEL_NAME) -> Path:
+    """Compact form of ``model_name``, downloaded and converted on first use."""
+    from huggingface_hub import snapshot_download
+
+    from .static_model import prepare_isolated
+
+    root = Path(os.environ.get("MNEMOSYNE_MODEL_CACHE")
+                or Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+                / "birkin-mnemosyne")
+    out = root / f"{model_name.replace('/', '--')}-v{FORMAT_VERSION}"
+    if not (out / "meta.json").exists():
+        snapshot = snapshot_download(model_name, allow_patterns=MODEL_FILES)
+        prepare_isolated(Path(snapshot), out)
+    return out
 
 
 def chunk_text(title: str, body: str, max_chars: int | None = None) -> list[str]:
@@ -104,10 +126,9 @@ class SemanticIndex:
 
     def _encoder(self) -> Any:
         if self._model is None:
-            from model2vec import StaticModel
+            from .static_model import StaticModel
 
-            self._model = StaticModel.from_pretrained(self.model_name,
-                                                      force_download=False)
+            self._model = StaticModel(model_dir(self.model_name))
         return self._model
 
     def _encode(self, texts: list[str]) -> Any:
@@ -181,6 +202,9 @@ class SemanticIndex:
             if todo:
                 flat = [c for _, _, cs in todo for c in cs]
                 bits = self._pack(self._encode(flat))
+                release = getattr(self._encoder(), "release", None)
+                if release is not None:
+                    release()
                 start = 0
                 for s, fp, cs in todo:
                     self._chunks[s] = bits[start:start + len(cs)]
