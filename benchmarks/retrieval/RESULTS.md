@@ -567,6 +567,25 @@ measured addition is 61 MB, while indexing. Peak RSS was the same within 8 MB
 in a second identical run. Install size: core 0.18 MB, with the extra 38.2 MB
 (numpy, safetensors, huggingface_hub and their dependencies).
 
+#### Footprint: start-up and latency (core -> semantic mode)
+
+Measured apart from the run above, on vaults that already existed, with the
+1-minute load average between 5.6 and 7.8: start-up is the wall time of a fresh
+process (`_probe.py`: interpreter start, import, index load, first query), 10
+processes per cell; latency is 300 test queries in a warm process.
+
+| notes | start-up, median (max) | p50 | p95 |
+|---|---|---|---|
+| 160 | 41 ms (42) -> 89 ms (95) | 0.5 -> 1.6 ms | 0.6 -> 3.4 ms |
+| 1000 | 65 ms (98) -> 125 ms (132) | 3.1 -> 7.4 ms | 3.9 -> 8.4 ms |
+| 10000 | 307 ms (547) -> 382 ms (439) | 35.4 -> 75.6 ms | 37.8 -> 79.4 ms |
+
+The start-up budget for this mode was 1 s with the model prepared; the slowest
+of the 30 starts took 439 ms. The timing fields inside
+`semantic_test_run.json` are not the reference: that run was taken on a busy
+machine (1-minute load 7.6 to 10.7), and in a repeat at a load near 13 the
+start-up of the 10k vault reached 1.09 s. Search latency roughly doubles.
+
 Reading:
 
 - **The mode is opt-in and is not the recommended default.** The bar for it was
