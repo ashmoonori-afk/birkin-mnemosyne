@@ -18,6 +18,8 @@ reports per split (dev/test), per language and per query kind:
                               and in-process library import + index load +
                               first query
   peak RSS                    of that fresh process
+  build peak RSS              of another fresh process that indexes the whole
+                              vault from scratch (bulk indexing)
   install size                --install-size: fresh venv, site-packages
                               growth excluding __pycache__
 
@@ -120,11 +122,13 @@ def evaluate(engine: Engine, queries: list[rc.Query], k: int = K) -> dict[str, A
     by_author_kind: dict[tuple[str, str, str], list[int | None]] = {}
     by_author_lang: dict[tuple[str, str, str], list[int | None]] = {}
     lat: list[float] = []
+    ranks: list[list[Any]] = []       # per query, in query order (for compare.py)
     for q in queries:
         t0 = time.perf_counter()
         hits = engine.search(q.text, k + len(q.siblings))
         lat.append((time.perf_counter() - t0) * 1000.0)
         rank = gold_rank(hits, q.gold, q.siblings, k)
+        ranks.append([q.split, q.lang, q.kind, q.author, rank])
         by_kind.setdefault((q.split, q.kind), []).append(rank)
         by_lang.setdefault((q.split, q.lang), []).append(rank)
         by_kind_lang.setdefault((q.split, q.kind, q.lang), []).append(rank)
@@ -137,18 +141,38 @@ def evaluate(engine: Engine, queries: list[rc.Query], k: int = K) -> dict[str, A
         "by_author_kind": {key: rank_metrics(r) for key, r in by_author_kind.items()},
         "by_author_lang": {key: rank_metrics(r) for key, r in by_author_lang.items()},
         "latency_ms": {"p50": percentile(lat, 50), "p95": percentile(lat, 95)},
+        "ranks": ranks,
     }
+
+
+def _probe(engine_name: str, vault: Path, query: str, *mode: str) -> dict[str, Any]:
+    out = subprocess.run(
+        [sys.executable, str(HERE / "_probe.py"), engine_name, str(vault), query, *mode],
+        check=True, capture_output=True, text=True).stdout
+    return json.loads(out.strip().splitlines()[-1])
 
 
 def cold_start(engine_name: str, vault: Path, query: str) -> dict[str, Any]:
     t0 = time.perf_counter()
-    out = subprocess.run(
-        [sys.executable, str(HERE / "_probe.py"), engine_name, str(vault), query],
-        check=True, capture_output=True, text=True).stdout
+    probe = _probe(engine_name, vault, query)
     wall_ms = (time.perf_counter() - t0) * 1000.0
-    probe = json.loads(out.strip().splitlines()[-1])
     return {"cold_wall_ms": wall_ms, "cold_load_ms": probe["load_ms"],
             "peak_rss": probe["peak_rss"]}
+
+
+def clear_sidecars(vault: Path) -> None:
+    for p in vault.iterdir():
+        if p.name.startswith(".") and p.is_file():
+            p.unlink()
+
+
+def build_peak_rss(engine_name: str, vault: Path, query: str) -> int | None:
+    """Peak RSS of a fresh process that indexes the whole vault from scratch
+    (the vault's sidecars are removed before and after)."""
+    clear_sidecars(vault)
+    peak = _probe(engine_name, vault, query, "build")["peak_rss"]
+    clear_sidecars(vault)
+    return peak
 
 
 # -- install size ---------------------------------------------------------------
@@ -192,12 +216,14 @@ def run(sizes: list[int], engines: list[str], seed: int = 0) -> list[dict[str, A
             vault = Path(tmp) / "vault"
             write_vault(vault, rc.corpus(size, seed=seed))
             for name in engines:
+                build_rss = build_peak_rss(name, vault, qs[0].text)
                 engine = ENGINES[name](vault)
                 t0 = time.perf_counter()
                 engine.build()
                 build_s = time.perf_counter() - t0
                 res = evaluate(engine, qs)
                 res.update(engine=name, size=size, build_s=build_s,
+                           build_peak_rss=build_rss,
                            index_bytes=sidecar_bytes(vault),
                            **cold_start(name, vault, qs[0].text))
                 results.append(res)
@@ -261,14 +287,14 @@ def render(results: list[dict[str, Any]], split: str = "test") -> str:
                          + " | ".join(cells) + " |")
     lines += ["", "### Footprint (latency pooled over dev + test queries)", "",
               ("| engine | notes | index on disk | build | p50 | p95 | cold wall "
-               "| cold load | peak RSS |"),
-              "|---|---|---|---|---|---|---|---|---|"]
+               "| cold load | peak RSS | build peak RSS |"),
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         lat = r["latency_ms"]
         lines.append(f"| {r['engine']} | {r['size']} | {_fmt_bytes(r['index_bytes'])} "
                      f"| {r['build_s']:.2f} s | {lat['p50']:.1f} ms | {lat['p95']:.1f} ms "
                      f"| {r['cold_wall_ms']:.0f} ms | {r['cold_load_ms']:.0f} ms "
-                     f"| {_fmt_bytes(r['peak_rss'])} |")
+                     f"| {_fmt_bytes(r['peak_rss'])} | {_fmt_bytes(r['build_peak_rss'])} |")
     return "\n".join(lines)
 
 
