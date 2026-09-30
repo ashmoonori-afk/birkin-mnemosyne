@@ -74,6 +74,17 @@ def main() -> None:
                                  after[size]["by_author_lang"][f"{sp}/{au}/{lang}"][metric])
                              for lang in LANGS]
                     print(f"| {size} | {au} | " + " | ".join(cells) + " |")
+    if all("by_kind_lang" in r for r in list(before.values()) + list(after.values())):
+        for metric, label in (("mrr", "MRR"), ("r@5", "R@5")):
+            print(f"\n### {label} per language and query kind ({sp} split)\n")
+            print("| notes | lang | " + " | ".join(KINDS) + " |")
+            print("|---|---|" + "---|" * len(KINDS))
+            for size in sorted(set(before) & set(after)):
+                for lang in LANGS:
+                    cells = [fmt(before[size]["by_kind_lang"][f"{sp}/{kind}/{lang}"][metric],
+                                 after[size]["by_kind_lang"][f"{sp}/{kind}/{lang}"][metric])
+                             for kind in KINDS]
+                    print(f"| {size} | {lang} | " + " | ".join(cells) + " |")
     if all("ranks" in r for r in list(before.values()) + list(after.values())):
         print(f"\n### Queries whose gold rank improved / worsened ({sp} split)\n")
         print("| notes | " + " | ".join(LANGS + KINDS) + " |")
@@ -81,6 +92,9 @@ def main() -> None:
         for size in sorted(set(before) & set(after)):
             pairs = [(x, y) for x, y in zip(before[size]["ranks"], after[size]["ranks"])
                      if x[0] == sp]
+            if len(before[size]["ranks"]) != len(after[size]["ranks"]) or any(
+                    x[:4] != y[:4] for x, y in pairs):
+                raise SystemExit("the two runs do not list the same queries in the same order")
             cells = []
             for pos, values in ((1, LANGS), (2, KINDS)):
                 for value in values:

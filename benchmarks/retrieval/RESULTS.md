@@ -438,9 +438,10 @@ pip install -e ".[semantic]"
 python -m birkin_mnemosyne.semantic    # once: download (~530 MB) and convert the model
 ```
 
-A search never downloads or converts anything: until the model is prepared,
-or when the extra is missing, or with `MNEMOSYNE_SEMANTIC=0`, search is the
-core ranking and one log line says why.
+A search never downloads or converts anything. The mode is off unless it is
+asked for (`Mnemosyne(vault, semantic=True)` or `MNEMOSYNE_SEMANTIC=1`); when
+it is asked for but the extra is missing or the model is not prepared, search
+is the core ranking and one log line says why.
 
 How it works:
 
@@ -461,8 +462,8 @@ How it works:
   The lexical ranking is the core's, usage and zone boosts included, and
   nothing multiplies the fused score. The semantic vote counts 0.4 (1.0 for
   queries written mostly in Han/kana). Notes that contain every original unit
-  of the query keep their lexical order ahead of everything else, so an exact
-  keyword lookup returns what the core returns; fused ties go to the lexical
+  of the query keep their lexical order ahead of everything else, so exact
+  keyword lookups keep their lexical order; fused ties go to the lexical
   rank (both ideas follow the "never worse than today, per query" rule and the
   exact-phrase floor of oh-my-openagent PR #9209).
 
@@ -546,6 +547,52 @@ the committed run is `semantic_test_run.json`.
 | 10000 | claude-opus-5.5 | 0.690 -> 0.738 (+0.048) | 0.617 -> 0.654 (+0.037) | 0.848 -> 0.909 (+0.061) | 0.778 -> 0.800 (+0.022) | 0.667 -> 0.667 (=0.000) | 0.733 -> 0.733 (=0.000) |
 | 10000 | gpt-6.1-sol | 0.536 -> 0.536 (=0.000) | 0.667 -> 0.728 (+0.062) | 0.879 -> 0.879 (=0.000) | 0.822 -> 0.800 (-0.022) | 0.667 -> 0.667 (=0.000) | 0.689 -> 0.689 (=0.000) |
 
+#### MRR per language and query kind (test split)
+
+| notes | lang | exact | para | mixed |
+|---|---|---|---|---|
+| 160 | en | 1.000 -> 1.000 (=0.000) | 0.169 -> 0.272 (+0.103) | 0.604 -> 0.649 (+0.045) |
+| 160 | ko | 1.000 -> 1.000 (=0.000) | 0.162 -> 0.253 (+0.091) | 0.577 -> 0.667 (+0.090) |
+| 160 | ja | 1.000 -> 1.000 (=0.000) | 0.485 -> 0.642 (+0.157) | 0.896 -> 0.886 (-0.010) |
+| 160 | zh | 1.000 -> 1.000 (=0.000) | 0.535 -> 0.708 (+0.173) | 0.917 -> 0.905 (-0.013) |
+| 160 | es | 1.000 -> 1.000 (=0.000) | 0.246 -> 0.334 (+0.089) | 0.850 -> 0.898 (+0.049) |
+| 160 | de | 1.000 -> 1.000 (=0.000) | 0.239 -> 0.352 (+0.113) | 0.827 -> 0.894 (+0.067) |
+| 1000 | en | 1.000 -> 1.000 (=0.000) | 0.147 -> 0.230 (+0.084) | 0.598 -> 0.629 (+0.031) |
+| 1000 | ko | 1.000 -> 1.000 (=0.000) | 0.107 -> 0.173 (+0.066) | 0.555 -> 0.670 (+0.115) |
+| 1000 | ja | 1.000 -> 1.000 (=0.000) | 0.482 -> 0.601 (+0.119) | 0.865 -> 0.826 (-0.038) |
+| 1000 | zh | 1.000 -> 1.000 (=0.000) | 0.441 -> 0.608 (+0.167) | 0.856 -> 0.863 (+0.007) |
+| 1000 | es | 1.000 -> 1.000 (=0.000) | 0.158 -> 0.205 (+0.046) | 0.808 -> 0.854 (+0.046) |
+| 1000 | de | 1.000 -> 1.000 (=0.000) | 0.193 -> 0.256 (+0.063) | 0.800 -> 0.869 (+0.069) |
+| 10000 | en | 1.000 -> 1.000 (=0.000) | 0.118 -> 0.178 (+0.060) | 0.588 -> 0.633 (+0.046) |
+| 10000 | ko | 1.000 -> 1.000 (=0.000) | 0.098 -> 0.147 (+0.049) | 0.578 -> 0.677 (+0.099) |
+| 10000 | ja | 1.000 -> 1.000 (=0.000) | 0.468 -> 0.588 (+0.121) | 0.880 -> 0.859 (-0.021) |
+| 10000 | zh | 1.000 -> 1.000 (=0.000) | 0.418 -> 0.487 (+0.068) | 0.875 -> 0.860 (-0.015) |
+| 10000 | es | 1.000 -> 1.000 (=0.000) | 0.161 -> 0.166 (+0.005) | 0.856 -> 0.878 (+0.022) |
+| 10000 | de | 1.000 -> 1.000 (=0.000) | 0.188 -> 0.236 (+0.047) | 0.854 -> 0.887 (+0.033) |
+
+#### R@5 per language and query kind (test split)
+
+| notes | lang | exact | para | mixed |
+|---|---|---|---|---|
+| 160 | en | 1.000 -> 1.000 (=0.000) | 0.298 -> 0.429 (+0.131) | 0.798 -> 0.810 (+0.012) |
+| 160 | ko | 1.000 -> 1.000 (=0.000) | 0.210 -> 0.370 (+0.160) | 0.753 -> 0.815 (+0.062) |
+| 160 | ja | 1.000 -> 1.000 (=0.000) | 0.576 -> 0.727 (+0.152) | 0.970 -> 0.970 (=0.000) |
+| 160 | zh | 1.000 -> 1.000 (=0.000) | 0.622 -> 0.822 (+0.200) | 0.978 -> 0.956 (-0.022) |
+| 160 | es | 1.000 -> 1.000 (=0.000) | 0.389 -> 0.583 (+0.194) | 0.917 -> 1.000 (+0.083) |
+| 160 | de | 1.000 -> 1.000 (=0.000) | 0.378 -> 0.489 (+0.111) | 0.889 -> 0.978 (+0.089) |
+| 1000 | en | 1.000 -> 1.000 (=0.000) | 0.238 -> 0.345 (+0.107) | 0.798 -> 0.798 (=0.000) |
+| 1000 | ko | 1.000 -> 1.000 (=0.000) | 0.136 -> 0.272 (+0.136) | 0.704 -> 0.778 (+0.074) |
+| 1000 | ja | 1.000 -> 1.000 (=0.000) | 0.576 -> 0.758 (+0.182) | 0.970 -> 0.970 (=0.000) |
+| 1000 | zh | 1.000 -> 1.000 (=0.000) | 0.600 -> 0.733 (+0.133) | 0.889 -> 0.911 (+0.022) |
+| 1000 | es | 1.000 -> 1.000 (=0.000) | 0.167 -> 0.222 (+0.056) | 0.917 -> 0.917 (=0.000) |
+| 1000 | de | 1.000 -> 1.000 (=0.000) | 0.333 -> 0.400 (+0.067) | 0.889 -> 0.911 (+0.022) |
+| 10000 | en | 1.000 -> 1.000 (=0.000) | 0.202 -> 0.238 (+0.036) | 0.762 -> 0.786 (+0.024) |
+| 10000 | ko | 1.000 -> 1.000 (=0.000) | 0.111 -> 0.210 (+0.099) | 0.716 -> 0.765 (+0.049) |
+| 10000 | ja | 1.000 -> 1.000 (=0.000) | 0.576 -> 0.667 (+0.091) | 0.970 -> 0.970 (=0.000) |
+| 10000 | zh | 1.000 -> 1.000 (=0.000) | 0.556 -> 0.533 (-0.022) | 0.911 -> 0.911 (=0.000) |
+| 10000 | es | 1.000 -> 1.000 (=0.000) | 0.194 -> 0.194 (=0.000) | 0.917 -> 0.917 (=0.000) |
+| 10000 | de | 1.000 -> 1.000 (=0.000) | 0.311 -> 0.311 (=0.000) | 0.911 -> 0.933 (+0.022) |
+
 #### Queries whose gold rank improved / worsened (test split)
 
 | notes | en | ko | ja | zh | es | de | exact | para | mixed |
@@ -590,21 +637,28 @@ Reading:
 
 - **The mode is opt-in and is not the recommended default.** The bar for it was
   "no slice below the core". On the test split it misses that bar in one
-  pooled slice and three author slices:
+  pooled slice, three author slices and six language x kind cells:
   - Chinese at 10k notes: R@5 0.822 -> 0.815 (one query of 135), while MRR
     rises 0.764 -> 0.782. By author: gpt-6.1-sol R@5 0.822 -> 0.800 (MRR
     0.777 -> 0.776), claude-fable-5.1 R@5 0.867 -> 0.844 (MRR 0.770 -> 0.807),
     claude-opus-5.5 R@5 0.778 -> 0.800.
   - Spanish, claude-opus-5.5's questions: MRR 0.653 -> 0.646 at 1k and
     0.653 -> 0.639 at 10k (R@5 unchanged), while the other two authors gain.
+  - By language and query kind (33-45 queries per cell): Japanese
+    code-switched queries lose MRR at every size (0.896 -> 0.886, 0.865 ->
+    0.826, 0.880 -> 0.859; R@5 unchanged at 0.970); Chinese code-switched
+    queries at 160 notes (MRR 0.917 -> 0.905, R@5 0.978 -> 0.956) and at 10k
+    (MRR 0.875 -> 0.860); Chinese paraphrases lose R@5 at 10k (0.556 -> 0.533)
+    while their MRR rises.
 
   The same configuration had no slice below the core for any author on dev at
   160, 1k and 10k notes. It was frozen before this run and not retuned after
   it. Turn the mode on with `Mnemosyne(vault, semantic=True)` or
   `MNEMOSYNE_SEMANTIC=1` when questions are usually worded differently from
   the notes; leave it off when lookups are mostly keywords.
-- Everything else gains: MRR is higher in every language at every size (+0.009
-  to +0.061), R@5 is higher or equal in every other pooled slice, and
+- Pooled by language or by kind, everything else gains: MRR is higher in every
+  language at every size (+0.009 to +0.061), R@5 is higher or equal in every
+  other pooled slice, and
   paraphrase queries go from 0.269 / 0.219 / 0.205 to 0.383 / 0.307 / 0.262
   MRR at 160 / 1k / 10k notes. Korean, flat in the core, gains 0.049-0.061 MRR.
 - Exact keyword queries are untouched: no query moves at any size (the
@@ -621,6 +675,14 @@ Limits:
 - Token ids were compared with the reference tokenizer on this benchmark's
   2,440 texts only, and vocabulary pieces longer than 24 characters are not
   used.
+- With the mode on, the semantic ranking always contributes its best notes,
+  so a query with no lexical match still returns results (there is no
+  relevance floor).
+- The tokenizer caches up to 65,536 segmented words per process; its memory in
+  a long-lived process with varied CJK text was not measured.
+- `semantic_test_run.json` is the run re-serialised compactly (same values);
+  it was produced at `c0657fb`, before the mode became opt-in, by engines that
+  pass `semantic=` explicitly.
 - The benchmark is synthetic, and its dev slices for Chinese and German are
   small (5 notes each): the dev gate passed where the test split did not.
 
@@ -643,7 +705,9 @@ any author at any size. A larger vote gains more on paraphrases and costs
 single queries in the code-switched and Chinese slices.
 
 Measured and rejected (dev, 1k notes, MRR averaged over the six languages
-unless stated; core 0.664, reference-runtime hybrid 0.741):
+unless stated; core 0.664; plain-fusion hybrid on the reference runtime 0.741
+with 400-character chunks; the reranker and margin rows were measured against
+an earlier 200-character-chunk hybrid at 0.752):
 
 | option | memory / time | quality | why not |
 |---|---|---|---|

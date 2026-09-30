@@ -97,8 +97,10 @@ def test_vectors_persist_and_only_changed_notes_reembed(tmp_path, concept_model)
 def test_stale_sidecar_from_other_model_is_rebuilt(tmp_path, concept_model):
     vault = _vault(tmp_path)
     mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    calls = concept_model.calls
     idx = semantic.SemanticIndex(vault, model_name="other/model")
     idx.sync(mnemosyne.Mnemosyne(vault, semantic=False).entries())
+    assert concept_model.calls == calls + 1          # re-embedded, not reused
     assert idx.search("vehicle", 1)[0][0] == "car"
 
 
@@ -162,10 +164,51 @@ def test_fused_ties_go_to_the_bm25_pick(tmp_path, monkeypatch):
         "---\ntitle: pets\nupdated: 2099-01-01\n---\n\nwalk the dog\n",
         encoding="utf-8")
     dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
-    # car is first in the BM25 leg only, dog first in the semantic leg only:
-    # equal fused scores, and dog is newer, so only the BM25 tie-break keeps car.
+    # car is first in the BM25 leg only, dog first in the semantic leg only.
+    # With equal votes both score 1/(k+1), and "zebra" keeps car out of the
+    # full-match tier; dog is newer, so only the BM25 tie-break keeps car.
+    monkeypatch.setattr(mnemosyne, "SEM_WEIGHT", 1.0)
     monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [("dog", 0.9)])
-    assert [h["slug"] for h in dex.search("brake")] == ["car", "dog"]
+    hits = dex.search("brake zebra")
+    assert hits[0]["score"] == hits[1]["score"]
+    assert [h["slug"] for h in hits] == ["car", "dog"]
+
+
+@pytest.mark.parametrize("junk", [b"", b"PK\x03\x04 truncated archive"])
+def test_corrupt_vector_sidecar_is_rebuilt(tmp_path, concept_model, junk):
+    vault = _vault(tmp_path)
+    (vault / semantic.VECTORS_FILE).write_bytes(junk)
+    hits = mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    assert hits[0]["slug"] == "car"
+    with np.load(vault / semantic.VECTORS_FILE) as data:
+        assert len(data["slugs"]) == 3
+
+
+def test_inconsistent_vector_sidecar_is_rebuilt(tmp_path, concept_model):
+    vault = _vault(tmp_path)
+    meta = semantic.SemanticIndex(vault)._meta()
+    np.savez(vault / semantic.VECTORS_FILE, meta=np.array(json.dumps(meta)),
+             slugs=np.array(["car"]), counts=np.array([3], dtype=np.int32),
+             fps=np.zeros((1, 2)), bits=np.zeros((1, semantic.DIM // 8), dtype=np.uint8))
+    hits = mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    assert hits[0]["slug"] == "car"
+
+
+def test_packed_scoring_equals_the_sign_dot_product_of_the_best_chunk(tmp_path, concept_model):
+    filler = "lorem " * 60
+    _note(tmp_path, "long", "notes", f"{filler}\n\n{filler} the car is here")
+    _note(tmp_path, "dog", "pets", "walk the dog every morning")
+    idx = semantic.SemanticIndex(tmp_path)
+    idx.sync(mnemosyne.Mnemosyne(tmp_path, semantic=False).entries())
+    assert len(idx._chunks["long"]) == 2          # the match is in the second chunk
+    q = concept_model.encode(["vehicle"])[0]
+    q = q / np.linalg.norm(q)
+    expected = {slug: max(float((np.unpackbits(row, count=semantic.DIM)
+                                 .astype(np.float32) * 2 - 1) @ q) for row in rows)
+                for slug, rows in idx._chunks.items()}
+    found = idx.search("vehicle", 10)
+    assert dict(found) == pytest.approx(expected, abs=1e-5)
+    assert found[0][0] == "long"
 
 
 def test_hybrid_keeps_warm_twin_above_cold_twin(tmp_path, concept_model):

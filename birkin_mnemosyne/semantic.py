@@ -3,7 +3,9 @@
 Installed with ``pip install birkin-mnemosyne[semantic]`` (numpy,
 safetensors, huggingface_hub). The core package never imports this module's dependencies at import
 time; when they are missing, or the model cannot be loaded (offline first
-run, disk full, ...), :class:`Mnemosyne` silently keeps its BM25-only path.
+run, disk full, ...), :class:`Mnemosyne` keeps its BM25-only path and logs
+one warning. The mode is opt-in: ``Mnemosyne(vault, semantic=True)`` or
+``MNEMOSYNE_SEMANTIC=1``.
 
 Design (every choice measured in benchmarks/retrieval, dev split):
 
@@ -34,6 +36,7 @@ import json
 import logging
 import os
 import threading
+import zipfile
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
@@ -173,8 +176,12 @@ class SemanticIndex:
                 counts = data["counts"].tolist()
                 fps = data["fps"].tolist()
                 bits = data["bits"]
-        except (OSError, KeyError, ValueError):
-            return
+        except (OSError, KeyError, ValueError, EOFError, zipfile.BadZipFile):
+            return   # missing, empty, truncated or foreign file: re-embed
+        if (len(counts) != len(slugs) or len(fps) != len(slugs)
+                or sum(counts) != len(bits) or min(counts, default=1) < 1
+                or bits.ndim != 2 or bits.shape[1] != self.dim // 8):
+            return   # internally inconsistent cache: re-embed
         start = 0
         for s, n, (mtime, size) in zip(slugs, counts, fps):
             self._chunks[s] = bits[start:start + n]

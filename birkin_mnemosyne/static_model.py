@@ -97,8 +97,12 @@ def prepare_isolated(snapshot: Path, out: Path, python: str | None = None) -> No
            "PYTHONPATH": os.pathsep.join(filter(None, [package_root,
                                                        os.environ.get("PYTHONPATH")]))}
     try:
-        subprocess.run([python or sys.executable, "-m", __name__, str(snapshot), str(tmp)],
-                       check=True, capture_output=True, env=env)
+        try:
+            subprocess.run([python or sys.executable, "-m", __name__, str(snapshot), str(tmp)],
+                           check=True, capture_output=True, text=True, env=env)
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"model conversion failed: {exc.stderr.strip()[-500:]}") from exc
         if out.exists():
             shutil.rmtree(out)
         os.replace(tmp, out)
