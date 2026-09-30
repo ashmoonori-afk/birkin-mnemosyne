@@ -455,7 +455,8 @@ def test_search_without_expansions_ranks_as_before():
 
 @pytest.mark.parametrize("bad", [
     {"nicknames": ["x"]}, {"synonyms": [1, 2]}, {"synonyms": {"a": "b"}},
-    {"related": 7}, {"note_line": b"bytes"}])
+    {"related": 7}, {"note_line": b"bytes"},
+    {"synonyms": (w for w in ["wombat"])}])
 def test_malformed_expansions_are_refused(bad):
     m = _mem()
     m.write_note("Alpha", "quokka habitat notes")
@@ -471,6 +472,60 @@ def test_snippet_shows_the_passage_an_expansion_matched():
                     expansions={"synonyms": ["starter"]})
     assert [h["title"] for h in hits] == ["sourdough"]
     assert "starter" in hits[0]["snippet"]
+
+
+@pytest.mark.parametrize("where", ["zone", "archive", "expired"])
+def test_full_matches_this_search_cannot_return_take_no_candidate_slot(where):
+    m = _mem()
+    # many short unrelated notes keep the average note short, so the long
+    # full matches score below the short partial match, as in a real vault
+    for i in range(100):
+        m.write_note(f"Misc {i}", "unrelated", zone="misc")
+    filler = " ".join(f"pad{i}" for i in range(120))
+    for i in range(mnemosyne.CAND):
+        m.write_note(f"Far {i}", f"quokka habitat {filler}", zone="other",
+                     ttl_days=1 if where == "expired" else None)
+    m.write_note("Active", "quokka quokka quokka", zone="knowledge")
+    eng = _engine()
+    kw: dict = {"now": NOW}
+    if where == "zone":
+        kw["zone"] = "knowledge"
+    elif where == "archive":
+        for i in range(mnemosyne.CAND):
+            eng.rezone(f"far-{i}", mnemosyne.ARCHIVE_ZONE)
+    else:
+        for s in [s for s in eng.entries() if s.startswith("far-")]:
+            eng._notes[s] = {**eng._notes[s], "expires_at": "2000-01-01"}
+    plain = eng.search("quokka habitat", **kw)
+    assert [h["slug"] for h in plain] == ["active"]
+    assert eng.search("quokka habitat", expansions={"synonyms": ["unmatched"]},
+                      **kw) == plain
+
+
+def test_semantic_mode_keeps_a_full_match_first_with_its_own_score():
+    m = _mem()
+    m.write_note("Alpha", "quokka " + " ".join(f"pad{i}" for i in range(80)))
+    for i in range(mnemosyne.FUSE_DEPTH + 1):
+        m.write_note(f"Wide {i}", "wombat burrow")
+    eng = _engine()
+    eng._semantic_ranking = lambda query: [(f"wide-{i}", 1.0 - i / 1000)
+                                           for i in range(40)]
+    plain = eng.search("quokka", now=NOW)
+    wide = eng.search("quokka", now=NOW,
+                      expansions={"synonyms": ["wombat", "burrow"]})
+    assert plain[0]["slug"] == wide[0]["slug"] == "alpha"
+    assert wide[0]["score"] == plain[0]["score"]
+    assert {h["slug"] for h in wide[1:]} <= {f"wide-{i}" for i in range(101)}
+
+
+def test_a_one_shot_iterator_is_refused_by_both_search_entry_points():
+    m = _mem()
+    m.write_note("Gamma", "wombat burrow")
+    for search in (m.search, m.dex.search):
+        with pytest.raises(ValueError):
+            search("quokka", expansions={"synonyms": (w for w in ["wombat"])})
+    assert [h["title"] for h in m.search(
+        "quokka", expansions={"synonyms": ("wombat",)})] == ["gamma"]
 
 
 # ---------------- related / stale / rezone ----------------------------------

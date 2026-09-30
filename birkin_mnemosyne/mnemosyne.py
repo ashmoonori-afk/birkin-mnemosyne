@@ -204,7 +204,8 @@ def expansion_weights(expansions: Mapping[str, Any],
     """{token: weight} for the terms a caller adds to a query at search time.
 
     ``expansions`` maps a tier of ``EXPANSION_WEIGHTS`` to a string or a list
-    of strings. A token already among the query's own tokens (``literal``) is
+    (or tuple) of strings; a one-shot iterator is refused, because callers
+    read the value more than once. A token already among the query's own tokens (``literal``) is
     left out, so an expansion never counts a query word twice, and a token
     given in several tiers keeps its highest weight. Raises ``ValueError``
     for an unknown tier or a value that is not text."""
@@ -218,12 +219,8 @@ def expansion_weights(expansions: Mapping[str, Any],
         if value is None:
             continue
         parts = [value] if isinstance(value, str) else value
-        if (isinstance(parts, (bytes, Mapping))
-                or not isinstance(parts, Iterable)):
-            raise ValueError(f"expansion tier {tier!r} must be a string or a "
-                             "list of strings")
-        parts = list(parts)
-        if not all(isinstance(p, str) for p in parts):
+        if (not isinstance(parts, (list, tuple))
+                or not all(isinstance(p, str) for p in parts)):
             raise ValueError(f"expansion tier {tier!r} must be a string or a "
                              "list of strings")
         for t in tokenize(" ".join(parts)):
@@ -825,71 +822,89 @@ class Mnemosyne:
             if not notes or not (terms or sem_ranked):
                 return []
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
-            base = bm25_scores(terms, self._postings, doclens,
-                               self._avgdl, len(notes))
-            # Notes that hold every original unit of the query keep the core's
-            # own order ahead of whatever an expansion brings in, so an exact
-            # keyword lookup returns what it returns without expansions.
-            pinned: frozenset[str] = frozenset()
-            if added:
-                lexical = sorted(base.items(), key=lambda kv: kv[1],
-                                 reverse=True)[:FUSE_DEPTH]
-                pinned = frozenset(self._covering(query, terms, lexical))
-                for s, v in bm25_scores(list(added), self._postings, doclens,
-                                        self._avgdl, len(notes), weights=added,
-                                        script_bonus=False).items():
-                    if s not in pinned:
-                        base[s] = base.get(s, 0.0) + v
+            literal = bm25_scores(terms, self._postings, doclens,
+                                  self._avgdl, len(notes))
             pri = self.zone_priorities(today=now.date())
+            # TTL is a user-facing calendar date -> LOCAL today, matching
+            # memory._is_expired (render/list/purge) so no path disagrees.
+            expiry_today = date.today()
 
             def boost(s: str) -> float:
                 eff = effective_strength(self.dynamics_of(s), now)
                 return (1 + W_DYN * eff / STRENGTH_CAP
                         + W_ZONE * pri.get(notes[s]["zone"], 0.0))
 
-            bm_order: dict[str, int] = {}
-            if sem_ranked:
+            def visible(s: str) -> bool:
+                e = notes[s]
+                if _entry_expired(e, expiry_today):
+                    return False
+                if zone is not None:
+                    return e["zone"] == zone
+                return e["zone"] != ARCHIVE_ZONE or include_archive
+
+            def fuse(lexical: dict[str, float]) -> tuple[
+                    dict[str, float], dict[str, int], list[str]]:
+                """(fused scores, lexical ranks, notes that hold every
+                original unit of the query) for one lexical scoring."""
                 # The lexical leg is ranked the way the core ranks (usage and
                 # zone boosts included) and nothing multiplies the fused score:
                 # reciprocal ranks sit so close together (1/6 vs 1/7) that a
                 # boost applied after fusion would reorder them at will.
-                top = sorted(base.items(), key=lambda kv: kv[1],
+                top = sorted(lexical.items(), key=lambda kv: kv[1],
                              reverse=True)[:FUSE_DEPTH]
                 # equal scores fall back to the newer note, as in the core
                 bm_list = sorted(((s, v * boost(s)) for s, v in top),
                                  key=lambda kv: (kv[1], notes[kv[0]]["updated"]),
                                  reverse=True)
-                bm_order = _shared_ranks(bm_list)
-                base = _rrf(
+                fused = _rrf(
                     [bm_list, [(s, v) for s, v in sem_ranked if s in notes]],
                     weights=[1.0, SEM_WEIGHT_CJK if _mostly_cjk(query) else SEM_WEIGHT])
                 # notes that hold every original unit of the query stay first,
                 # in lexical order; fusion orders everything after them
                 covering = self._covering(query, terms, bm_list)
-                top_fused = max(base.values(), default=0.0)
+                top_fused = max(fused.values(), default=0.0)
                 for i, s in enumerate(covering):
-                    base[s] = top_fused + len(covering) - i
+                    fused[s] = top_fused + len(covering) - i
+                return fused, _shared_ranks(bm_list), covering
+
+            # Notes that hold every original unit of the query ("full") take
+            # no expansion score and keep the score the core gives them, so an
+            # exact keyword lookup returns what it returns without expansions.
+            base = literal
+            full: list[str] = []
+            if added:
+                full = self._covering(query, terms, sorted(
+                    literal.items(), key=lambda kv: kv[1],
+                    reverse=True)[:FUSE_DEPTH])
+                base = dict(literal)
+                for s, v in bm25_scores(list(added), self._postings, doclens,
+                                        self._avgdl, len(notes), weights=added,
+                                        script_bonus=False).items():
+                    if s not in full:
+                        base[s] = base.get(s, 0.0) + v
+            bm_order: dict[str, int] = {}
+            if sem_ranked:
+                base, bm_order, _ = fuse(base)
+                if added:
+                    core, _, full = fuse(literal)
+                    for s in full:
+                        base[s] = core[s]
+            # Only a note this search can return is moved to the front: a full
+            # match in another zone, archived or expired must not take a
+            # candidate slot from a note the core would have returned.
+            pinned = frozenset(s for s in full if visible(s))
             unranked = len(bm_order) + 1
             # fused ties (a note first in one leg only) go to BM25's pick
             cands = sorted(base.items(), key=lambda kv: (
                 kv[0] not in pinned, -kv[1],
                 bm_order.get(kv[0], unranked)))[:CAND]
-            # TTL is a user-facing calendar date -> LOCAL today, matching
-            # memory._is_expired (render/list/purge) so no path disagrees.
-            expiry_today = date.today()
             hits: list[dict[str, Any]] = []
             for s, bm in cands:
+                if not visible(s):
+                    continue
                 e = notes[s]
-                if _entry_expired(e, expiry_today):
-                    continue
-                z = e["zone"]
-                if zone is not None:
-                    if z != zone:
-                        continue
-                elif z == ARCHIVE_ZONE and not include_archive:
-                    continue
                 score = bm if sem_ranked else bm * boost(s)
-                hits.append({"slug": s, "title": e["title"], "zone": z,
+                hits.append({"slug": s, "title": e["title"], "zone": e["zone"],
                              "rel": e["rel"], "type": e["type"],
                              "summary": e["summary"], "links": e["links"],
                              "polarity": e["polarity"], "score": score,
