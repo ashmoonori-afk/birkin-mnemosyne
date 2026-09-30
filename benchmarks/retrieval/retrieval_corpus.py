@@ -1,0 +1,1193 @@
+"""Synthetic, fictional multilingual retrieval corpus.
+
+The people, companies, projects and events below are invented (real public
+place and product names such as Kyoto or Postgres appear as common nouns);
+the corpus is public and safe to redistribute. It measures *semantic* retrieval next to
+BM25 across six languages - English, Korean, Japanese, Chinese, Spanish and
+German (160 gold notes: 40 en, 40 ko, 20 each ja/zh/es/de). Each gold note
+carries three queries:
+
+  exact  keyword query copied from the note (lexical home turf)
+  para   paraphrase in the note's language that shares almost no content
+         words with it (tests/test_retrieval_bench.py pins the overlap)
+  mixed  code-switched query: English notes are asked about in Korean with
+         at most one English word; every other language with English words
+         plus one or two words of the note's language
+
+Gold notes whose index is 1 mod 4 get deterministic filler paragraphs so the
+corpus also contains long notes (the case where truncation/chunking matters).
+``corpus(n)`` pads the gold notes with template-generated distractors in all
+six languages up to ``n`` notes (the 1k / 10k scale runs). The dev/test split
+is by topic: a note with cross-language siblings takes its sibling group's
+split, every other note is dev when its index is a multiple of three. Fusion
+constants are tuned on dev and reported on test.
+
+Many topics recur across languages (a Spanish and a German note about the
+same car service, say). Those notes are declared in ``SIBLING_GROUPS``; a
+query's siblings are removed from the ranking before scoring, so retrieving
+the translation of the gold note is neither rewarded nor punished.
+"""
+
+from __future__ import annotations
+
+import random
+import re
+import unicodedata
+from dataclasses import dataclass, field
+
+QUERY_KINDS = ("exact", "para", "mixed")
+LANGS = ("en", "ko", "ja", "zh", "es", "de")
+
+# Function words ignored by the paraphrase-overlap check (not by any engine).
+OVERLAP_STOPWORDS = frozenset([
+    # en
+    "a", "an", "the", "of", "to", "in", "on", "at", "by", "for", "with",
+    "and", "or", "but", "is", "are", "was", "were", "be", "been", "do",
+    "does", "did", "what", "which", "who", "whom", "when", "where", "why",
+    "how", "i", "my", "me", "we", "our", "us", "you", "your", "it", "its",
+    "this", "that", "these", "those", "if", "so", "not", "no", "than",
+    "then", "there", "from", "into", "after", "before", "about", "should",
+    "can", "could", "would", "will", "must", "have", "has", "had", "get",
+    "got", "up", "out", "s",
+    # es
+    "el", "la", "los", "las", "de", "del", "en", "y", "que", "es", "un",
+    "una", "por", "para", "con", "se", "mi", "mis", "su", "sus", "lo", "al",
+    "como", "cuando", "donde", "cuanto", "hay", "le", "me", "tras",
+    # de
+    "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "und",
+    "im", "an", "am", "zu", "mit", "von", "bei", "fur", "ist", "wie",
+    "wann", "wo", "was", "welche", "welcher", "mein", "meine", "meinen",
+    "unser", "wir", "ich", "es", "auf", "aus", "nicht", "vor", "bis",
+])
+
+_CJK_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _fold_latin(ch: str) -> str:
+    if ord(ch) >= 0x250:
+        return ch
+    return "".join(c for c in unicodedata.normalize("NFD", ch)
+                   if not unicodedata.combining(c))
+
+
+def content_units(text: str) -> set[str]:
+    """Engine-independent content units used to audit query/note overlap:
+    accent-folded Latin words minus stopwords, plus character bigrams of
+    CJK/Hangul runs. Deliberately NOT the engine tokenizer, so the benchmark
+    does not grade itself with the thing it measures."""
+    norm = "".join(_fold_latin(c) for c in unicodedata.normalize("NFKC", text).casefold())
+    units = {w for w in _WORD.findall(norm) if w not in OVERLAP_STOPWORDS}
+    for run in _CJK_RUN.findall(norm):
+        if len(run) == 1:
+            units.add(run)
+        else:
+            units.update(run[i:i + 2] for i in range(len(run) - 1))
+    return units
+
+
+@dataclass(frozen=True)
+class Note:
+    slug: str
+    title: str
+    body: str
+    lang: str
+    split: str = "pad"
+    queries: dict[str, str] = field(default_factory=dict)
+    siblings: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class Query:
+    text: str
+    gold: str
+    kind: str
+    lang: str
+    split: str
+    siblings: frozenset[str] = frozenset()
+
+
+# (title, body, exact, para, mixed)
+_EN: list[tuple[str, str, str, str, str]] = [
+    ("Orchard VPN rollout",
+     "The Orchard VPN switched to split tunneling on March 3. Only traffic to the 10.40 subnet goes through the tunnel; video calls go direct to cut latency.",
+     "Orchard VPN split tunneling subnet",
+     "why do meetings no longer route over the private corporate link?",
+     "화상회의가 사내망 안 거치는 이유 VPN"),
+    ("Quarterly spending freeze",
+     "Finance froze discretionary spending for Q3 at Halvard Labs. Conference travel above 800 dollars now needs sign-off from Ines Borowczyk.",
+     "Halvard discretionary spending freeze Q3",
+     "who must approve an expensive trip to an industry event?",
+     "학회 출장 비용 승인 누가 해? travel"),
+    ("Sourdough starter feeding",
+     "Feed the rye starter named Gus twice a day at a one to one ratio of flour and water. It peaks about six hours after feeding in a warm kitchen.",
+     "rye starter Gus feeding ratio flour",
+     "how often should I nourish the bread culture and when is it most active?",
+     "빵 발효종 언제 가장 활발해? starter"),
+    ("Knee physiotherapy plan",
+     "After the meniscus tear, the physiotherapist Dr. Tomasz Wrenfield prescribed wall sits and step-downs three times weekly. No running until week eight.",
+     "meniscus tear Wrenfield wall sits",
+     "when can I jog again after hurting my leg cartilage?",
+     "무릎 다친 뒤 달리기 언제부터 가능? running"),
+    ("Billing database migration",
+     "The billing service moves from MySQL to Postgres 17 over the weekend of June 14. Read replicas stay on the old cluster until checksums match.",
+     "billing MySQL Postgres 17 migration June 14",
+     "when does the payments backend change its storage engine?",
+     "결제 서비스 데이터베이스 이전 일정 Postgres"),
+    ("Flat lease renewal",
+     "The lease on the Marlowe Street flat ends on August 31. The landlord offered a 4 percent rent increase for a two year renewal; counteroffer at 2 percent.",
+     "Marlowe Street lease renewal rent increase",
+     "how much pricier will my housing get if I stay longer?",
+     "월세 인상 재계약 협상 lease"),
+    ("Cat vaccination schedule",
+     "Pip the tabby is due for her rabies booster in November at the Fernhill vet clinic. She needs to fast for four hours before the appointment.",
+     "Pip rabies booster Fernhill vet",
+     "must my kitten skip food ahead of getting her shots?",
+     "고양이 예방접종 전에 굶겨야 해? vet"),
+    ("Ingest pod eviction incident",
+     "On May 2 the ingest pods were evicted because node memory pressure crossed 90 percent. We raised requests to 2 GiB and added a PodDisruptionBudget.",
+     "ingest pods evicted memory pressure PodDisruptionBudget",
+     "why did the containers get kicked off the servers in early spring?",
+     "컨테이너가 메모리 부족으로 쫓겨난 장애 원인 pods"),
+    ("Nana's birthday gift",
+     "For Nana Odile's 90th birthday we ordered a framed map of the village of Saint-Aubrac where she grew up. Pickup from the framer on the 12th.",
+     "Nana Odile 90th birthday framed map Saint-Aubrac",
+     "what present did we pick for granny's big anniversary?",
+     "할머니 생신 선물 뭐로 했지? birthday"),
+    ("Standing desk ergonomics",
+     "Set the desk at 104 centimeters when standing and switch posture every forty minutes. The monitor top should sit at eye level to avoid neck strain.",
+     "standing desk 104 centimeters posture",
+     "how tall should my workstation be so my back stays comfortable?",
+     "책상 높이 몇 cm로 맞춰야 목이 안 아파? desk"),
+    ("Payment gateway key rotation",
+     "Production API keys for the Lumen payment gateway rotate every 60 days. The rotation script lives in ops/rotate_lumen.py and posts to the secops channel.",
+     "Lumen gateway API keys rotation script",
+     "how frequently do we replace the credentials used for charging customers?",
+     "결제 게이트웨이 키 교체 주기 API"),
+    ("Tomato blight",
+     "Late blight showed up on the Brandywine tomatoes after the humid week. Remove affected leaves, water only at the base, and spray copper fungicide weekly.",
+     "late blight Brandywine tomatoes copper fungicide",
+     "my vegetable plants have brown spotted foliage, what should I do?",
+     "토마토 잎에 병 생겼을 때 대처법 tomatoes"),
+    ("Engineer onboarding checklist",
+     "New engineers at Halvard get laptop access on day one, pair with a buddy for two weeks, and ship a small fix before the end of week one.",
+     "Halvard onboarding new engineers buddy laptop",
+     "what should a fresh hire accomplish during their first few days?",
+     "신입 개발자 첫 주에 해야 할 일 onboarding"),
+    ("Marathon taper",
+     "Three weeks before the Ridgeback Marathon, cut weekly mileage by 40 percent and keep one short tempo session. Carb load the final two days.",
+     "Ridgeback Marathon taper weekly mileage",
+     "how should I reduce my jogging volume ahead of the big race?",
+     "마라톤 전에 훈련량 얼마나 줄여? taper"),
+    ("Printer toner reorder",
+     "The office laser printer on floor 3 uses TN-770 toner. Reorder when the tray warning shows; the supply cabinet key is with reception.",
+     "TN-770 toner floor 3 laser printer",
+     "where do I get ink cartridges when the copier runs low?",
+     "프린터 토너 떨어지면 어디서 받아? toner"),
+    ("Japan itinerary",
+     "Kyoto for three nights starting October 9, then the Kumano Kodo trail for two days. Rail passes are already booked; the ryokan needs cash payment.",
+     "Kyoto Kumano Kodo itinerary rail passes",
+     "which ancient pilgrimage walk are we doing on our autumn holiday?",
+     "일본 여행 료칸 결제 현금만 돼? Kyoto"),
+    ("Code review etiquette",
+     "Reviewers at Halvard respond within one business day. Prefix optional suggestions with nit, and never block a merge on style alone; the linter owns style.",
+     "code review nit linter style merge",
+     "how quickly are colleagues expected to give feedback on pull requests?",
+     "코드 리뷰 응답 기한 언제까지? review"),
+    ("Theo allergy notes",
+     "Theo is allergic to cashews and pistachios but tolerates peanuts. Keep the epinephrine pen in the blue backpack pocket at all times.",
+     "Theo cashews pistachios epinephrine pen",
+     "which nuts must my son avoid and where is his emergency injector kept?",
+     "아이 견과류 알레르기 주사 어디 있어? epinephrine"),
+    ("Rooftop solar output",
+     "The rooftop array produced 412 kWh in July, down 9 percent from last year. Cleaning the panels in spring restored most of the loss last time.",
+     "rooftop array 412 kWh July panels",
+     "why is our home electricity generation lower this summer?",
+     "태양광 발전량 줄어든 이유 panels"),
+    ("Data engineer hiring loop",
+     "The data engineer loop has four stages: recruiter screen, SQL exercise, system design with Priya Castellane, and a values chat. Offers go out within five days.",
+     "data engineer loop SQL exercise Castellane",
+     "what interview rounds exist for the analytics pipeline role?",
+     "데이터 엔지니어 면접 단계 몇 개야? interview"),
+    ("Wine cellar climate",
+     "Keep the cellar between 12 and 14 degrees Celsius with humidity near 65 percent. The 2016 Barolo bottles should rest on their side until 2030.",
+     "cellar Barolo 2016 humidity Celsius",
+     "what climate conditions preserve my collection of reds?",
+     "와인 보관 온도 습도 몇 도? cellar"),
+    ("Laptop backup routine",
+     "Time Machine backs up to the Synology NAS nightly at 2 am, and a weekly encrypted copy goes to Backblaze B2. Test a restore every quarter.",
+     "Time Machine Synology NAS Backblaze B2 restore",
+     "how are my computer files protected against disk failure?",
+     "노트북 백업 어디로 돼? Synology"),
+    ("Board deck prep",
+     "The October board deck needs the runway slide updated to 19 months and a churn chart by segment. Deliver drafts to Aurelio Maddox by the 20th.",
+     "board deck runway 19 months Aurelio Maddox",
+     "what must be ready for the investors' session next month?",
+     "이사회 발표 자료 준비 사항 board"),
+    ("Gravel bike maintenance",
+     "Chain lubed every 300 kilometers; brake pads on the gravel bike swapped at 2400 km. Tire pressure 38 psi front and 40 psi rear for mixed terrain.",
+     "gravel bike tire pressure 38 psi brake pads",
+     "how much air should I put in my wheels for dirt roads?",
+     "자전거 바퀴 공기압 얼마로? gravel"),
+    ("Postmortem template",
+     "Every postmortem lists timeline, customer impact, root cause, and three action items with owners. Blameless tone; publish within five business days.",
+     "postmortem template blameless action items",
+     "what sections do we include when writing up an outage review?",
+     "장애 회고 문서에 뭐 들어가야 해? postmortem"),
+    ("Houseplant watering",
+     "The fiddle leaf fig gets water only when the top five centimeters of soil are dry, roughly every ten days. The calathea prefers filtered water and misting.",
+     "fiddle leaf fig calathea watering soil",
+     "how often should I hydrate my indoor greenery?",
+     "화분 물 얼마나 자주 줘? fig"),
+    ("Feature flag cleanup",
+     "Flags older than 90 days in LaunchDarkly get a cleanup ticket automatically. The owner removes the dead branch in code before archiving the flag.",
+     "LaunchDarkly flags older than 90 days cleanup ticket",
+     "what happens to stale toggles in our product configuration?",
+     "오래된 기능 플래그 정리 규칙 flags"),
+    ("Freelance tax filing",
+     "Freelance income from the Veridian translation gigs must be declared by May 31. Keep invoices in the 2025 taxes folder and claim the home office deduction.",
+     "Veridian freelance income May 31 deduction",
+     "when is the deadline for reporting my side-job earnings to the government?",
+     "프리랜서 소득 신고 마감일 invoices"),
+    ("Espresso dial-in",
+     "For the Ethiopian Guji beans use 18 grams in, 40 grams out, around 28 seconds at 93 degrees. Grind one step finer if shots run fast.",
+     "Guji espresso 18 grams 40 grams 28 seconds",
+     "what brew recipe works for the African coffee we just bought?",
+     "에티오피아 원두 에스프레소 레시피 grind"),
+    ("Mobile release train",
+     "The iOS and Android apps ship every second Tuesday. Code freeze is the Thursday before; hotfixes skip the train only with approval from the release captain.",
+     "mobile release train code freeze captain",
+     "how often do phone app updates go live and when do we stop merging?",
+     "앱 배포 주기와 코드 프리즈 요일 iOS"),
+    ("Emergency contacts",
+     "Neighbor Halina Szpak holds a spare key to the house. In an emergency call her first, then uncle Bram at the number saved under family.",
+     "Halina Szpak spare key emergency",
+     "who can let me in if I lock myself outside?",
+     "집 열쇠 잃어버리면 누구한테 연락해? key"),
+    ("Search latency regression",
+     "Search p95 latency jumped from 180 to 640 milliseconds after the ranking service upgrade. Rolled back on Sept 4; root cause was an unbounded synonym expansion.",
+     "search p95 latency 640 milliseconds synonym expansion",
+     "why did queries become sluggish after we changed the ordering component?",
+     "검색 응답 느려진 원인 latency"),
+    ("Guitar practice routine",
+     "Twenty minutes of scales with a metronome at 80 bpm, then fingerpicking patterns from Travis picking studies, and finally one full song.",
+     "metronome 80 bpm Travis picking scales",
+     "how should I structure my daily session on the six-string?",
+     "기타 연습 루틴 어떻게 해? metronome"),
+    ("Nimbusly hosting contract",
+     "The Nimbusly hosting contract auto-renews on January 1 unless cancelled 60 days prior. Negotiate committed-use discounts before November.",
+     "Nimbusly hosting contract auto-renews January 1",
+     "when must we give notice to avoid rolling over the cloud agreement?",
+     "호스팅 계약 자동 갱신 해지 기한 contract"),
+    ("Car service history",
+     "The 2019 hatchback had its timing belt replaced at 96000 kilometers at Kessler Motors. Next oil change due at 105000 km.",
+     "hatchback timing belt Kessler Motors 96000",
+     "when does my vehicle next need fresh engine lubricant?",
+     "자동차 엔진오일 교체 언제? oil"),
+    ("Autumn reading list",
+     "Autumn reading: a history of the Hanseatic League, a novel by Ilse Varga, and a book on sleep science. Finish one per month.",
+     "Hanseatic League Ilse Varga reading",
+     "which books did I plan to get through before winter?",
+     "가을에 읽을 책 목록 novel"),
+    ("On-call handoff",
+     "On-call rotates every Monday at 10 am. The outgoing engineer writes a handoff note with open alerts, silenced monitors, and any pending deploys.",
+     "on-call handoff note silenced monitors alerts",
+     "what should I tell the next person who carries the pager?",
+     "당직 인수인계에 뭘 적어야 해? on-call"),
+    ("Smoke alarm batteries",
+     "Replace the nine volt batteries in all four smoke alarms every March, and test each detector monthly with the button.",
+     "smoke alarms nine volt batteries March",
+     "how do I keep the fire sensors in the house working?",
+     "화재 경보기 배터리 교체 시기 smoke"),
+    ("Small business churn",
+     "Churn among small business accounts rose to 6.1 percent in Q2, mostly after the price change. Annual plans churned far less than monthly plans.",
+     "churn small business accounts Q2 price change",
+     "why are more little companies cancelling their subscriptions?",
+     "소규모 고객 이탈률 증가 원인 churn"),
+    ("Best man speech",
+     "Best man speech for Callum: open with the canoe story from 2012, thank both families, keep it under five minutes, and end with a toast to Marisol.",
+     "best man speech Callum canoe story Marisol",
+     "what anecdote should I tell when I talk at my friend's marriage celebration?",
+     "결혼식 축사 어떤 이야기로 시작해? speech"),
+]
+
+_KO: list[tuple[str, str, str, str, str]] = [
+    ("김장 계획",
+     "11월 셋째 주 토요일에 외갓집에서 김장을 한다. 절임배추 40킬로를 주문했고 새우젓은 광천 시장에서 산다.",
+     "절임배추 40킬로 새우젓 광천",
+     "겨울 대비해서 온 가족이 모여 반찬 담그는 날이 언제야?",
+     "kimchi making day 외갓집"),
+    ("전세 보증금 반환",
+     "이사 나가는 날 집주인이 보증금 2억 3천을 돌려주기로 했다. 늦어지면 임차권등기명령을 신청한다.",
+     "보증금 반환 임차권등기명령",
+     "살던 곳 비워줄 때 맡긴 돈을 못 받으면 어떻게 하지?",
+     "rental deposit refund 늦어지면"),
+    ("고양이 사료 변경",
+     "나비가 설사를 해서 사료를 연어 기반 저알러지 사료로 바꿨다. 일주일에 걸쳐 기존 사료와 섞어서 천천히 전환한다.",
+     "나비 연어 저알러지 사료",
+     "반려묘 먹이를 한 번에 확 바꿔도 되나?",
+     "cat food switch 설사"),
+    ("사내 보안 교육",
+     "모든 직원은 매년 6월까지 피싱 대응 보안 교육을 이수해야 한다. 미이수자는 사내 VPN 접속이 제한된다.",
+     "피싱 대응 보안 교육 6월 이수",
+     "해킹 메일 관련 연수 안 들으면 무슨 불이익이 있어?",
+     "security training deadline 직원"),
+    ("허리 디스크 운동",
+     "정형외과에서 요추 4번 5번 디스크 진단을 받았다. 맥켄지 신전 운동을 하루 세 번 하고 오래 앉아 있지 않는다.",
+     "요추 디스크 맥켄지 신전 운동",
+     "등 아래쪽 통증 때문에 병원에서 권한 스트레칭이 뭐였지?",
+     "lower back pain exercise 하루"),
+    ("제주 여행 숙소",
+     "제주 여행은 10월 첫째 주, 애월 바닷가 펜션에 3박 예약했다. 렌터카는 공항에서 인수하고 연료는 가득 채워 반납한다.",
+     "애월 바닷가 펜션 3박 렌터카",
+     "섬으로 가는 가을 휴가 때 어디서 묵기로 했어?",
+     "Jeju trip accommodation 애월"),
+    ("분기 매출 보고",
+     "3분기 매출은 42억으로 목표 대비 108퍼센트를 달성했다. 신규 고객사 유입이 컸고 해외 매출 비중은 18퍼센트다.",
+     "3분기 매출 42억 108퍼센트",
+     "지난 석 달 동안 실적이 계획보다 좋았어?",
+     "Q3 revenue target 달성"),
+    ("아이 수영 강습",
+     "하준이는 화요일과 목요일 오후 5시에 구민체육센터에서 수영을 배운다. 수경과 수모는 가방 앞주머니에 있다.",
+     "하준 구민체육센터 수영",
+     "아들 물놀이 레슨은 무슨 요일이야?",
+     "swimming lesson schedule 하준"),
+    ("배치 서버 디스크 장애",
+     "로그 파일이 쌓여 배치 서버 디스크 사용량이 98퍼센트에 도달했다. logrotate 설정을 추가하고 보관 기간을 14일로 줄였다.",
+     "배치 서버 디스크 98퍼센트 logrotate",
+     "기록이 너무 많이 불어나서 저장 공간이 꽉 찼던 문제 어떻게 해결했지?",
+     "disk full incident 로그"),
+    ("아버지 건강검진",
+     "아버지 건강검진은 11월 8일 오전 8시 강남 검진센터다. 전날 저녁 9시부터 금식하고 대장내시경 약을 복용한다.",
+     "강남 검진센터 대장내시경 금식",
+     "아빠 병원 검사 앞둔 밤에 뭘 조심해야 해?",
+     "health checkup fasting 아버지"),
+    ("신규 입사자 장비",
+     "신규 입사자는 첫날 맥북과 모니터 두 대를 지급받는다. 계정 발급은 IT팀 김서연 매니저에게 요청한다.",
+     "신규 입사자 맥북 모니터 김서연",
+     "새로 온 동료 컴퓨터는 누구한테 부탁하면 돼?",
+     "new hire laptop account 요청"),
+    ("텃밭 고추 재배",
+     "주말농장 텃밭에 청양고추 모종 12포기를 심었다. 장마 전에 지지대를 세우고 탄저병 예방약을 뿌린다.",
+     "청양고추 모종 12포기 탄저병",
+     "매운 채소 키울 때 비 많이 오는 철 오기 전 할 일?",
+     "pepper plants rainy season 텃밭"),
+    ("주택담보대출 금리",
+     "주담대 변동금리가 4.2퍼센트로 올라 고정금리 3.9퍼센트 상품으로 갈아타기로 했다. 중도상환수수료는 면제 기간이 지났다.",
+     "주담대 변동금리 고정금리 갈아타기",
+     "집 살 때 빌린 돈 이자 조건을 바꾸기로 한 이유?",
+     "mortgage rate fixed 변동"),
+    ("회의록 작성 규칙",
+     "모든 회의록은 결정 사항, 담당자, 기한을 맨 위에 적는다. 회의 후 24시간 안에 노션에 올린다.",
+     "회의록 결정 사항 담당자 노션",
+     "미팅 끝나고 정리한 문서는 언제까지 공유해야 돼?",
+     "meeting notes upload deadline 노션"),
+    ("강아지 산책 시간",
+     "보리는 아침 7시와 저녁 8시에 30분씩 산책한다. 여름에는 아스팔트가 뜨거우니 해가 진 뒤에 나간다.",
+     "보리 산책 아침 7시 아스팔트",
+     "더운 계절에 반려견 데리고 밖에 나가기 좋은 때는?",
+     "dog walk summer 보리"),
+    ("결혼 기념일 저녁",
+     "결혼 10주년 기념으로 한남동 프렌치 레스토랑 르블랑을 12월 14일 저녁 7시에 예약했다. 창가 자리를 요청했다.",
+     "10주년 한남동 르블랑 예약",
+     "배우자와의 특별한 날 식사는 어디서 먹기로 했지?",
+     "anniversary dinner restaurant 한남동"),
+    ("상품 API 캐시",
+     "상품 조회 API에 레디스 캐시를 붙여 응답 시간을 320밀리초에서 45밀리초로 줄였다. 재고 변경 시 캐시를 무효화한다.",
+     "상품 조회 API 레디스 캐시 무효화",
+     "제품 정보 가져오는 속도를 어떻게 빠르게 만들었어?",
+     "Redis cache response time 상품"),
+    ("딸 피아노 레슨",
+     "딸 서윤이는 수요일 오후 4시에 동네 음악학원에서 피아노를 배운다. 이번 달 과제는 체르니 30번 7번 곡이다.",
+     "서윤 체르니 30번 피아노",
+     "딸이 건반 악기 수업에서 요즘 연습하는 곡은?",
+     "piano lesson homework 서윤"),
+    ("이사 준비",
+     "이사는 3월 22일, 포장이사 업체는 한빛익스프레스로 정했다. 전입신고와 인터넷 이전 신청을 일주일 전에 한다.",
+     "포장이사 한빛익스프레스 전입신고",
+     "새 집으로 옮기기 전 처리해야 할 행정 절차는?",
+     "moving checklist address 전입"),
+    ("배포 롤백 절차",
+     "운영 배포 후 오류율이 2퍼센트를 넘으면 즉시 이전 버전으로 롤백한다. 롤백 판단은 당직 엔지니어가 한다.",
+     "배포 롤백 오류율 2퍼센트 당직",
+     "새 버전 올렸다가 에러가 많아지면 누가 되돌릴지 정해?",
+     "rollback error rate threshold 배포"),
+    ("다이어트 식단",
+     "점심은 현미밥 반 공기와 닭가슴살 샐러드로 먹고 저녁 7시 이후에는 먹지 않는다. 주 3회 근력 운동을 병행한다.",
+     "현미밥 닭가슴살 샐러드",
+     "체중 줄이려고 정한 끼니 규칙이 뭐였지?",
+     "diet plan dinner cutoff 현미밥"),
+    ("자동차 보험 갱신",
+     "자동차 보험이 9월 30일 만료되어 온라인 다이렉트 상품으로 갱신했다. 블랙박스 할인과 마일리지 특약을 넣었다.",
+     "자동차 보험 다이렉트 블랙박스 마일리지 특약",
+     "차량 관련 계약 새로 할 때 어떤 혜택을 추가했어?",
+     "car insurance discount 블랙박스"),
+    ("하반기 워크숍",
+     "하반기 워크숍은 11월 13일부터 1박 2일로 가평 리조트에서 한다. 주제는 제품 로드맵과 팀 간 협업이다.",
+     "하반기 워크숍 가평 리조트",
+     "직원들이 함께 떠나는 연수는 어디로 가?",
+     "company offsite location 가평"),
+    ("어금니 치료",
+     "왼쪽 아래 어금니 신경치료를 세 번에 나눠 받고 마지막에 크라운을 씌운다. 치료 중에는 딱딱한 음식을 피한다.",
+     "어금니 신경치료 크라운",
+     "이 뿌리 쪽 시술 받는 동안 조심할 먹거리는?",
+     "dental root canal 어금니"),
+    ("개인정보 처리 방침",
+     "회원 탈퇴 후 개인정보는 30일 뒤 파기하고, 결제 기록은 전자상거래법에 따라 5년 보관한다.",
+     "회원 탈퇴 개인정보 파기 전자상거래법",
+     "사용자가 계정을 없애면 데이터는 얼마나 남겨 둬?",
+     "privacy policy data retention 탈퇴"),
+    ("베란다 상추",
+     "베란다 화분에 상추와 깻잎을 키운다. 이틀에 한 번 물을 주고 한 달에 한 번 액체 비료를 준다.",
+     "베란다 상추 깻잎 액체 비료",
+     "집 안에서 기르는 채소 영양제는 얼마나 자주 줘?",
+     "balcony garden watering 상추"),
+    ("영어 회화 스터디",
+     "매주 토요일 오전 10시에 강남역 카페에서 영어 회화 스터디를 한다. 이번 주 주제는 여행 중 겪은 문제 해결이다.",
+     "영어 회화 스터디 강남역",
+     "외국어 말하기 모임은 언제 어디서 만나?",
+     "English speaking study 토요일"),
+    ("노트북 배터리 교체",
+     "회사 노트북 배터리 성능이 72퍼센트로 떨어져 서비스센터에서 교체를 신청했다. 수리 기간은 3일이고 대여 장비를 받는다.",
+     "노트북 배터리 72퍼센트 서비스센터",
+     "컴퓨터 충전이 빨리 닳아서 맡겼는데 며칠 걸려?",
+     "laptop battery repair 기간"),
+    ("추석 선물 목록",
+     "추석 선물로 거래처 20곳에 한우 세트, 팀원들에게는 과일 상자를 보낸다. 배송은 9월 10일까지 완료한다.",
+     "추석 거래처 한우 세트 과일 상자",
+     "가을 연휴에 협력 업체에 뭘 보내기로 했어?",
+     "holiday gift partners 한우"),
+    ("수면 습관 개선",
+     "밤 11시에 잠자리에 들고 자기 전 한 시간은 휴대폰을 보지 않는다. 오후 2시 이후에는 커피를 마시지 않는다.",
+     "수면 습관 밤 11시 휴대폰",
+     "푹 쉬려고 저녁에 피하기로 한 것들은?",
+     "sleep routine caffeine 휴대폰"),
+    ("집계 배치 지연",
+     "매일 새벽 3시 집계 배치가 원천 테이블 적재 지연으로 두 시간 늦게 끝났다. 선행 작업 완료 센서를 추가했다.",
+     "집계 배치 원천 테이블 적재 센서",
+     "밤사이 도는 통계 작업이 늦게 마무리됐던 이유?",
+     "ETL delay root cause 새벽"),
+    ("헌혈 기록",
+     "지난달 전혈 헌혈을 했고 다음 헌혈 가능일은 8주 뒤인 12월 2일이다. 헌혈증은 서랍에 모아 둔다.",
+     "전혈 헌혈 가능일 헌혈증",
+     "피를 다시 기부할 수 있는 날짜가 언제야?",
+     "blood donation next date 헌혈"),
+    ("고객 문의 응대",
+     "고객 문의는 영업일 기준 4시간 안에 1차 답변한다. 환불 요청은 팀장 승인 후 처리한다.",
+     "고객 문의 4시간 1차 답변 환불",
+     "손님이 돈을 돌려 달라고 하면 누구 허락이 필요해?",
+     "customer support refund approval 팀장"),
+    ("지리산 종주 장비",
+     "지리산 종주를 위해 등산화를 새로 샀고 스틱 두 개와 헤드랜턴을 챙긴다. 대피소 예약은 두 달 전에 열린다.",
+     "지리산 종주 등산화 헤드랜턴 대피소",
+     "산 여러 봉우리를 이어 걷는 산행 때 숙박은 언제 잡아?",
+     "hiking gear shelter booking 지리산"),
+    ("구독 서비스 정리",
+     "넷플릭스, 유튜브 프리미엄, 클라우드 저장소 구독료가 합쳐 월 4만 2천 원이다. 잘 안 보는 서비스는 해지한다.",
+     "넷플릭스 유튜브 프리미엄 구독료",
+     "매달 빠져나가는 정기 결제 중에 뭘 끊을까?",
+     "subscription cost cleanup 넷플릭스"),
+    ("파이썬 코드 컨벤션",
+     "파이썬 코드는 ruff로 포맷하고 함수에는 타입 힌트를 필수로 단다. 테스트 없는 PR은 머지하지 않는다.",
+     "ruff 포맷 타입 힌트 필수",
+     "검증 코드가 빠진 변경 요청은 합칠 수 있어?",
+     "coding convention type hints 파이썬"),
+    ("어머니 칠순 잔치",
+     "어머니 칠순 잔치를 5월 17일 점심에 수원 한정식집에서 연다. 친척 32명이 참석하고 떡은 따로 맞춘다.",
+     "칠순 잔치 수원 한정식 32명",
+     "엄마 일흔 번째 생일 모임에 몇 명 와?",
+     "mom birthday party guests 칠순"),
+    ("재택근무 규정",
+     "재택근무는 주 2회까지 가능하고 화요일은 전원 출근한다. 재택 시 오전 10시부터 오후 4시까지는 메신저 응답이 필수다.",
+     "재택근무 주 2회 화요일 출근",
+     "집에서 일하는 날에 연락을 꼭 받아야 하는 시간대는?",
+     "remote work policy office day 재택"),
+    ("청소기 필터",
+     "무선 청소기 헤파 필터는 석 달마다 교체하고 먼지통은 매번 비운다. 필터 모델명은 V15-H다.",
+     "무선 청소기 헤파 필터 V15-H",
+     "진공 흡입기의 거름망은 얼마나 자주 새것으로 바꿔?",
+     "vacuum filter replacement 청소기"),
+    ("개발 블로그 계획",
+     "개발 블로그에는 매달 두 편의 글을 올린다. 이번 달 주제는 쿠버네티스 비용 절감과 사내 검색 시스템 개선이다.",
+     "개발 블로그 쿠버네티스 비용 절감",
+     "기술 글은 한 달에 몇 개나 쓰기로 했어?",
+     "tech blog topics this month 블로그"),
+]
+
+_JA: list[tuple[str, str, str, str, str]] = [
+    ("引っ越しの手続き",
+     "来月十五日に横浜から仙台へ引っ越す。転出届は区役所で提出し、電気とガスの解約は一週間前までに済ませる。",
+     "転出届 区役所 電気 ガス 解約",
+     "住まいを移す前に自治体へ出す書類は？",
+     "moving checklist 手続き"),
+    ("犬の予防接種",
+     "柴犬のコタロウは四月に狂犬病の予防接種を受ける。動物病院は駅前のさくら動物クリニックで、予約は電話のみ。",
+     "コタロウ 狂犬病 さくら動物クリニック",
+     "うちのペットのワクチンはいつどこで打つの？",
+     "dog vaccine appointment 柴犬"),
+    ("新人研修",
+     "新入社員研修は四月一日から三週間、本社の八階会議室で行う。最終日にチームごとの発表がある。",
+     "新入社員研修 三週間 八階会議室",
+     "春に入った人たちの教育期間はどれくらい？",
+     "onboarding training schedule 発表"),
+    ("ラーメンの作り方",
+     "豚骨スープは十二時間煮込み、麺は細麺を使う。仕上げに黒マー油と刻みねぎをのせる。",
+     "豚骨スープ 細麺 黒マー油",
+     "濃厚なだしを取るにはどれだけ火にかける？",
+     "ramen broth hours 豚骨"),
+    ("サーバー障害報告",
+     "九月三日の午前二時、決済APIのサーバーがメモリ不足で停止した。原因はキャッシュの肥大化で、上限を設定して復旧した。",
+     "決済API メモリ不足 キャッシュ 肥大化",
+     "夜中に支払いの仕組みが落ちた理由は？",
+     "payment server outage 原因"),
+    ("健康診断",
+     "年に一度の健康診断は十月二十日。前日の夜九時以降は絶食し、当日は朝の水も控える。",
+     "健康診断 十月二十日 絶食",
+     "毎年の体の検査を控えて口にしてはいけないのはいつから？",
+     "health check fasting 前日"),
+    ("英会話レッスン",
+     "毎週水曜の夜七時にオンラインで英会話レッスンを受けている。講師はカナダ出身のエミリー先生。",
+     "英会話レッスン 水曜 エミリー先生",
+     "外国語を話す練習はいつ誰とやっている？",
+     "English lesson teacher 水曜"),
+    ("家計簿の見直し",
+     "食費が月五万円を超えたので、外食を週一回までに減らす。スマホの通信プランも格安SIMに切り替える。",
+     "食費 月五万円 外食 格安SIM",
+     "毎月の出費を抑えるために決めたことは？",
+     "budget cut phone plan 外食"),
+    ("京都旅行",
+     "十一月の連休に京都へ行き、嵐山の旅館に二泊する。紅葉の時期なので早朝に竹林を歩く予定。",
+     "嵐山 旅館 二泊 竹林",
+     "秋の休みに古都で泊まる場所はどこ？",
+     "Kyoto trip hotel 嵐山"),
+    ("コードレビューの基準",
+     "レビューは二営業日以内に返す。テストのないプルリクエストは差し戻し、命名の指摘はnitと明記する。",
+     "レビュー 二営業日 差し戻し nit",
+     "検証が付いていない変更依頼はどう扱う？",
+     "code review rules テスト"),
+    ("ベランダ菜園",
+     "ベランダでミニトマトとバジルを育てている。夏は朝夕二回水をやり、月に一度液体肥料を与える。",
+     "ミニトマト バジル 液体肥料",
+     "家で栽培している野菜に栄養剤はどのくらいの頻度であげる？",
+     "balcony garden fertilizer バジル"),
+    ("車検",
+     "車検の期限は来年二月。ディーラーで見積もりを取り、ブレーキパッドの交換も合わせて依頼する。",
+     "車検 ディーラー ブレーキパッド",
+     "自動車の定期点検はいつまでに受ける必要がある？",
+     "car inspection deadline 車検"),
+    ("読書会",
+     "月末の土曜日に駅前のカフェで読書会を開く。今月の課題本は山吹ハルの長編小説。",
+     "読書会 課題本 山吹ハル",
+     "本について語り合う集まりはいつどこで？",
+     "book club this month 読書会"),
+    ("在宅勤務ルール",
+     "在宅勤務は週三日まで。火曜日と木曜日は全員出社し、在宅中は十時から十六時までチャットに即応する。",
+     "在宅勤務 週三日 全員出社",
+     "家で働く日に連絡を必ず返すべき時間帯は？",
+     "remote work policy 出社"),
+    ("睡眠改善",
+     "夜十一時には布団に入り、寝る一時間前からスマホを見ない。午後三時以降はコーヒーを飲まない。",
+     "布団 スマホ コーヒー 午後三時",
+     "ぐっすり眠るために夕方以降に避けていることは？",
+     "sleep routine caffeine 布団"),
+    ("結婚式のスピーチ",
+     "友人の健太の結婚式で乾杯の挨拶をする。大学時代の山登りの話から始め、三分以内にまとめる。",
+     "健太 結婚式 乾杯 挨拶 山登り",
+     "仲間の披露宴で話すとき、どんな思い出から入る？",
+     "wedding speech story 健太"),
+    ("データ移行",
+     "顧客データベースを十二月にPostgreSQLへ移行する。移行中は読み取り専用にし、差分は夜間バッチで同期する。",
+     "顧客データベース PostgreSQL 移行 読み取り専用",
+     "利用者情報の保存先を切り替える作業はいつ？",
+     "database migration schedule 顧客"),
+    ("子どもの習い事",
+     "娘のさくらは金曜の午後五時からピアノ教室に通っている。今月の練習曲はブルグミュラーの十五番。",
+     "さくら ピアノ教室 ブルグミュラー",
+     "娘が鍵盤の稽古で今弾いている曲は？",
+     "piano lesson song ピアノ"),
+    ("防災用品",
+     "防災リュックには水を三リットル、乾パン、懐中電灯、モバイルバッテリーを入れておく。半年ごとに中身を点検する。",
+     "防災リュック 乾パン 懐中電灯",
+     "地震に備えて用意した袋には何が入っている？",
+     "emergency kit contents 防災"),
+    ("サブスクの整理",
+     "動画配信と音楽配信とクラウドの月額料金が合計四千八百円になった。使っていないものは解約する。",
+     "動画配信 音楽配信 月額料金 解約",
+     "毎月引き落とされる定額サービスで何をやめる？",
+     "subscription cost cleanup 解約"),
+]
+
+_ZH: list[tuple[str, str, str, str, str]] = [
+    ("搬家准备",
+     "下个月二十日从上海搬到杭州。搬家公司定了顺风搬运，网络迁移要提前一周申请。",
+     "顺风搬运 网络迁移 杭州",
+     "换住处之前要办哪些手续？",
+     "moving company booked 杭州"),
+    ("猫咪体检",
+     "橘猫豆豆每年十月去宠物医院体检，打三联疫苗前要空腹四小时。",
+     "橘猫豆豆 三联疫苗 空腹",
+     "给家里的小动物打针以前能吃东西吗？",
+     "cat vaccine fasting 豆豆"),
+    ("季度销售报告",
+     "第三季度销售额达到三千二百万元，完成目标的百分之一百零五。海外市场占比百分之二十。",
+     "第三季度 销售额 三千二百万元",
+     "过去这段时间的业绩有没有超过计划？",
+     "Q3 revenue target 销售额"),
+    ("服务器磁盘告警",
+     "日志堆积导致批处理服务器磁盘使用率达到百分之九十七。增加了日志轮转并把保留期缩短到十四天。",
+     "批处理服务器 磁盘使用率 日志轮转",
+     "存储空间被记录文件塞满的问题是怎么解决的？",
+     "disk full alert 日志"),
+    ("减肥食谱",
+     "午餐吃糙米饭和鸡胸肉沙拉，晚上七点以后不再进食。每周三次力量训练。",
+     "糙米饭 鸡胸肉沙拉 力量训练",
+     "为了瘦下来定的吃饭规矩是什么？",
+     "diet plan dinner cutoff 糙米饭"),
+    ("年会安排",
+     "公司年会定在一月十八日晚上，在西湖边的酒店举行。每个部门准备一个节目。",
+     "年会 一月十八日 西湖 节目",
+     "员工一年一度的聚餐在哪里办？",
+     "annual party venue 年会"),
+    ("牙科治疗",
+     "左下方的臼齿要做根管治疗，分三次完成，最后戴牙冠。治疗期间避免吃硬的食物。",
+     "臼齿 根管治疗 牙冠",
+     "看牙那阵子哪些东西最好别咬？",
+     "dental root canal visits 牙冠"),
+    ("隐私政策",
+     "用户注销账号后，个人信息在三十天内删除，支付记录按法规保存五年。",
+     "注销账号 个人信息 三十天 删除",
+     "会员不用了以后资料会留多久？",
+     "privacy data retention 注销"),
+    ("学吉他",
+     "每天练习二十分钟音阶，节拍器设在八十，然后练一首完整的曲子。",
+     "音阶 节拍器 八十",
+     "弹弦乐器的日常功课怎么安排？",
+     "guitar practice routine 音阶"),
+    ("车险续保",
+     "车险九月底到期，已在网上续保，加了行车记录仪折扣和里程附加险。",
+     "车险 续保 行车记录仪 里程附加险",
+     "汽车保单更新时加了哪些优惠？",
+     "car insurance discount 续保"),
+    ("发布回滚流程",
+     "上线后错误率超过百分之二就立即回滚到上一个版本，由值班工程师决定。",
+     "错误率 回滚 值班工程师",
+     "新版本出问题时谁来拍板恢复旧版？",
+     "rollback error rate 值班"),
+    ("阳台种菜",
+     "阳台上种了生菜和小葱，两天浇一次水，每月施一次液体肥料。",
+     "生菜 小葱 液体肥料",
+     "家里养的蔬菜多久补充营养？",
+     "balcony vegetables fertilizer 生菜"),
+    ("英语口语小组",
+     "每周六上午十点在南京西路的咖啡馆参加英语口语小组，本周话题是旅行中的麻烦。",
+     "英语口语小组 南京西路 咖啡馆",
+     "练外语对话的聚会什么时候在哪里？",
+     "English speaking group 南京西路"),
+    ("笔记本电池",
+     "公司笔记本电池健康度降到百分之七十，已送到售后中心更换，维修需要三天。",
+     "笔记本电池 健康度 售后中心",
+     "电脑续航变差送修要等多久？",
+     "laptop battery repair 售后"),
+    ("中秋礼品",
+     "中秋节给二十家合作客户送月饼礼盒，给团队成员送水果箱，九月十日前寄出。",
+     "月饼礼盒 合作客户 水果箱",
+     "秋天的节日要给生意伙伴寄什么？",
+     "festival gift clients 月饼"),
+    ("睡眠习惯",
+     "晚上十一点上床，睡前一小时不看手机，下午两点以后不喝咖啡。",
+     "十一点 上床 手机 咖啡",
+     "为了休息好傍晚之后要避开什么？",
+     "sleep habit caffeine 手机"),
+    ("数据管道延迟",
+     "每天凌晨三点的汇总任务因为源表加载延迟晚了两个小时，已增加上游完成传感器。",
+     "汇总任务 源表 加载延迟 传感器",
+     "夜里跑的统计作业为什么拖晚了？",
+     "ETL delay root cause 凌晨"),
+    ("献血记录",
+     "上个月献了全血，下次可献血日期是十二月二日，献血证放在抽屉里。",
+     "全血 献血证 十二月二日",
+     "什么时候能再去捐一次？",
+     "blood donation next date 献血"),
+    ("登山装备",
+     "为了走武功山买了新登山鞋，带两根登山杖和头灯，山顶帐篷要提前一个月预订。",
+     "武功山 登山鞋 登山杖 头灯",
+     "爬山过夜的住处要多早订？",
+     "hiking gear tent booking 武功山"),
+    ("订阅清理",
+     "视频会员、音乐会员和云盘的月费加起来一百二十元，不常用的就退订。",
+     "视频会员 音乐会员 云盘 月费",
+     "每个月自动扣款的服务里停掉哪个？",
+     "subscription cleanup 月费"),
+]
+
+_ES: list[tuple[str, str, str, str, str]] = [
+    ("Renovación del pasaporte",
+     "El pasaporte de Lucía caduca en marzo. La cita en la comisaría de Chamberí es el 14 de enero; hay que llevar dos fotos y la tasa pagada.",
+     "pasaporte Lucía comisaría Chamberí cita",
+     "¿cuándo voy a sacar el nuevo documento para viajar al extranjero?",
+     "passport renewal appointment Chamberí"),
+    ("Receta de paella",
+     "Para la paella de los domingos usamos arroz bomba, azafrán y garrofón. El caldo se añade de una vez y no se remueve.",
+     "paella arroz bomba azafrán garrofón",
+     "¿qué grano y especias lleva el plato valenciano familiar?",
+     "rice dish recipe azafrán"),
+    ("Migración del servidor",
+     "El servidor de facturación pasa a la nube el fin de semana del 8 de junio. Las réplicas de lectura se mantienen hasta validar las sumas de control.",
+     "servidor facturación nube réplicas lectura",
+     "¿cuándo trasladan el sistema de cobros a otra infraestructura?",
+     "billing migration weekend servidor"),
+    ("Rodilla y fisioterapia",
+     "Tras la rotura de menisco, la fisioterapeuta Marta Quiroga pautó sentadillas en pared tres veces por semana. Nada de correr hasta la octava semana.",
+     "menisco Marta Quiroga sentadillas",
+     "¿cuándo puedo volver a trotar después de la lesión?",
+     "knee injury running menisco"),
+    ("Alquiler del piso",
+     "El contrato del piso de la calle Olmo termina el 31 de agosto. El casero propone subir el alquiler un 5 por ciento; contraoferta del 2.",
+     "calle Olmo alquiler contrato casero",
+     "¿cuánto más pagaré de vivienda si me quedo otro año?",
+     "rent increase lease Olmo"),
+    ("Vacunas del gato",
+     "Misi tiene la vacuna de la rabia en noviembre en la clínica veterinaria Albaida. Debe estar en ayunas cuatro horas antes.",
+     "Misi rabia clínica veterinaria Albaida",
+     "¿mi mascota puede comer antes del pinchazo?",
+     "cat vaccine fasting Misi"),
+    ("Presupuesto trimestral",
+     "Finanzas congeló el gasto discrecional del tercer trimestre. Los viajes a congresos de más de 800 euros necesitan la firma de Iñaki Soler.",
+     "gasto discrecional congresos Iñaki Soler",
+     "¿quién aprueba un desplazamiento caro a un evento del sector?",
+     "travel approval budget Iñaki"),
+    ("Huerto urbano",
+     "En el huerto de la azotea plantamos tomates y pimientos. Riego por goteo cada mañana y abono orgánico cada quince días.",
+     "huerto azotea goteo abono orgánico",
+     "¿con qué frecuencia alimento las hortalizas de casa?",
+     "rooftop garden watering tomates"),
+    ("Guardias del equipo",
+     "Las guardias rotan cada lunes a las diez. Quien sale deja una nota de traspaso con alertas abiertas y despliegues pendientes.",
+     "guardias nota traspaso alertas despliegues",
+     "¿qué le cuento a la siguiente persona que lleva el busca?",
+     "on-call handoff alertas"),
+    ("Declaración de la renta",
+     "Los ingresos de las traducciones para Veridia se declaran antes del 30 de junio. Las facturas están en la carpeta de impuestos 2025.",
+     "renta traducciones Veridia facturas impuestos",
+     "¿hasta qué día puedo informar a Hacienda de lo que gané aparte?",
+     "tax deadline freelance Veridia"),
+    ("Café de especialidad",
+     "Para el café de Huila usamos 18 gramos de entrada y 38 de salida en unos 27 segundos. Moler más fino si sale rápido.",
+     "Huila 18 gramos 38 segundos moler",
+     "¿qué proporción funciona con los granos colombianos nuevos?",
+     "espresso recipe grind Huila"),
+    ("Cumpleaños de la abuela",
+     "Para los 90 años de la abuela Remedios encargamos un mapa enmarcado de Villanúa, su pueblo. Recogida en la tienda el día 12.",
+     "abuela Remedios mapa enmarcado Villanúa",
+     "¿qué regalo elegimos para la gran fiesta de la yaya?",
+     "grandma birthday gift Remedios"),
+    ("Mantenimiento de la bici",
+     "Cadena engrasada cada 300 kilómetros; pastillas de freno cambiadas a los 2400. Presión de 2,6 bar delante y 2,8 detrás.",
+     "cadena engrasada pastillas freno presión",
+     "¿cuánto aire meto en las ruedas para caminos de tierra?",
+     "bike tire pressure cadena"),
+    ("Plantilla de postmortem",
+     "Cada postmortem incluye cronología, impacto en clientes, causa raíz y tres acciones con responsable. Tono sin culpas; se publica en cinco días hábiles.",
+     "postmortem cronología causa raíz acciones",
+     "¿qué apartados lleva el informe tras una caída del servicio?",
+     "incident review template causa"),
+    ("Clases de guitarra",
+     "Veinte minutos de escalas con metrónomo a 80, luego arpegios de fingerpicking y al final una canción entera.",
+     "escalas metrónomo 80 arpegios",
+     "¿cómo organizo mi práctica diaria con las seis cuerdas?",
+     "guitar practice routine escalas"),
+    ("Contrato de hosting",
+     "El contrato con Nubalia se renueva solo el 1 de enero salvo cancelación con 60 días de antelación.",
+     "contrato Nubalia renueva cancelación antelación",
+     "¿hasta qué fecha hay que avisar para no prorrogar el acuerdo de la nube?",
+     "hosting contract auto renewal Nubalia"),
+    ("Alergias de Teo",
+     "Teo es alérgico a los anacardos y los pistachos pero tolera los cacahuetes. El autoinyector va siempre en el bolsillo azul de la mochila.",
+     "Teo anacardos pistachos autoinyector",
+     "¿qué frutos secos debe evitar mi hijo y dónde guarda su medicación de urgencia?",
+     "nut allergy injector Teo"),
+    ("Placas solares",
+     "Las placas del tejado produjeron 395 kWh en julio, un 8 por ciento menos que el año pasado. Limpiarlas en primavera recuperó casi toda la pérdida.",
+     "placas tejado 395 kWh julio",
+     "¿por qué generamos menos electricidad en casa este verano?",
+     "solar panels output julio"),
+    ("Revisión del coche",
+     "Al utilitario de 2019 le cambiaron la correa de distribución a los 96.000 km en Talleres Beltrán. El próximo cambio de aceite toca a los 105.000.",
+     "correa distribución Talleres Beltrán",
+     "¿cuándo necesita el vehículo lubricante nuevo en el motor?",
+     "car service oil change Beltrán"),
+    ("Discurso de boda",
+     "Discurso de padrino para Álvaro: empezar con la historia de la canoa de 2012, agradecer a las familias, menos de cinco minutos y brindar por Marisa.",
+     "discurso padrino Álvaro canoa Marisa",
+     "¿qué anécdota cuento al hablar en el enlace de mi amigo?",
+     "wedding speech story Álvaro"),
+]
+
+_DE: list[tuple[str, str, str, str, str]] = [
+    ("Umzug nach Leipzig",
+     "Am 15. November ziehen wir von Köln nach Leipzig. Die Ummeldung beim Bürgeramt muss innerhalb von zwei Wochen erfolgen; Strom und Internet kündigen wir vorher.",
+     "Umzug Leipzig Ummeldung Bürgeramt",
+     "welche Behördengänge stehen beim Wohnortwechsel an?",
+     "moving checklist Ummeldung"),
+    ("Hund impfen",
+     "Unser Dackel Fritz bekommt im April die Tollwutimpfung in der Tierarztpraxis am Markt. Termin nur telefonisch.",
+     "Dackel Fritz Tollwutimpfung Tierarztpraxis",
+     "wann soll das Haustier seine Spritze gegen Krankheiten erhalten?",
+     "dog vaccination appointment Fritz"),
+    ("Quartalsbericht",
+     "Im dritten Quartal lag der Umsatz bei 4,1 Millionen Euro, 106 Prozent des Ziels. Der Auslandsanteil stieg auf 22 Prozent.",
+     "dritten Quartal Umsatz 4,1 Millionen",
+     "haben wir zuletzt mehr verdient als geplant?",
+     "Q3 revenue target Umsatz"),
+    ("Rückenschmerzen",
+     "Der Orthopäde diagnostizierte einen Bandscheibenvorfall zwischen L4 und L5. Dreimal täglich McKenzie-Übungen, langes Sitzen vermeiden.",
+     "Bandscheibenvorfall L4 L5 McKenzie",
+     "welche Dehnung hat der Arzt gegen das Kreuzweh empfohlen?",
+     "lower back exercises McKenzie"),
+    ("Ausfall Zahlungsdienst",
+     "Am 3. September fiel der Zahlungsdienst um zwei Uhr nachts aus, weil der Cache unbegrenzt wuchs. Wir haben ein Speicherlimit gesetzt.",
+     "Zahlungsdienst Cache Speicherlimit",
+     "warum brach das Bezahlsystem mitten in der Nacht zusammen?",
+     "payment outage root cause Cache"),
+    ("Sauerteig füttern",
+     "Den Roggensauerteig namens Gustav zweimal täglich im Verhältnis eins zu eins mit Mehl und Wasser füttern. Er ist nach etwa sechs Stunden am aktivsten.",
+     "Roggensauerteig Gustav Mehl Wasser füttern",
+     "wie oft braucht die Brotkultur Nahrung?",
+     "sourdough starter feeding Gustav"),
+    ("Steuererklärung",
+     "Die Einnahmen aus den Übersetzungen für Veridian müssen bis 31. Juli erklärt werden. Belege liegen im Ordner Steuern 2025, Arbeitszimmer absetzen.",
+     "Steuererklärung Veridian Belege Arbeitszimmer",
+     "wann muss ich dem Finanzamt meinen Nebenverdienst spätestens melden?",
+     "tax deadline side income Veridian"),
+    ("Fahrrad Wartung",
+     "Kette alle 300 Kilometer ölen, Bremsbeläge am Gravelbike bei 2400 Kilometern getauscht. Reifendruck vorne 2,6 und hinten 2,8 bar.",
+     "Kette ölen Bremsbeläge Gravelbike Reifendruck",
+     "wie viel Luft gehört für Schotterwege in die Räder?",
+     "bike tire pressure Gravelbike"),
+    ("Einarbeitung",
+     "Neue Entwickler bekommen am ersten Tag ihren Laptop, arbeiten zwei Wochen mit einer Patin und liefern in der ersten Woche einen kleinen Fix aus.",
+     "Einarbeitung Entwickler Laptop Patin",
+     "was sollte jemand frisch Eingestelltes anfangs erreichen?",
+     "onboarding first week Entwickler"),
+    ("Weinkeller",
+     "Den Keller zwischen 12 und 14 Grad bei rund 65 Prozent Luftfeuchtigkeit halten. Die Barolo-Flaschen von 2016 liegend bis 2030 lagern.",
+     "Keller Luftfeuchtigkeit Barolo 2016",
+     "unter welchen Bedingungen bleibt meine Rotweinsammlung gut?",
+     "wine storage humidity Keller"),
+    ("Hochzeitsrede",
+     "Trauzeugenrede für Jonas: mit der Kanugeschichte von 2012 beginnen, beiden Familien danken, unter fünf Minuten bleiben und auf Lea anstoßen.",
+     "Trauzeugenrede Jonas Kanugeschichte Lea",
+     "welche Anekdote erzähle ich zuerst auf der Feier meines Freundes?",
+     "wedding speech story Jonas"),
+    ("Solaranlage",
+     "Die Dachanlage erzeugte im Juli 405 kWh, neun Prozent weniger als im Vorjahr. Eine Reinigung im Frühjahr brachte beim letzten Mal fast alles zurück.",
+     "Dachanlage Juli 405 kWh Reinigung",
+     "warum produzieren wir diesen Sommer weniger Strom?",
+     "solar output lower Dachanlage"),
+    ("Rufbereitschaft",
+     "Die Rufbereitschaft wechselt jeden Montag um zehn Uhr. Wer abgibt, schreibt eine Übergabenotiz mit offenen Alarmen und geplanten Deployments.",
+     "Rufbereitschaft Übergabenotiz Alarmen Deployments",
+     "was erzähle ich der nächsten Person mit dem Pager?",
+     "on-call handoff Alarmen"),
+    ("Rauchmelder",
+     "Die Batterien aller vier Rauchmelder jeden März wechseln und jeden Monat per Knopf testen.",
+     "Rauchmelder Batterien März Knopf",
+     "wie halte ich die Brandsensoren im Haus funktionsfähig?",
+     "smoke detector battery Rauchmelder"),
+    ("Gitarre üben",
+     "Zwanzig Minuten Tonleitern mit Metronom bei 80, danach Zupfmuster und zum Schluss ein ganzes Lied.",
+     "Tonleitern Metronom Zupfmuster",
+     "wie gestalte ich meine tägliche Session an der Sechssaitigen?",
+     "guitar practice metronome Tonleitern"),
+    ("Kündigung Hosting",
+     "Der Vertrag mit Wolkenwerk verlängert sich am 1. Januar automatisch, außer bei Kündigung 60 Tage vorher.",
+     "Vertrag Wolkenwerk verlängert Kündigung",
+     "wann müssen wir Bescheid geben, damit die Cloud-Vereinbarung endet?",
+     "hosting contract renewal Wolkenwerk"),
+    ("Allergien von Theo",
+     "Theo ist gegen Cashewkerne und Pistazien allergisch, verträgt aber Erdnüsse. Der Adrenalin-Pen steckt immer in der blauen Rucksacktasche.",
+     "Cashewkerne Pistazien Adrenalin-Pen",
+     "welche Nüsse muss mein Sohn meiden und wo ist sein Notfallmedikament?",
+     "nut allergy pen Theo"),
+    ("Autowerkstatt",
+     "Beim Kleinwagen von 2019 wurde der Zahnriemen bei 96.000 Kilometern in der Werkstatt Kessler gewechselt. Nächster Ölwechsel bei 105.000.",
+     "Zahnriemen Werkstatt Kessler Ölwechsel",
+     "wann braucht das Fahrzeug frisches Motorschmiermittel?",
+     "car service oil change Kessler"),
+    ("Suchlatenz",
+     "Die p95-Latenz der Suche stieg nach dem Ranking-Update von 180 auf 640 Millisekunden. Ursache war eine unbegrenzte Synonymerweiterung; Rollback am 4. September.",
+     "p95-Latenz Suche 640 Millisekunden Synonymerweiterung",
+     "warum wurden Anfragen seit der Änderung an der Sortierung langsam?",
+     "search latency regression Suche"),
+    ("Leseliste Herbst",
+     "Herbstlektüre: eine Geschichte der Hanse, ein Roman von Ilse Varga und ein Buch über Schlafforschung. Ein Buch pro Monat.",
+     "Herbstlektüre Hanse Ilse Varga",
+     "welche Bücher wollte ich vor dem Winter durchbekommen?",
+     "reading list autumn Hanse"),
+]
+
+_GOLD = {"en": _EN, "ko": _KO, "ja": _JA, "zh": _ZH, "es": _ES, "de": _DE}
+
+# Gold notes about the same topic in different languages (see module doc).
+SIBLING_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("g-en02", "g-es07"),                          # conference travel approval
+    ("g-en03", "g-de06"),                          # sourdough starter
+    ("g-en04", "g-es04"),                          # knee physiotherapy
+    ("g-en05", "g-es03", "g-ja17"),                # database migration
+    ("g-en06", "g-es05"),                          # flat lease renewal
+    ("g-en07", "g-es06", "g-zh02", "g-ja02", "g-de02"),  # pet vaccination
+    ("g-ja05", "g-de05"),                          # payment outage (cache)
+    ("g-en09", "g-es12"),                          # grandmother's gift
+    ("g-en13", "g-de09", "g-ja03", "g-ko11"),      # onboarding new hires
+    ("g-en16", "g-ja09"),                          # Kyoto trip
+    ("g-en17", "g-ja10", "g-ko36"),                # code review rules
+    ("g-en18", "g-es17", "g-de17"),                # Theo's nut allergy
+    ("g-en19", "g-es18", "g-de12"),                # rooftop solar output
+    ("g-en21", "g-de10"),                          # wine cellar
+    ("g-en24", "g-es13", "g-de08"),                # bike maintenance
+    ("g-en25", "g-es14"),                          # postmortem template
+    ("g-en26", "g-ko26", "g-ja11", "g-zh12", "g-es08"),  # watering home plants
+    ("g-en28", "g-es10", "g-de07"),                # freelance tax filing
+    ("g-en29", "g-es11"),                          # espresso recipe
+    ("g-en32", "g-de19"),                          # search latency regression
+    ("g-en33", "g-es15", "g-de15", "g-zh09"),      # guitar practice
+    ("g-en34", "g-es16", "g-de16"),                # hosting contract renewal
+    ("g-en35", "g-es19", "g-de18", "g-ja12"),      # car service
+    ("g-en36", "g-de20"),                          # autumn reading list
+    ("g-en37", "g-es09", "g-de13"),                # on-call handoff
+    ("g-en38", "g-de14"),                          # smoke alarm batteries
+    ("g-en40", "g-es20", "g-de11", "g-ja16"),      # wedding speech
+    ("g-ko05", "g-de04"),                          # lower back exercises
+    ("g-ko07", "g-zh03", "g-de03"),                # quarterly revenue
+    ("g-ko09", "g-zh04"),                          # log disk full
+    ("g-ko10", "g-ja06"),                          # health check fasting
+    ("g-ko18", "g-ja18"),                          # daughter's piano lesson
+    ("g-ko19", "g-ja01", "g-zh01", "g-de01"),      # moving house
+    ("g-ko20", "g-zh11"),                          # rollback rule
+    ("g-ko21", "g-zh05"),                          # diet plan
+    ("g-ko22", "g-zh10"),                          # car insurance renewal
+    ("g-ko23", "g-zh06"),                          # company offsite
+    ("g-ko24", "g-zh07"),                          # root canal
+    ("g-ko25", "g-zh08"),                          # data retention policy
+    ("g-ko27", "g-ja07", "g-zh13"),                # English conversation practice
+    ("g-ko28", "g-zh14"),                          # laptop battery repair
+    ("g-ko29", "g-zh15"),                          # holiday gifts for clients
+    ("g-ko30", "g-ja15", "g-zh16"),                # sleep routine
+    ("g-ko31", "g-zh17"),                          # nightly batch delay
+    ("g-ko32", "g-zh18"),                          # blood donation
+    ("g-ko34", "g-zh19"),                          # hiking gear
+    ("g-ko35", "g-ja20", "g-zh20"),                # subscription cleanup
+    ("g-ko38", "g-ja14"),                          # remote work policy
+)
+
+
+def _group_split() -> dict[str, str]:
+    """Whole sibling groups go to one split (every third group is dev), so a
+    topic tuned on dev never reappears, translated, in test."""
+    return {slug: "dev" if i % 3 == 0 else "test"
+            for i, group in enumerate(SIBLING_GROUPS) for slug in group}
+
+
+def _siblings_of() -> dict[str, frozenset[str]]:
+    out: dict[str, frozenset[str]] = {}
+    for group in SIBLING_GROUPS:
+        for slug in group:
+            out[slug] = frozenset(group) - {slug}
+    return out
+
+# -- distractor generator -----------------------------------------------------
+# lang -> (templates, names, places, things, days); slots {name} {place}
+# {thing} {day} {num}.
+
+_TEMPLATES: dict[str, tuple[list[str], list[str], list[str], list[str], list[str]]] = {
+    "en": (
+        ["{name} moved the {thing} to {day}; notes will follow after the call.",
+         "Reminder: the {thing} in {place} needs {num} more items before {day}.",
+         "{name} said the {thing} went fine and nothing else is needed for now.",
+         "Pending: confirm the {thing} with {name} by {day}, budget about {num} units.",
+         "The {thing} at {place} was rescheduled twice; {name} will decide on {day}.",
+         "Checked the {thing} again today, {num} open points remain for {name}.",
+         "{name} prefers to handle the {thing} in {place} rather than online.",
+         "Low priority: look into the {thing} sometime after {day}."],
+        ["Alder", "Brisa", "Cato", "Dunya", "Emrys", "Fenna", "Galen", "Hollis",
+         "Idris", "Jolene", "Kasimir", "Linnea", "Maelis", "Nord", "Orla",
+         "Pascal", "Quill", "Rosalind", "Soren", "Talia"],
+        ["Brookfield", "Carrow", "Dunmore", "Eastgate", "Fallowmere",
+         "Greyhaven", "Hartwell", "Ivybridge", "Kestrel Park", "Lowmoor"],
+        ["quarterly report", "sprint demo", "vendor invoice", "garden fence",
+         "kitchen tiles", "dentist visit", "flight booking", "savings plan",
+         "school fair", "server upgrade", "logging pipeline", "team lunch",
+         "photo album", "chess club", "painting class", "insurance claim",
+         "budget review", "client workshop", "laundry machine", "roof repair",
+         "yoga class", "grocery order", "design review", "hotel stay",
+         "cache cluster", "customer survey", "book club", "car wash"],
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+         "Sunday", "next week", "the 3rd", "the 18th", "month end"],
+    ),
+    "ko": (
+        ["{name} 님이 {thing} 일정을 {day}로 옮겼다. 통화 후에 메모를 공유한다.",
+         "{place} {thing} 건은 {day} 전까지 {num}개 더 준비해야 한다.",
+         "{name} 님 말로는 {thing}은 잘 끝났고 지금은 더 할 일이 없다.",
+         "{day}까지 {name} 님과 {thing} 확정하기, 예산은 약 {num}만 원.",
+         "{place}에서 하는 {thing}이 두 번 미뤄졌고 {name} 님이 {day}에 정한다.",
+         "오늘 {thing} 다시 확인했는데 {name} 님 쪽에 남은 항목이 {num}개다.",
+         "{name} 님은 {thing}을 온라인보다 {place}에서 직접 처리하는 편을 원한다.",
+         "우선순위 낮음: {day} 이후에 {thing} 알아보기."],
+        ["민재", "소율", "도윤", "하린", "지후", "예린", "태오", "수아",
+         "건우", "나은", "현서", "유진", "시온", "다온", "은호", "채원"],
+        ["성수동", "판교", "일산", "분당", "마포", "잠실", "해운대", "송도",
+         "광명", "청주"],
+        ["분기 보고서", "스프린트 데모", "거래처 정산", "울타리 수리",
+         "주방 타일", "안과 진료", "항공권 예약", "적금 계획", "학교 행사",
+         "서버 증설", "로그 수집", "팀 점심", "사진 앨범", "바둑 모임",
+         "그림 수업", "보험 청구", "예산 검토", "고객 워크숍", "세탁기 수리",
+         "지붕 보수", "필라테스", "장보기", "디자인 리뷰", "호텔 숙박",
+         "캐시 클러스터", "고객 설문", "독서 모임", "세차"],
+        ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일",
+         "다음 주", "3일", "18일", "월말"],
+    ),
+    "ja": (
+        ["{name}さんが{thing}を{day}に移した。通話の後でメモを共有する。",
+         "{place}の{thing}は{day}までにあと{num}件の準備が必要。",
+         "{name}さんによると{thing}は無事に終わり、今は追加の作業はない。",
+         "{day}までに{name}さんと{thing}を確定する。予算はおよそ{num}万円。",
+         "{place}での{thing}は二回延期され、{name}さんが{day}に決める。",
+         "今日{thing}を再確認したところ、{name}さん側に残りが{num}件ある。",
+         "{name}さんは{thing}をオンラインより{place}で直接進めたい。",
+         "優先度低：{day}以降に{thing}を調べる。"],
+        ["佐藤", "鈴木", "高橋", "田中", "渡辺", "伊藤", "山本", "中村",
+         "小林", "加藤"],
+        ["渋谷", "梅田", "博多", "札幌", "名古屋", "神戸", "仙台", "横浜",
+         "那覇", "金沢"],
+        ["四半期報告", "スプリントデモ", "請求書の確認", "フェンス修理",
+         "台所のタイル", "眼科の予約", "航空券の予約", "積立計画", "学校行事",
+         "サーバー増設", "ログ収集", "チームランチ", "写真アルバム", "将棋の会",
+         "絵画教室", "保険請求", "予算レビュー", "顧客ワークショップ",
+         "洗濯機の修理", "屋根の補修", "ヨガ教室", "買い出し",
+         "デザインレビュー", "ホテル滞在"],
+        ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日",
+         "来週", "三日", "十八日", "月末"],
+    ),
+    "zh": (
+        ["{name}把{thing}改到了{day}，通话后会分享纪要。",
+         "{place}的{thing}在{day}之前还需要准备{num}项。",
+         "{name}说{thing}已经顺利结束，目前没有其他事情。",
+         "{day}前和{name}确认{thing}，预算大约{num}千元。",
+         "在{place}的{thing}推迟了两次，{name}会在{day}决定。",
+         "今天又检查了{thing}，{name}那边还剩{num}个问题。",
+         "{name}更希望在{place}当面处理{thing}，而不是线上。",
+         "低优先级：{day}之后再研究{thing}。"],
+        ["王磊", "李娜", "张伟", "刘洋", "陈静", "杨帆", "赵敏", "黄涛",
+         "周琳", "吴昊"],
+        ["朝阳", "浦东", "天河", "南山", "鼓楼", "武侯", "滨江", "雨花",
+         "江北", "思明"],
+        ["季度报告", "迭代演示", "供应商发票", "围栏维修", "厨房瓷砖",
+         "眼科复查", "机票预订", "储蓄计划", "学校活动", "服务器扩容",
+         "日志采集", "团队午餐", "相册整理", "象棋俱乐部", "绘画课",
+         "保险理赔", "预算评审", "客户研讨会", "洗衣机维修", "屋顶修补",
+         "瑜伽课", "买菜", "设计评审", "酒店住宿"],
+        ["周一", "周二", "周三", "周四", "周五", "周六", "周日", "下周",
+         "三号", "十八号", "月底"],
+    ),
+    "es": (
+        ["Tema {thing}: {name} lo pasa a {day} y manda notas tras la llamada.",
+         "Recordatorio: para {thing} en {place} faltan {num} cosas antes de {day}.",
+         "Según {name}, lo de {thing} salió bien y de momento no hace falta nada más.",
+         "Pendiente: confirmar {thing} con {name} para {day}, presupuesto de unos {num} euros.",
+         "Lo de {thing} en {place} se aplazó dos veces; {name} decide {day}.",
+         "Hoy revisé otra vez {thing}; a {name} le quedan {num} puntos abiertos.",
+         "{name} prefiere resolver {thing} en {place} y no por internet.",
+         "Prioridad baja: mirar {thing} después de {day}."],
+        ["Alba", "Bruno", "Carmen", "Diego", "Elena", "Fermín", "Gloria",
+         "Hugo", "Inés", "Julián"],
+        ["Getafe", "Alcalá", "Triana", "Gràcia", "Moncloa", "Ruzafa",
+         "Chueca", "Deusto", "Salou", "Tarifa"],
+        ["informe trimestral", "demo del sprint", "factura del proveedor",
+         "valla del jardín", "azulejos de la cocina", "cita del oculista",
+         "reserva del vuelo", "plan de ahorro", "fiesta del colegio",
+         "ampliación del servidor", "canal de registros", "comida de equipo",
+         "álbum de fotos", "club de ajedrez", "clase de pintura",
+         "parte del seguro", "revisión del presupuesto", "taller con clientes",
+         "reparación de la lavadora", "arreglo del tejado", "clase de yoga",
+         "compra semanal", "revisión de diseño", "estancia en el hotel"],
+        ["el lunes", "el martes", "el miércoles", "el jueves", "el viernes",
+         "el sábado", "el domingo", "la semana que viene", "el día 3",
+         "el día 18", "final de mes"],
+    ),
+    "de": (
+        ["Thema {thing}: {name} verschiebt es auf {day}, Notizen folgen nach dem Anruf.",
+         "Erinnerung: für {thing} in {place} fehlen vor {day} noch {num} Punkte.",
+         "Laut {name} lief {thing} gut, im Moment ist nichts weiter nötig.",
+         "Offen: {thing} bis {day} mit {name} klären, Budget etwa {num} Euro.",
+         "{thing} in {place} wurde zweimal verschoben; {name} entscheidet bis {day}.",
+         "Heute {thing} erneut geprüft, bei {name} sind noch {num} Punkte offen.",
+         "{name} erledigt {thing} lieber vor Ort in {place} als online.",
+         "Niedrige Priorität: {thing} irgendwann nach {day} anschauen."],
+        ["Anke", "Bernd", "Clara", "Dirk", "Elif", "Frieda", "Götz", "Hanna",
+         "Ingo", "Jana"],
+        ["Altona", "Bockenheim", "Ehrenfeld", "Giesing", "Linden", "Neustadt",
+         "Pankow", "Plagwitz", "Sendling", "Vahrenwald"],
+        ["Quartalsbericht", "Sprint-Demo", "Lieferantenrechnung", "Gartenzaun",
+         "Küchenfliesen", "Augenarzttermin", "Flugbuchung", "Sparplan",
+         "Schulfest", "Servererweiterung", "Log-Pipeline", "Teamessen",
+         "Fotoalbum", "Schachclub", "Malkurs", "Versicherungsfall",
+         "Budgetprüfung", "Kundenworkshop", "Waschmaschinenreparatur",
+         "Dachreparatur", "Yogakurs", "Wocheneinkauf", "Design-Review",
+         "Hotelaufenthalt"],
+        ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag",
+         "Sonntag", "nächste Woche", "den 3.", "den 18.", "Monatsende"],
+    ),
+}
+
+
+def _sentence(rng: random.Random, lang: str) -> str:
+    tpl, names, places, things, days = _TEMPLATES[lang]
+    return rng.choice(tpl).format(
+        name=rng.choice(names), place=rng.choice(places),
+        thing=rng.choice(things), day=rng.choice(days),
+        num=rng.randint(2, 90))
+
+
+def _distractor(i: int, seed: int) -> Note:
+    rng = random.Random(f"{seed}:{i}")
+    lang = rng.choice(LANGS)
+    title = f"{rng.choice(_TEMPLATES[lang][3])} {i}"
+    body = " ".join(_sentence(rng, lang) for _ in range(rng.randint(2, 4)))
+    return Note(slug=f"d-{i:05d}", title=title, body=body, lang=lang)
+
+
+def _filler(slug: str, lang: str) -> str:
+    rng = random.Random(f"filler:{slug}")
+    return "\n\n".join(" ".join(_sentence(rng, lang) for _ in range(3))
+                       for _ in range(4))
+
+
+def gold_notes() -> list[Note]:
+    sibs = _siblings_of()
+    group_split = _group_split()
+    out: list[Note] = []
+    for lang in LANGS:
+        for idx, (title, body, exact, para, mixed) in enumerate(_GOLD[lang]):
+            slug = f"g-{lang}{idx + 1:02d}"
+            if idx % 4 == 1:
+                body = body + "\n\n" + _filler(slug, lang)
+            out.append(Note(
+                slug=slug, title=title, body=body, lang=lang,
+                split=group_split.get(slug, "dev" if idx % 3 == 0 else "test"),
+                queries={"exact": exact, "para": para, "mixed": mixed},
+                siblings=sibs.get(slug, frozenset())))
+    return out
+
+
+def queries() -> list[Query]:
+    return [Query(text=text, gold=g.slug, kind=kind, lang=g.lang, split=g.split,
+                  siblings=g.siblings)
+            for g in gold_notes() for kind, text in g.queries.items()]
+
+
+def corpus(n_total: int = 160, seed: int = 0) -> list[Note]:
+    """Gold notes plus ``n_total - 160`` deterministic distractors."""
+    gold = gold_notes()
+    if n_total < len(gold):
+        raise ValueError(f"n_total must be >= {len(gold)}")
+    return gold + [_distractor(i, seed) for i in range(n_total - len(gold))]
