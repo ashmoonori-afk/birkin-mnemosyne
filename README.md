@@ -332,13 +332,17 @@ executor's clamp does. Path containment and slug lookup also protect the
 lower-level file operations.
 
 ```python
+from pathlib import Path
+
 from birkin_mnemosyne import Mnemosyne, run_curation_pass, get_completer
 
-mem = Mnemosyne("my_vault")
+vault = Path("my_vault")
+mem = Mnemosyne(vault)
 mem.refresh()
 hits = mem.search("kubernetes ingress dns")
 
-outcome = run_curation_pass("my_vault", get_completer("codex"), provider="codex")
+# the vault argument must be a pathlib.Path
+outcome = run_curation_pass(vault, get_completer("codex"), provider="codex")
 # Or pass your own complete(prompt: str) -> str callable.
 ```
 
