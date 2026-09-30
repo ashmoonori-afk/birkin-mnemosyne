@@ -29,6 +29,7 @@ from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
                         Mnemosyne)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
+from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
@@ -452,12 +453,16 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     low, offsets = _normalize(text)
     hits: list[tuple[int, str]] = []              # (position, term)
     for term in {t for t in terms if t}:
+        # a truncation stem ("verla~") matches the start of a word
+        stem = term.endswith(_STEM_MARK)
+        needle = term[:-len(_STEM_MARK)] if stem else term
         start = 0
         while True:
-            i = low.find(term, start)
+            i = low.find(needle, start)
             if i < 0:
                 break
-            hits.append((i, term))
+            if not stem or i == 0 or not low[i - 1].isalnum():
+                hits.append((i, needle))
             start = i + 1
     if not hits:
         return text.strip()[:width]

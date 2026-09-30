@@ -116,14 +116,17 @@ def normalize_with_offsets(text: str) -> tuple[str, list[int]]:
     casefold, Latin accent folding) plus, for every normalised character,
     the index of the original character it came from (and ``len(text)`` as
     a final sentinel), so a match found in the normalised text can be cut
-    out of the original. Works per base character + its combining marks."""
+    out of the original. Works per base character + the marks that compose
+    with it (combining marks, halfwidth voicing marks, Hangul medial/final
+    jamo)."""
     out: list[str] = []
     offsets: list[int] = []
     i, n = 0, len(text)
     while i < n:
         j = i + 1
         while j < n and (unicodedata.combining(text[j])
-                         or text[j] in _HALFWIDTH_VOICING):
+                         or text[j] in _HALFWIDTH_VOICING
+                         or "\u1160" <= text[j] <= "\u11ff"):
             j += 1
         cluster = unicodedata.normalize("NFKC", text[i:j]).casefold()
         if not cluster.isascii():

@@ -117,3 +117,20 @@ def test_snippet_finds_late_passage_under_tokenizer_normalization(passage, query
     from birkin_mnemosyne.mnemosyne import tokenize
     text = ("filler words here " * 30) + passage + (" tail" * 10)
     assert passage in _snippet(text, tokenize(query), width=80)
+
+
+def test_snippet_finds_passage_matched_only_through_a_stem():
+    from birkin_mnemosyne.memory import _snippet
+    from birkin_mnemosyne.mnemosyne import tokenize
+    passage = "Der Vertrag verlängert sich automatisch"
+    text = ("filler words here " * 30) + passage + (" tail" * 10)
+    assert "verlängert" in _snippet(text, tokenize("Verlängerung"), width=80)
+
+
+def test_snippet_finds_decomposed_hangul():
+    import unicodedata
+    from birkin_mnemosyne.memory import _snippet
+    from birkin_mnemosyne.mnemosyne import tokenize
+    passage = unicodedata.normalize("NFD", "배추 가격이 올랐다")
+    text = ("filler words here " * 30) + passage + (" tail" * 10)
+    assert passage in _snippet(text, tokenize("가격"), width=80)
