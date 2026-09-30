@@ -158,6 +158,32 @@ def test_exact_queries_are_lexical_for_every_author(author):
         assert len(q & doc) / len(q) >= 0.6, (author, slug)
 
 
+def test_dev_extra_queries_cover_their_dev_notes_and_nothing_else():
+    dev = [g for g in rc.gold_notes() if g.split == "dev"]
+    extra = rc.dev_extra_queries()
+    assert {q.split for q in extra} == {"dev"}
+    for author in rc.DEV_EXTRA_FILES:
+        mine = [q for q in extra if q.author == author]
+        assert sorted(q.gold for q in mine if q.kind == "counter") == sorted(
+            g.slug for g in dev if g.lang in ("en", "ko", "ja", "zh"))
+        for kind in rc.QUERY_KINDS:
+            assert sorted(q.gold for q in mine if q.kind == kind) == sorted(
+                g.slug for g in dev if g.lang in ("zh", "de"))
+    assert all(q.text.strip() for q in extra)
+
+
+def test_counter_queries_carry_one_foreign_word_that_is_not_in_the_note():
+    gold = {g.slug: g for g in rc.gold_notes()}
+    for q in rc.dev_extra_queries():
+        if q.kind != "counter":
+            continue
+        note = (gold[q.gold].title + " " + gold[q.gold].body).casefold()
+        foreign = re.findall(r"[\uac00-\ud7a3]+" if q.lang == "en" else r"[A-Za-z]+", q.text)
+        assert len(foreign) == 1, (q.author, q.gold, foreign)
+        assert foreign[0].casefold() not in note, (q.author, q.gold, foreign)
+        assert not re.search(r"\d", q.text), (q.author, q.gold)
+
+
 def test_content_units_fold_scripts():
     assert rc.content_units("Azafrán y FÜTTERN") == {"azafran", "futtern"}
     assert rc.content_units("豚骨スープ") == {"豚骨", "骨ス", "スー", "ープ"}

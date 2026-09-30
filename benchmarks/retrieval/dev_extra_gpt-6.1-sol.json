@@ -1,0 +1,95 @@
+{
+ "counter": {
+  "g-en01": "Which VPN traffic belongs on the tunnel 경로?",
+  "g-en02": "Who gives sign-off for travel under the spending 승인 rules?",
+  "g-en05": "When is the billing migration scheduled for the database 이전?",
+  "g-en10": "What desk posture helps prevent neck 불편함?",
+  "g-en16": "How should I handle ryokan payment on this 여행?",
+  "g-en19": "How did panels affect rooftop output 효율?",
+  "g-en22": "How often should I test a restore for my backup 검증?",
+  "g-en25": "What should a postmortem include about impact and owners 책임?",
+  "g-en29": "What grams and seconds should I aim for in my coffee 추출?",
+  "g-en31": "Who has the spare key for an emergency 연락?",
+  "g-en34": "When should I act on the hosting contract to avoid unwanted 갱신?",
+  "g-en37": "What alerts and deploys belong in the handoff 인수인계?",
+  "g-ko01": "김장 때 절임배추랑 새우젓 준비는 어떻게 하기로 했지, shopping 메모 찾아줘.",
+  "g-ko04": "피싱 대응 교육 안 받으면 어떤 access 제한이 생겨?",
+  "g-ko05": "허리 디스크 때문에 하기로 한 운동 routine 뭐였지?",
+  "g-ko10": "아버지 건강검진 전에 금식은 언제부터 해야 해, fasting 안내 찾아줘.",
+  "g-ko13": "주담대 고정금리로 바꾸면 중도상환수수료는 어떻게 돼, refinancing 메모 있어?",
+  "g-ko16": "결혼 기념일 저녁 예약은 어디로 했지, dinner 일정 찾아줘.",
+  "g-ko20": "운영 배포 뒤 오류율이 얼마나 올라가면 rollback 해야 해?",
+  "g-ko23": "하반기 워크숍 주제는 뭐로 정했지, agenda 찾아줘.",
+  "g-ko27": "영어 회화 스터디 이번 주 topic 뭐였지?",
+  "g-ko30": "수면 개선하려고 휴대폰이랑 커피는 언제 끊기로 했지, routine 찾아줘.",
+  "g-ko34": "지리산 종주 장비로 뭘 챙기기로 했지, checklist 있어?",
+  "g-ko37": "어머니 칠순 잔치 어디서 열기로 했지, venue 확인하고 싶어.",
+  "g-ko40": "개발 블로그 이번 달 주제 뭐였지, content 계획 찾아줘.",
+  "g-ja04": "ラーメンのスープと麺はどう準備するんだっけ、recipe を探してる。",
+  "g-ja05": "サーバー停止の原因を知りたい、incident の記録はどこ？",
+  "g-ja06": "健康診断の前日は絶食をいつ始めるんだっけ、checkup の注意事項を探してる。",
+  "g-ja07": "英会話レッスンの講師は誰だっけ、lesson のメモを見たい。",
+  "g-ja09": "京都旅行で旅館に泊まるのはいつだっけ、itinerary を確認したい。",
+  "g-ja13": "読書会の課題本は何だっけ、reading の予定を探してる。",
+  "g-ja15": "睡眠改善のためにスマホとコーヒーはいつ控えるんだっけ、routine を確認したい。",
+  "g-ja17": "データベースの移行中、差分はどう扱うんだっけ、migration のメモを探してる。",
+  "g-ja19": "防災リュックの中身はいつ点検するんだっけ、checklist を見たい。",
+  "g-zh06": "年会在哪儿举行，各部门的节目有什么要求，party 安排帮我找一下？",
+  "g-zh11": "上线后错误率到什么程度要回滚，rollback 的规定是什么？",
+  "g-zh13": "英语口语小组本周的话题是什么，speaking 活动的笔记在哪？",
+  "g-zh16": "想调整睡眠习惯，手机和咖啡分别什么时候停，routine 是怎么定的？",
+  "g-zh19": "登山装备里的登山鞋和头灯怎么准备，hiking 清单在哪？"
+ },
+ "extra": {
+  "g-zh06": {
+   "exact": "年会 酒店 部门 节目",
+   "para": "尾牙聚餐的时间地点和同事们的表演要求是什么？",
+   "mixed": "Where and when is the 年会, and what must each team contribute?"
+  },
+  "g-zh11": {
+   "exact": "上线 错误率 回滚 值班工程师",
+   "para": "投产出现故障时，撤销更新的触发条件及拍板人是谁？",
+   "mixed": "What triggers 回滚 after a faulty release, and who authorizes it?"
+  },
+  "g-zh13": {
+   "exact": "英语口语小组 咖啡馆 话题 旅行",
+   "para": "外语交流社团的碰面时段、地址及讨论主题是什么？",
+   "mixed": "Where does the 英语口语小组 meet, and what will we discuss this week?"
+  },
+  "g-zh16": {
+   "exact": "睡眠习惯 上床 手机 咖啡",
+   "para": "想改善夜间休息，电子屏幕和提神饮料该在何时停用？",
+   "mixed": "What evening screen and afternoon drink restrictions are in the 睡眠习惯 plan?"
+  },
+  "g-zh19": {
+   "exact": "登山鞋 登山杖 头灯 帐篷 预订",
+   "para": "长途徒步前，鞋履照明该怎么备齐，露营住宿何时订妥？",
+   "mixed": "What should I pack for 武功山, and when should I book the overnight shelter?"
+  },
+  "g-de04": {
+   "exact": "Orthopäde Bandscheibenvorfall McKenzie-Übungen Sitzen",
+   "para": "Welche Gymnastik wurde mir bei dem Leiden im Lendenbereich empfohlen, und welche Körperhaltung sollte ich meiden?",
+   "mixed": "Which exercises were prescribed for the Bandscheibenvorfall, and what posture should I avoid?"
+  },
+  "g-de05": {
+   "exact": "Ausfall Zahlungsdienst Cache Speicherlimit",
+   "para": "Weshalb brach die nächtliche Bezahlfunktion zusammen, und wodurch wurde das Problem behoben?",
+   "mixed": "Why did the Zahlungsdienst crash overnight, and how was it fixed?"
+  },
+  "g-de12": {
+   "exact": "Solaranlage Dachanlage Vorjahr Reinigung Frühjahr",
+   "para": "Wie hoch war der sommerliche Stromertrag unserer Photovoltaik, und welche Pflege half gegen den Leistungsrückgang?",
+   "mixed": "How much electricity did the Dachanlage produce during summer, and what maintenance improved its yield?"
+  },
+  "g-de13": {
+   "exact": "Rufbereitschaft Übergabenotiz Alarmen Deployments",
+   "para": "Wann wird der technische Notfalldienst neu besetzt, und was soll die ausscheidende Person schriftlich festhalten?",
+   "mixed": "Who takes over Rufbereitschaft, and what belongs in the Übergabenotiz?"
+  },
+  "g-de16": {
+   "exact": "Kündigung Hosting Vertrag Wolkenwerk automatisch",
+   "para": "Bis wann muss ich meinem Cloudanbieter absagen, damit das Abonnement nicht erneut läuft?",
+   "mixed": "What notice deadline prevents the Wolkenwerk Vertrag from renewing?"
+  }
+ }
+}

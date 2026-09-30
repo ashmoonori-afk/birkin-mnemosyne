@@ -331,3 +331,93 @@ Pruning, measured and rejected:
   must not get worse (the lesson from omo PR #9209), so it was reverted.
 - **Ultra-rare terms** (df = 1): saves 0.2 MB of 5.5 MB but deletes the names
   exact queries look for (dev exact MRR 0.996 -> 0.766).
+
+## Code-switched queries in the core: measured, not changed
+
+The Unicode tokenizer left one slice below BM25 v1: Korean, MRR 0.569 -> 0.559
+at 10k notes (test split), all of it on code-switched queries. Three ways to
+win it back in the zero-dependency core were measured on the dev split. None
+is shipped; the core ranks exactly as before. The numbers below are dev, MRR,
+all three authors pooled unless a row names an author; "up / down" counts
+queries whose gold note moved up or down against the current core.
+
+**1. Re-weighting the truncation stems trades English for Korean, one for
+one.** In a query that mixes scripts, a Hangul word counts about three times
+(the run plus its bigrams) and a Latin word twice (the word plus its stem).
+Removing or shrinking the Latin double count moves rank from English gold notes
+to Korean ones:
+
+| variant (10k notes) | en | ko | zh |
+|---|---|---|---|
+| current core | 0.528 | 0.597 | 0.756 |
+| no stems in mixed-script queries | 0.482 (1 up / 11 down) | 0.629 (10 up / 0 down) | 0.778 (2 up / 0 down) |
+| stems x 0.25 on notes with no native-script match | 0.511 (1 up / 7 down) | 0.617 (6 up / 0 down) | 0.778 (2 up / 0 down) |
+| stems x 0.5 on notes with no native-script match | 0.519 (1 up / 5 down) | 0.609 (4 up / 0 down) | 0.756 |
+| `max(word, stem)` instead of word + stem, any weight | same as "no stems" | same | same |
+
+The same trade appears at 160 and 1k notes. The script coordination bonus is
+no lever either: `SCRIPT_BONUS` from 0 to 2.0 changes no gold rank at 1k
+notes, because the Korean notes of this corpus are written in Hangul only.
+
+**2. Boosting the minority script looks like a free win on this benchmark.**
+In all 109 code-switched dev queries of the `mixed` kind, the gold note is
+written in the script the query uses least ("English plus one Korean word"
+targets the Korean note). Multiplying the idf of the minority-script terms
+(ties and single-script queries untouched) helps every language it touches and
+lowers no query, for every author:
+
+| notes | boost | en | ko | ja | zh | queries up / down per author (opus, sol, fable) |
+|---|---|---|---|---|---|---|
+| 160 | 1.0 | 0.549 | 0.604 | 0.720 | 0.815 | - |
+| 160 | 1.5 | 0.593 | 0.650 | 0.726 | 0.837 | 7 / 0, 7 / 0, 12 / 0 |
+| 160 | 2.0 | 0.603 | 0.673 | 0.726 | 0.837 | 11 / 0, 7 / 0, 13 / 0 |
+| 1000 | 1.0 | 0.536 | 0.594 | 0.702 | 0.780 | - |
+| 1000 | 1.5 | 0.578 | 0.638 | 0.709 | 0.819 | 8 / 0, 6 / 0, 12 / 0 |
+| 1000 | 2.0 | 0.591 | 0.669 | 0.709 | 0.819 | 12 / 0, 7 / 0, 14 / 0 |
+| 10000 | 1.0 | 0.528 | 0.597 | 0.694 | 0.756 | - |
+| 10000 | 1.5 | 0.565 | 0.632 | 0.694 | 0.793 | 7 / 0, 3 / 0, 14 / 0 |
+| 10000 | 2.0 | 0.582 | 0.674 | 0.694 | 0.793 | 11 / 0, 6 / 0, 14 / 0 |
+
+Spanish, German, exact and paraphrase queries do not move.
+
+**3. The win comes from how the `mixed` queries were authored, and it costs
+the opposite kind of question.** The authoring rule for `mixed` ("Korean with
+at most one English word for English notes; English plus one or two native
+words otherwise") makes the gold note the minority-script one by construction,
+for all three authors. The mirror case is at least as common in real use: a
+question in the note's own language with one foreign word dropped in, where
+that word is the asker's gloss and is not in the note. Two authors wrote such
+`counter` questions for the 39 en/ko/ja/zh dev notes, from a notes-only export
+and independently of each other (`dev_extra_*.json`, loaded by
+`retrieval_corpus.dev_extra_queries()`, audited by the tests, never part of
+`queries()` or of any reported table). Korean counter questions (13 per
+author), MRR and queries that lost rank against the current core:
+
+| boost | claude-opus-5.5, 160 / 1k / 10k | gpt-6.1-sol, 160 / 1k / 10k |
+|---|---|---|
+| 1.0 | 1.000 / 1.000 / 1.000 | 1.000 / 0.962 / 0.962 |
+| 1.25 | unchanged | 0.962 (1 down) / 0.962 / 0.962 |
+| 1.5 | unchanged | 0.962 (1 down) / 0.962 / 0.962 |
+| 1.75 | unchanged | 0.962 (1 down) / 0.923 (1 down) / 0.962 |
+| 2.0 | unchanged | 0.923 (2 down) / 0.923 (1 down) / 0.923 (1 down) |
+
+Every lost query goes from rank 1 to rank 2 (R@5 stays 1.000): the boosted
+English word ("routine", "checklist") lifts an English note with that word in
+its title past the Korean note the question is about. English, Japanese and
+Chinese counter questions do not move for either author. Switching the boost
+off when some note already holds a given share (0.3 to 0.7) of the query's
+majority-script terms removes dev gains but not the loss at 160 notes.
+
+Decision: the two authors disagree (one unaffected, one lower at every boost
+for at least one corpus size), so the boost is not an improvement under the
+rule that a change must hold on every author's questions, and it is not
+shipped. A Korean sentence with one English word has the same surface form
+whether the word is quoted from an English note or glosses a Korean one; a
+lexical ranker cannot tell the two apart, and only the size of the boost
+trades them. The Korean number in the core therefore stays at 0.559 (10k,
+test); Korean paraphrase-level gains need the optional semantic mode, which is
+measured in its own PR.
+
+The same authors also wrote one more `exact` / `para` / `mixed` triple for each
+zh and de dev note, the two thinnest dev slices (15 queries per author each).
+They are used for tuning only; the frozen test questions are untouched.
