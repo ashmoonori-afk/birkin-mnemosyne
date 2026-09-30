@@ -11,7 +11,9 @@ the Mnemosyne memory palace:
   the *inbox*. ``_archive`` is the soft-forget zone (hermes curator's
   "archive, never delete").
 - **BM25** — Okapi ranking over the index (k1/b as in mempalace's searcher),
-  with a Korean-aware tokenizer (Hangul runs + character bigrams).
+  with a Unicode-aware tokenizer (NFKC + casefold, accent-folded Latin words,
+  Hangul runs + bigrams, CJK unigrams + bigrams) and a small bonus for notes
+  that match every script of a code-switched query.
 - **Dynamics** — per-note Ebbinghaus decay + Hebbian potentiation adapted
   from mempalace ``dynamics.py`` and — unlike mempalace — wired into ranking.
 - **Zone priority** — per-zone EMA of accesses with daily decay; boosts
@@ -34,6 +36,7 @@ import math
 import os
 import re
 import threading
+import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -55,7 +58,8 @@ STALE_EFF, STALE_DAYS = 0.1, 90       # hermes curator archive tier
 MAX_ZONES = 24
 RELATED_LIMIT = 5                     # A-MEM: keep top-k small
 RELATED_QUERY_TERMS = 12
-INDEX_VERSION = 1
+INDEX_VERSION = 2                     # 2: Unicode tokenizer (v1 indices rebuild)
+SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 
 INDEX_FILE = ".mnemosyne-index.json"
 DYNAMICS_FILE = ".mnemosyne-dynamics.json"
@@ -65,8 +69,10 @@ IDENTITY_ZONE = "identity"
 
 ZONE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]")
-_ASCII_RE = re.compile(r"[a-z0-9]+")
-_HANGUL_RE = re.compile(r"[가-힣]+")
+_CJK = "\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"
+_HANGUL = "\uac00-\ud7a3"
+# one match per run: (CJK run | Hangul run | any other letters/digits)
+_RUN_RE = re.compile(rf"([{_CJK}]+)|([{_HANGUL}]+)|([^\W_{_CJK}{_HANGUL}]+)")
 
 # Mechanical default placement for *new* notes (mempalace FOLDER_ROOM_MAP
 # analog); Morpheus refines placement nightly via memory_rezone.
@@ -85,37 +91,88 @@ def slug(title: str) -> str:
 
 # -- pure functions -----------------------------------------------------------
 
-def tokenize(text: str) -> list[str]:
-    """Lowercased ASCII words + Hangul runs + Hangul character bigrams.
+def _fold_char(c: str) -> str:
+    """Strip accents from Latin letters only (é -> e); one char in, one out,
+    so folded text keeps the offsets of the original. Other scripts keep
+    their marks (Devanagari viramas, kana voicing marks)."""
+    if ord(c) >= 0x250:
+        return c
+    base = "".join(x for x in unicodedata.normalize("NFD", c)
+                   if not unicodedata.combining(x))
+    return base if len(base) == 1 else c
 
-    Bigrams give substring-ish recall for Korean without a morphological
-    analyzer — the zero-dependency answer to CJK tokenization.
-    """
+
+def fold_text(text: str) -> str:
+    """Lowercase + Latin accent folding, length-preserving (snippet search)."""
     low = text.lower()
-    toks = _ASCII_RE.findall(low)
-    for run in _HANGUL_RE.findall(low):
-        toks.append(run)
-        if len(run) >= 2:
-            toks.extend(run[i:i + 2] for i in range(len(run) - 1))
+    return low if low.isascii() else "".join(_fold_char(c) for c in low)
+
+
+def tokenize(text: str) -> list[str]:
+    """NFKC + casefold, then per run of one script class:
+
+    - Latin/Cyrillic/... words -> one accent-folded token (``azafrán`` ->
+      ``azafran``, ``Straße`` -> ``strasse``);
+    - Hangul runs -> the run + character bigrams (Korean without a
+      morphological analyzer, unchanged from v1);
+    - Han/kana runs -> character unigrams + bigrams (Chinese/Japanese have no
+      spaces; unigrams keep one-character words, bigrams keep precision).
+    """
+    toks: list[str] = []
+    norm = unicodedata.normalize("NFKC", text).casefold()
+    for cjk, hangul, word in _RUN_RE.findall(norm):
+        if word:
+            toks.append(word if word.isascii() else "".join(map(_fold_char, word)))
+        elif hangul:
+            toks.append(hangul)
+            toks.extend(hangul[i:i + 2] for i in range(len(hangul) - 1))
+        else:
+            toks.extend(cjk)
+            toks.extend(cjk[i:i + 2] for i in range(len(cjk) - 1))
     return toks
+
+
+def _script(token: str) -> str:
+    c = token[0]
+    if "\uac00" <= c <= "\ud7a3":
+        return "hangul"
+    if "\u3040" <= c <= "\u30ff" or "\u31f0" <= c <= "\u31ff":
+        return "kana"
+    if "\u3400" <= c <= "\u9fff" or "\uf900" <= c <= "\ufaff":
+        return "han"
+    return "other"
 
 
 def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
                 doclens: dict[str, int], avgdl: float,
                 n_docs: int) -> dict[str, float]:
-    """Okapi BM25 over an inverted index; returns {slug: score}."""
+    """Okapi BM25 over an inverted index; returns {slug: score}.
+
+    Queries that mix scripts get a coordination factor ``1 + SCRIPT_BONUS x
+    (scripts matched - 1)``: in a code-switched query ("moving checklist
+    手続き") the rare English words otherwise let English notes that match
+    only them outrank the note that matches both halves. Single-script
+    queries are plain BM25.
+    """
     scores: dict[str, float] = {}
+    scripts: dict[str, set[str]] = {}
     avgdl = avgdl or 1.0
-    for t in dict.fromkeys(terms):          # unique, order-preserving
+    uniq = list(dict.fromkeys(terms))       # unique, order-preserving
+    for t in uniq:
         post = postings.get(t)
         if not post:
             continue
         df = len(post)
         idf = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
+        script = _script(t)
         for s, tf in post.items():
             dl = doclens.get(s, avgdl)
             denom = tf + K1 * (1 - B + B * dl / avgdl)
             scores[s] = scores.get(s, 0.0) + idf * tf * (K1 + 1) / denom
+            scripts.setdefault(s, set()).add(script)
+    if len({_script(t) for t in uniq}) > 1:
+        for s in scores:
+            scores[s] *= 1 + SCRIPT_BONUS * (len(scripts[s]) - 1)
     return scores
 
 
@@ -224,8 +281,16 @@ def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
                        if meta.get("expires_at") else None),
         "summary": summary,
         "mtime": st.st_mtime, "size": st.st_size,
-        "doclen": sum(terms.values()), "terms": terms,
+        "doclen": _doc_length(terms), "terms": terms,
     }
+
+
+def _doc_length(terms: dict[str, int]) -> int:
+    """BM25 document length. Single Han/kana characters are left out: they
+    repeat what the CJK bigrams already count, and letting them in inflates
+    the average length every note is normalised against."""
+    return sum(tf for t, tf in terms.items()
+               if len(t) > 1 or _script(t) not in ("han", "kana"))
 
 
 def _entry_expired(entry: dict[str, Any], today: date) -> bool:

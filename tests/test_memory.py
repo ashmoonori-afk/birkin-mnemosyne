@@ -98,3 +98,9 @@ def test_snippet_boundary_term_survives():
     text = "alpha" + ("x" * 233) + "beta"
     s = _snippet(text, ["alpha", "beta"], width=240)
     assert "alpha" in s and "beta" in s
+
+
+def test_snippet_matches_accented_text_with_folded_terms():
+    from birkin_mnemosyne.memory import _snippet
+    text = ("x " * 200) + "La paella lleva azafrán y garrofón." + (" y" * 200)
+    assert "azafrán" in _snippet(text, ["azafran"], width=60)

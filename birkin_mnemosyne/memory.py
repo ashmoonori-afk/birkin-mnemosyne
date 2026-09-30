@@ -29,6 +29,7 @@ from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
                         Mnemosyne)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
+from .mnemosyne import fold_text as _fold_text
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
 
@@ -448,7 +449,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     """
     if isinstance(terms, str):
         terms = [terms]
-    low = text.lower()
+    low = _fold_text(text)
     hits: list[tuple[int, str]] = []              # (position, term)
     for term in {t for t in terms if t}:
         start = 0
