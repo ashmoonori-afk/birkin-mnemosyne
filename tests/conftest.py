@@ -11,4 +11,6 @@ def isolated_home(tmp_path, monkeypatch):
     monkeypatch.setenv("MNEMOSYNE_TEST_HOME", str(home))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # the optional semantic leg is opt-in per test (never downloads a model)
+    monkeypatch.setenv("MNEMOSYNE_SEMANTIC", "0")
     return home

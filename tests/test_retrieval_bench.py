@@ -322,7 +322,7 @@ def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
     [row] = json.loads(out.read_text())["results"]
     assert row["size"] == 160 and row["index_bytes"] > 0
     assert row["cold_wall_ms"] >= row["cold_load_ms"] > 0
-    assert row["peak_rss"] > 0
+    assert row["peak_rss"] > 0 and row["build_peak_rss"] > 0
     assert set(row["by_lang"]) == {f"{s}/{lang}" for s in SPLITS for lang in rc.LANGS}
     assert set(row["by_author_kind"]) == {f"{s}/{a}/{k}" for s in SPLITS
                                           for a in rc.AUTHORS for k in rc.QUERY_KINDS}
