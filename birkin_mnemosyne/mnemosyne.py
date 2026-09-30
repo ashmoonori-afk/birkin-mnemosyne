@@ -62,7 +62,7 @@ STALE_EFF, STALE_DAYS = 0.1, 90       # hermes curator archive tier
 MAX_ZONES = 24
 RELATED_LIMIT = 5                     # A-MEM: keep top-k small
 RELATED_QUERY_TERMS = 12
-INDEX_VERSION = 2                     # 2: Unicode tokenizer (v1 indices rebuild)
+INDEX_VERSION = 3                     # 2-3: Unicode tokenizer, stems (older rebuild)
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
 
@@ -119,6 +119,8 @@ def normalize_with_offsets(text: str) -> tuple[str, list[int]]:
     out of the original. Works per base character + the marks that compose
     with it (combining marks, halfwidth voicing marks, Hangul medial/final
     jamo)."""
+    if text.isascii():
+        return text.lower(), list(range(len(text) + 1))
     out: list[str] = []
     offsets: list[int] = []
     i, n = 0, len(text)

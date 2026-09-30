@@ -248,9 +248,22 @@ Reading:
   itself is tokenized exactly as before. Paraphrase-level gains for Korean need
   the optional semantic leg.
 - The accent folding that fixes split words (`azafr` + `n`) also costs some
-  Spanish paraphrase queries on its own (measured without the truncation stem:
-  paraphrase MRR 0.146 folded vs 0.194 unfolded at 160 notes); the truncation
+  Spanish paraphrase queries on its own (measured on the test split without the truncation
+  stem, as a diagnostic after the fact: paraphrase MRR 0.146 folded vs 0.194
+  unfolded at 160 notes); the truncation
   stem more than recovers it (Spanish +0.06-0.08 overall).
 - The index grows by ~65 % (CJK unigrams + bigrams, stems, JSON escapes) and
-  cold start by ~140 ms at 10k notes; see the next section for the compact
-  index format.
+  cold start by ~140 ms at 10k notes.
+
+How the design was chosen (dev split, 1k notes, MRR; the test split was not
+used for any decision):
+
+| variant | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|
+| BM25 v1 (main) | 0.482 | 0.605 | 0.096 | 0.000 | 0.589 | 0.661 |
+| Unicode tokenizer without stems | 0.481 | 0.602 | 0.708 | 0.794 | 0.581 | 0.623 |
+| + 5-letter truncation stem (this PR) | 0.536 | 0.594 | 0.702 | 0.780 | 0.656 | 0.714 |
+
+Rejected on dev: suffix stemmers, Hangul unigrams, title weighting, k1/b
+changes, Korean particle stripping, Japanese script segmentation, a
+term-coverage bonus, per-script average document length.
