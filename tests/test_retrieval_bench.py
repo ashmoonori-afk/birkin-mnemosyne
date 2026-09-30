@@ -8,8 +8,11 @@ their gold note (otherwise the "paraphrase" numbers would be a lexical test).
 
 from __future__ import annotations
 
+import itertools
+import json
 import math
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -92,6 +95,41 @@ def test_padding_is_deterministic_and_sized():
     assert gold_small == gold_big
 
 
+def test_sibling_groups_are_valid():
+    slugs = {g.slug for g in rc.gold_notes()}
+    seen: set[str] = set()
+    for group in rc.SIBLING_GROUPS:
+        assert len(group) >= 2 and set(group) <= slugs, group
+        assert not seen & set(group), group
+        seen |= set(group)
+        langs = [s[2:4] for s in group]
+        assert len(set(langs)) == len(langs), group
+    for g in rc.gold_notes():
+        for sib in g.siblings:
+            assert g.slug in next(n for n in rc.gold_notes() if n.slug == sib).siblings
+
+
+def test_no_undeclared_latin_script_siblings():
+    gold = rc.gold_notes()
+    units = {g.slug: {u for u in rc.content_units(g.title + " " + g.body)
+                      if u.isascii() and len(u) >= 4 and not u.isdigit()}
+             for g in gold}
+    df = Counter(u for us in units.values() for u in us)
+    for a, b in itertools.combinations(gold, 2):
+        if a.lang == b.lang or b.slug in a.siblings:
+            continue
+        shared = {u for u in units[a.slug] & units[b.slug] if df[u] <= 3}
+        assert len(shared) < 2, (a.slug, b.slug, shared)
+
+
+def test_gold_rank_ignores_siblings():
+    sibs = frozenset({"s1", "s2"})
+    assert br.gold_rank(["s1", "x", "g"], "g", sibs) == 2
+    assert br.gold_rank(["s1", "s2", "g"], "g", sibs) == 1
+    assert br.gold_rank(["a", "b", "g"], "g", frozenset(), k=2) is None
+    assert br.gold_rank(["s1", "a", "g"], "g", sibs, k=2) == 2
+
+
 def test_rank_metrics():
     m = br.rank_metrics([1, 2, None, 6])
     assert m["r@1"] == pytest.approx(0.25)
@@ -104,6 +142,8 @@ def test_rank_metrics():
 def test_percentile():
     assert br.percentile([1.0, 2.0, 3.0, 4.0], 50) == pytest.approx(2.5)
     assert br.percentile([5.0], 95) == pytest.approx(5.0)
+    with pytest.raises(ValueError):
+        br.percentile([], 50)
 
 
 def test_bm25_run_on_gold_corpus(tmp_path):
@@ -115,5 +155,17 @@ def test_bm25_run_on_gold_corpus(tmp_path):
     assert set(res["by_kind"]) == {(s, k) for s in SPLITS for k in rc.QUERY_KINDS}
     assert set(res["by_lang"]) == {(s, lang) for s in SPLITS for lang in rc.LANGS}
     assert res["by_kind_lang"][("test", "exact", "en")]["r@5"] >= 0.9
-    assert res["latency_ms"]["p50"] > 0
-    assert engine.index_bytes() > 0
+    assert br.sidecar_bytes(vault) > 0
+
+
+def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
+    out = tmp_path / "bench.json"
+    br.main(["--sizes", "160", "--json", str(out)])
+    printed = capsys.readouterr().out
+    for header in ("Quality by language", "Quality by query kind", "Footprint"):
+        assert header in printed
+    [row] = json.loads(out.read_text())["results"]
+    assert row["size"] == 160 and row["index_bytes"] > 0
+    assert row["cold_wall_ms"] >= row["cold_load_ms"] > 0
+    assert row["peak_rss"] is None or row["peak_rss"] > 0
+    assert set(row["by_lang"]) == {f"{s}/{lang}" for s in SPLITS for lang in rc.LANGS}

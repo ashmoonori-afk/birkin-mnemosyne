@@ -1,7 +1,8 @@
 """Synthetic, fictional multilingual retrieval corpus.
 
-Every person, company, product and place below is invented; the corpus is
-public and safe to redistribute. It measures *semantic* retrieval next to
+The people, companies, projects and events below are invented (real public
+place and product names such as Kyoto or Postgres appear as common nouns);
+the corpus is public and safe to redistribute. It measures *semantic* retrieval next to
 BM25 across six languages - English, Korean, Japanese, Chinese, Spanish and
 German (160 gold notes: 40 en, 40 ko, 20 each ja/zh/es/de). Each gold note
 carries three queries:
@@ -19,6 +20,11 @@ corpus also contains long notes (the case where truncation/chunking matters).
 six languages up to ``n`` notes (the 1k / 10k scale runs). The dev/test split
 is by note (every third note of each language is dev), so fusion constants
 can be tuned on dev and reported on test.
+
+Many topics recur across languages (a Spanish and a German note about the
+same car service, say). Those notes are declared in ``SIBLING_GROUPS``; a
+query's siblings are removed from the ranking before scoring, so retrieving
+the translation of the gold note is neither rewarded nor punished.
 """
 
 from __future__ import annotations
@@ -87,6 +93,7 @@ class Note:
     lang: str
     split: str = "pad"
     queries: dict[str, str] = field(default_factory=dict)
+    siblings: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -96,6 +103,7 @@ class Query:
     kind: str
     lang: str
     split: str
+    siblings: frozenset[str] = frozenset()
 
 
 # (title, body, exact, para, mixed)
@@ -919,6 +927,66 @@ _DE: list[tuple[str, str, str, str, str]] = [
 
 _GOLD = {"en": _EN, "ko": _KO, "ja": _JA, "zh": _ZH, "es": _ES, "de": _DE}
 
+# Gold notes about the same topic in different languages (see module doc).
+SIBLING_GROUPS: tuple[tuple[str, ...], ...] = (
+    ("g-en02", "g-es07"),                          # conference travel approval
+    ("g-en03", "g-de06"),                          # sourdough starter
+    ("g-en04", "g-es04"),                          # knee physiotherapy
+    ("g-en05", "g-es03", "g-ja17"),                # database migration
+    ("g-en06", "g-es05"),                          # flat lease renewal
+    ("g-en07", "g-es06", "g-zh02", "g-ja02", "g-de02"),  # pet vaccination
+    ("g-ja05", "g-de05"),                          # payment outage (cache)
+    ("g-en09", "g-es12"),                          # grandmother's gift
+    ("g-en13", "g-de09", "g-ja03", "g-ko11"),      # onboarding new hires
+    ("g-en16", "g-ja09"),                          # Kyoto trip
+    ("g-en17", "g-ja10", "g-ko36"),                # code review rules
+    ("g-en18", "g-es17", "g-de17"),                # Theo's nut allergy
+    ("g-en19", "g-es18", "g-de12"),                # rooftop solar output
+    ("g-en21", "g-de10"),                          # wine cellar
+    ("g-en24", "g-es13", "g-de08"),                # bike maintenance
+    ("g-en25", "g-es14"),                          # postmortem template
+    ("g-en26", "g-ko26", "g-ja11", "g-zh12", "g-es08"),  # watering home plants
+    ("g-en28", "g-es10", "g-de07"),                # freelance tax filing
+    ("g-en29", "g-es11"),                          # espresso recipe
+    ("g-en32", "g-de19"),                          # search latency regression
+    ("g-en33", "g-es15", "g-de15", "g-zh09"),      # guitar practice
+    ("g-en34", "g-es16", "g-de16"),                # hosting contract renewal
+    ("g-en35", "g-es19", "g-de18", "g-ja12"),      # car service
+    ("g-en36", "g-de20"),                          # autumn reading list
+    ("g-en37", "g-es09", "g-de13"),                # on-call handoff
+    ("g-en38", "g-de14"),                          # smoke alarm batteries
+    ("g-en40", "g-es20", "g-de11", "g-ja16"),      # wedding speech
+    ("g-ko05", "g-de04"),                          # lower back exercises
+    ("g-ko07", "g-zh03", "g-de03"),                # quarterly revenue
+    ("g-ko09", "g-zh04"),                          # log disk full
+    ("g-ko10", "g-ja06"),                          # health check fasting
+    ("g-ko18", "g-ja18"),                          # daughter's piano lesson
+    ("g-ko19", "g-ja01", "g-zh01", "g-de01"),      # moving house
+    ("g-ko20", "g-zh11"),                          # rollback rule
+    ("g-ko21", "g-zh05"),                          # diet plan
+    ("g-ko22", "g-zh10"),                          # car insurance renewal
+    ("g-ko23", "g-zh06"),                          # company offsite
+    ("g-ko24", "g-zh07"),                          # root canal
+    ("g-ko25", "g-zh08"),                          # data retention policy
+    ("g-ko27", "g-ja07", "g-zh13"),                # English conversation practice
+    ("g-ko28", "g-zh14"),                          # laptop battery repair
+    ("g-ko29", "g-zh15"),                          # holiday gifts for clients
+    ("g-ko30", "g-ja15", "g-zh16"),                # sleep routine
+    ("g-ko31", "g-zh17"),                          # nightly batch delay
+    ("g-ko32", "g-zh18"),                          # blood donation
+    ("g-ko34", "g-zh19"),                          # hiking gear
+    ("g-ko35", "g-ja20", "g-zh20"),                # subscription cleanup
+    ("g-ko38", "g-ja14"),                          # remote work policy
+)
+
+
+def _siblings_of() -> dict[str, frozenset[str]]:
+    out: dict[str, frozenset[str]] = {}
+    for group in SIBLING_GROUPS:
+        for slug in group:
+            out[slug] = frozenset(group) - {slug}
+    return out
+
 # -- distractor generator -----------------------------------------------------
 # lang -> (templates, names, places, things, days); slots {name} {place}
 # {thing} {day} {num}.
@@ -1087,6 +1155,7 @@ def _filler(slug: str, lang: str) -> str:
 
 
 def gold_notes() -> list[Note]:
+    sibs = _siblings_of()
     out: list[Note] = []
     for lang in LANGS:
         for idx, (title, body, exact, para, mixed) in enumerate(_GOLD[lang]):
@@ -1096,12 +1165,14 @@ def gold_notes() -> list[Note]:
             out.append(Note(
                 slug=slug, title=title, body=body, lang=lang,
                 split="dev" if idx % 3 == 0 else "test",
-                queries={"exact": exact, "para": para, "mixed": mixed}))
+                queries={"exact": exact, "para": para, "mixed": mixed},
+                siblings=sibs.get(slug, frozenset())))
     return out
 
 
 def queries() -> list[Query]:
-    return [Query(text=text, gold=g.slug, kind=kind, lang=g.lang, split=g.split)
+    return [Query(text=text, gold=g.slug, kind=kind, lang=g.lang, split=g.split,
+                  siblings=g.siblings)
             for g in gold_notes() for kind, text in g.queries.items()]
 
 
