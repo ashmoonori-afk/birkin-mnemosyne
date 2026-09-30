@@ -36,6 +36,7 @@ Two sidecar files live next to the notes:
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -49,10 +50,14 @@ from typing import Any
 from . import frontmatter
 from .atomic import atomic_write, atomic_write_bytes
 
+log = logging.getLogger(__name__)
+
 # -- constants (single tuning source; see design §8) -------------------------
 
 K1, B = 1.5, 0.75                     # Okapi BM25 (mempalace searcher.py)
 CAND = 32                             # BM25 candidates before re-ranking
+FUSE_DEPTH = 100                      # per-leg ranks fed to RRF (semantic)
+RRF_K = 5                             # reciprocal-rank-fusion constant (dev-tuned)
 STRENGTH_STEP, STRENGTH_CAP = 0.25, 5.0
 STABILITY_INIT, STABILITY_GROWTH, STABILITY_CAP = 7.0, 1.5, 365.0
 EFF_FLOOR = 0.05                      # nothing fully vanishes (mempalace)
@@ -351,6 +356,31 @@ def _decode_index(blob: bytes) -> dict[str, dict[str, Any]]:
     return notes if isinstance(notes, dict) else {}
 
 
+def _shared_ranks(ranking: list[tuple[str, float]]) -> dict[str, int]:
+    """1-based ranks of a best-first (slug, score) list; equal scores share
+    the rank of the first of them, so identical notes stay tied after fusion
+    (decay and zone priority then decide between them)."""
+    ranks: dict[str, int] = {}
+    prev: float | None = None
+    rank = 0
+    for i, (s, score) in enumerate(ranking, 1):
+        if score != prev:
+            rank, prev = i, score
+        ranks[s] = rank
+    return ranks
+
+
+def _rrf(rankings: list[list[tuple[str, float]]],
+         k: float | None = None) -> dict[str, float]:
+    """Reciprocal-rank fusion of best-first (slug, score) lists."""
+    k = RRF_K if k is None else k
+    fused: dict[str, float] = {}
+    for ranking in rankings:
+        for s, rank in _shared_ranks(ranking).items():
+            fused[s] = fused.get(s, 0.0) + 1.0 / (k + rank)
+    return fused
+
+
 def _entry_expired(entry: dict[str, Any], today: date) -> bool:
     raw = entry.get("expires_at")
     if not raw:
@@ -371,8 +401,13 @@ class Mnemosyne:
     memory read/write (it self-heals on the next refresh).
     """
 
-    def __init__(self, vault: Path):
+    def __init__(self, vault: Path, semantic: bool | None = None):
+        """``semantic``: None = use the optional semantic leg when its extra
+        is installed (``MNEMOSYNE_SEMANTIC=0`` opts out), True = request it
+        (warns if unavailable), False = BM25 only."""
         self.vault = Path(vault)
+        self._semantic_mode = semantic
+        self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
         self._dyn: dict[str, Any] | None = None
@@ -642,22 +677,67 @@ class Mnemosyne:
 
     # -- retrieval ------------------------------------------------------------
 
+    def _semantic_index(self) -> Any:
+        """The SemanticIndex, or None when disabled/unavailable (decided once)."""
+        if self._sem is None:
+            from . import semantic
+
+            want = self._semantic_mode
+            if want is None:
+                want = semantic.enabled_by_env()
+            if want is False:
+                self._sem = False
+            elif not semantic.available():
+                if want:
+                    log.warning("semantic search requested but the [semantic] "
+                                "extra is not installed; using BM25 only")
+                self._sem = False
+            else:
+                self._sem = semantic.SemanticIndex(self.vault)
+        return self._sem or None
+
+    def _semantic_ranking(self, query: str) -> list[tuple[str, float]]:
+        sem = self._semantic_index()
+        if sem is None:
+            return []
+        try:
+            sem.sync(self.entries())
+            return sem.search(query, FUSE_DEPTH)
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+            # model download/load or encoding failed: keep serving BM25
+            log.warning("semantic search disabled for this session: %s", exc)
+            self._sem = False
+            return []
+
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
                now: datetime | None = None) -> list[dict[str, Any]]:
-        """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only."""
+        """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only.
+
+        With the semantic leg active, the base score is the reciprocal-rank
+        fusion ``sum 1/(RRF_K + rank)`` of the BM25 and semantic rankings
+        (top ``FUSE_DEPTH`` of each) instead of the raw BM25 score."""
         self.refresh()
         now = now or datetime.now(timezone.utc)
         terms = tokenize(query)
+        sem_ranked = self._semantic_ranking(query) if query.strip() else []
         with self._lock:
             notes = self._notes or {}
-            if not terms or not notes:
+            if not notes or not (terms or sem_ranked):
                 return []
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
             base = bm25_scores(terms, self._postings, doclens,
                                self._avgdl, len(notes))
-            cands = sorted(base.items(), key=lambda kv: kv[1],
-                           reverse=True)[:CAND]
+            bm_order: dict[str, int] = {}
+            if sem_ranked:
+                bm_list = sorted(base.items(), key=lambda kv: kv[1],
+                                 reverse=True)[:FUSE_DEPTH]
+                bm_order = _shared_ranks(bm_list)
+                base = _rrf([bm_list, [(s, v) for s, v in sem_ranked if s in notes]])
+            unranked = len(bm_order) + 1
+            # fused ties (a note first in one leg only) go to BM25's pick
+            cands = sorted(base.items(), key=lambda kv: (
+                -kv[1], bm_order.get(kv[0], unranked)))[:CAND]
             pri = self.zone_priorities(today=now.date())
             # TTL is a user-facing calendar date -> LOCAL today, matching
             # memory._is_expired (render/list/purge) so no path disagrees.
@@ -681,7 +761,8 @@ class Mnemosyne:
                              "summary": e["summary"], "links": e["links"],
                              "polarity": e["polarity"], "score": score,
                              "updated": e["updated"]})
-            hits.sort(key=lambda h: (h["score"], h["updated"]), reverse=True)
+            hits.sort(key=lambda h: (h["score"], -bm_order.get(h["slug"], unranked),
+                                     h["updated"]), reverse=True)
             return hits[:limit]
 
     def related(self, s: str, limit: int = RELATED_LIMIT) -> list[dict[str, Any]]:

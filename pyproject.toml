@@ -23,6 +23,7 @@ dependencies = []                                    # stdlib only — the point
 dev = ["pytest", "ruff"]
 bench = ["fastembed", "numpy"]                        # embedding baselines only
 mcp = ["mcp>=2.2,<3"]                                 # MCP server only; core stays stdlib
+semantic = ["model2vec>=0.9,<1", "numpy"]              # optional semantic leg; core stays stdlib
 
 [project.scripts]
 mnemosyne-mcp = "birkin_mnemosyne.mcp_server:main"

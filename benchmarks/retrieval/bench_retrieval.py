@@ -291,6 +291,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--split", default="test", choices=["dev", "test"])
     ap.add_argument("--json", type=Path)
     ap.add_argument("--install-size", action="store_true")
+    ap.add_argument("--install-extras", nargs="*", default=[],
+                    help="also measure install size with these extras")
     args = ap.parse_args(argv)
 
     results = run(args.sizes, args.engines, seed=args.seed)
@@ -302,6 +304,10 @@ def main(argv: list[str] | None = None) -> None:
         size, installer = install_size(None)
         install = {"core": size, "installer": installer}
         print(f"\ninstall size (core, no extras, {installer}): {_fmt_bytes(size)}")
+        for extra in args.install_extras:
+            size, _ = install_size(extra)
+            install[extra] = size
+            print(f"install size (core + [{extra}], {installer}): {_fmt_bytes(size)}")
     if args.json:
         args.json.write_text(json.dumps({"results": _jsonable(results),
                                          "install": install}, indent=1))

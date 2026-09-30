@@ -172,6 +172,16 @@ def test_bm25_length_normalization_hand_computed():
     assert scores["d2"] > scores["d1"]   # shorter doc wins at equal tf-ish
 
 
+def test_bm25_rare_term_outranks_common_term():
+    # ported from oh-my-openagent recall (PR #9209): idf, not position, decides
+    postings = {"deploy": {"a": 1, "b": 1, "c": 1}, "kessler": {"b": 1}}
+    doclens = {"a": 2, "b": 2, "c": 2}
+    scores = mnemosyne.bm25_scores(["deploy", "kessler"], postings, doclens, 2.0, 3)
+    assert max(scores, key=scores.get) == "b"
+    assert scores["a"] == pytest.approx(scores["c"])
+    assert scores["a"] < scores["b"]
+
+
 def test_bm25_unknown_terms_yield_empty():
     assert mnemosyne.bm25_scores(["zzz"], {}, {}, 1.0, 0) == {}
 
