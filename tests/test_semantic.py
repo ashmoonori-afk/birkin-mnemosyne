@@ -201,6 +201,31 @@ def test_inconsistent_vector_sidecar_is_rebuilt(tmp_path, concept_model):
         assert data["counts"].tolist() == [1, 1, 1]
 
 
+@pytest.mark.parametrize("wrong", [
+    {"counts": np.array([1.0, 1.0, 1.0])},
+    {"bits": np.zeros((3, semantic.DIM // 8), dtype=np.float32)},
+    {"bits": np.array(0, dtype=np.uint8)},
+    {"fps": np.full((3, 2), np.nan)},
+], ids=["float-counts", "float-bits", "scalar-bits", "nan-fingerprints"])
+def test_vector_sidecar_with_wrong_types_is_rebuilt(tmp_path, concept_model, wrong):
+    vault = _vault(tmp_path)
+    meta = semantic.SemanticIndex(vault)._meta()
+    entries = mnemosyne.Mnemosyne(vault, semantic=False).entries()
+    slugs = sorted(entries)
+    # a cache that sync() would trust (real fingerprints, matching totals)
+    # except for one array of the wrong type or shape
+    arrays = {"meta": np.array(json.dumps(meta)), "slugs": np.array(slugs),
+              "counts": np.array([1, 1, 1], dtype=np.int32),
+              "fps": np.array([(entries[s]["mtime"], entries[s]["size"]) for s in slugs]),
+              "bits": np.zeros((3, semantic.DIM // 8), dtype=np.uint8)}
+    np.savez(vault / semantic.VECTORS_FILE, **{**arrays, **wrong})
+    hits = mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    assert hits[0]["slug"] == "car"
+    with np.load(vault / semantic.VECTORS_FILE) as data:
+        assert data["counts"].tolist() == [1, 1, 1]
+        assert data["bits"].dtype == np.uint8 and data["bits"].any()
+
+
 def test_packed_scoring_equals_the_sign_dot_product_of_the_best_chunk(tmp_path, concept_model):
     filler = "lorem " * 60
     _note(tmp_path, "long", "notes", f"{filler}\n\n{filler} the car is here")

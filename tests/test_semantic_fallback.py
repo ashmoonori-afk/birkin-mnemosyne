@@ -95,6 +95,45 @@ def test_full_lexical_match_keeps_first_place_under_fusion(tmp_path, monkeypatch
     assert [h["slug"] for h in dex.search("brake pads")] == ["full", "half"]
 
 
+@pytest.mark.parametrize("old, new", [("a", "b"), ("b", "a")])
+def test_equal_full_matches_keep_the_core_order_newer_first(tmp_path, monkeypatch, old, new):
+    # either scan order: the date decides, not the position in the index
+    monkeypatch.setattr(semantic, "available", lambda: False)
+    for slug, day in ((old, "2026-01-01"), (new, "2026-02-01")):
+        (tmp_path / f"{slug}.md").write_text(
+            f"---\ntitle: garage\nupdated: {day}\n---\n\nbrake pads\n", encoding="utf-8")
+    dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
+    core = [h["slug"] for h in dex.search("brake pads")]
+    assert core == [new, old]
+    monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [(old, 0.9)])
+    assert [h["slug"] for h in dex.search("brake pads")] == core
+
+
+def test_a_lone_han_character_is_an_original_query_unit(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic, "available", lambda: False)
+    _note(tmp_path, "short", "garage", "車")
+    _note(tmp_path, "long", "garage", "車 and a list of other things to check later")
+    dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
+    core = [h["slug"] for h in dex.search("車")]
+    assert core == ["short", "long"]
+    # two votes for "long" would win the fusion; both notes hold the whole query
+    monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [("long", 0.9)])
+    assert [h["slug"] for h in dex.search("車")] == core
+
+
+def test_a_note_missing_the_lone_han_character_is_not_a_full_match(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic, "available", lambda: False)
+    _note(tmp_path, "both", "garage", "車 brake")
+    _note(tmp_path, "latin", "garage", "brake brake lines")
+    _note(tmp_path, "han", "garage", "車 and a list of other things to check later")
+    dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
+    core = [h["slug"] for h in dex.search("車 brake")]
+    assert core == ["both", "latin", "han"]
+    # only "both" holds the whole query; the other two are ordered by fusion
+    monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [("han", 0.9)])
+    assert [h["slug"] for h in dex.search("車 brake")] == ["both", "han", "latin"]
+
+
 def test_usage_boost_ranks_the_lexical_leg_not_the_fused_score(tmp_path, monkeypatch):
     monkeypatch.setattr(semantic, "available", lambda: False)
     _note(tmp_path, "used", "notes", "brake service log")

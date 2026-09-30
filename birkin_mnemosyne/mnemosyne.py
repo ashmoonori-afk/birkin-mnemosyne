@@ -719,13 +719,17 @@ class Mnemosyne:
             self._sem = False
             return []
 
-    def _covering(self, terms: list[str],
+    def _covering(self, query: str, terms: list[str],
                   bm_list: list[tuple[str, float]]) -> list[str]:
         """Notes of the lexical leg that match every original unit of the
-        query, best first. Stems and single Han/kana characters are derived
-        from other units, so they do not count as original."""
+        query, best first. Stems, and the single characters of a longer
+        Han/kana run, are derived from other units, so they do not count; a
+        Han/kana character that stands alone in the query does."""
+        norm = unicodedata.normalize("NFKC", query).casefold()
+        alone = {cjk for cjk, _, _ in _RUN_RE.findall(norm) if len(cjk) == 1}
         posts = [self._postings.get(t, {}) for t in set(terms)
-                 if not t.endswith(STEM_MARK) and (len(t) > 1 or _script(t) != "cjk")]
+                 if not t.endswith(STEM_MARK)
+                 and (len(t) > 1 or _script(t) != "cjk" or t in alone)]
         if not posts:
             return []
         return [s for s, _ in bm_list if all(s in post for post in posts)]
@@ -768,15 +772,17 @@ class Mnemosyne:
                 # boost applied after fusion would reorder them at will.
                 top = sorted(base.items(), key=lambda kv: kv[1],
                              reverse=True)[:FUSE_DEPTH]
+                # equal scores fall back to the newer note, as in the core
                 bm_list = sorted(((s, v * boost(s)) for s, v in top),
-                                 key=lambda kv: kv[1], reverse=True)
+                                 key=lambda kv: (kv[1], notes[kv[0]]["updated"]),
+                                 reverse=True)
                 bm_order = _shared_ranks(bm_list)
                 base = _rrf(
                     [bm_list, [(s, v) for s, v in sem_ranked if s in notes]],
                     weights=[1.0, SEM_WEIGHT_CJK if _mostly_cjk(query) else SEM_WEIGHT])
                 # notes that hold every original unit of the query stay first,
                 # in lexical order; fusion orders everything after them
-                covering = self._covering(terms, bm_list)
+                covering = self._covering(query, terms, bm_list)
                 top_fused = max(base.values(), default=0.0)
                 for i, s in enumerate(covering):
                     base[s] = top_fused + len(covering) - i

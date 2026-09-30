@@ -172,16 +172,17 @@ class SemanticIndex:
             with np.load(self.path, allow_pickle=False) as data:
                 if json.loads(str(data["meta"])) != self._meta():
                     return
-                slugs = [str(s) for s in data["slugs"]]
-                counts = data["counts"].reshape(-1).tolist()
-                fps = data["fps"].reshape(-1, 2).tolist()
-                bits = data["bits"]
+                slugs = [str(s) for s in data["slugs"].reshape(-1)]
+                counts, fps, bits = data["counts"], data["fps"], data["bits"]
         except (OSError, KeyError, ValueError, TypeError, EOFError, zipfile.BadZipFile):
             return   # missing, empty, truncated or foreign file: re-embed
-        if (len(counts) != len(slugs) or len(fps) != len(slugs)
-                or sum(counts) != len(bits) or min(counts, default=1) < 1
-                or bits.ndim != 2 or bits.shape[1] != self.dim // 8):
-            return   # internally inconsistent cache: re-embed
+        if (counts.ndim != 1 or counts.dtype.kind not in "iu" or len(counts) != len(slugs)
+                or fps.ndim != 2 or fps.shape != (len(slugs), 2) or fps.dtype.kind not in "fiu"
+                or bits.ndim != 2 or bits.dtype != np.uint8
+                or bits.shape[1] != self.dim // 8 or not np.isfinite(fps).all()
+                or int(counts.sum()) != len(bits) or (len(counts) and int(counts.min()) < 1)):
+            return   # wrong shapes, types or totals: re-embed
+        counts, fps = counts.tolist(), fps.tolist()
         start = 0
         for s, n, (mtime, size) in zip(slugs, counts, fps):
             self._chunks[s] = bits[start:start + n]
