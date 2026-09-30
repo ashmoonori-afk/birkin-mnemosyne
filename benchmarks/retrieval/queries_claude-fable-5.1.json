@@ -1,0 +1,802 @@
+{
+ "g-en01": {
+  "exact": "Orchard VPN split tunneling 10.40",
+  "para": "Which private network range is routed via the encrypted link after the change?",
+  "mixed": "Orchard 네트워크에서 화상 회의가 터널을 안 거치는 이유가 뭐지?"
+ },
+ "g-en02": {
+  "exact": "Halvard Labs Q3 Ines Borowczyk",
+  "para": "Who has to approve pricey trips to events while the third-quarter money hold is on?",
+  "mixed": "Halvard에서 비싼 학회 출장은 누구 승인이 필요해?"
+ },
+ "g-en03": {
+  "exact": "rye starter Gus one to one ratio",
+  "para": "How long does the bread culture take to reach its highest point in a heated room?",
+  "mixed": "Gus라는 호밀 반죽 종은 하루에 몇 번 먹여야 해?"
+ },
+ "g-en04": {
+  "exact": "meniscus Tomasz Wrenfield wall sits step-downs",
+  "para": "When am I allowed to jog again after the cartilage injury?",
+  "mixed": "Wrenfield 선생님이 처방한 무릎 재활 동작은 일주일에 몇 번 해야 해?"
+ },
+ "g-en05": {
+  "exact": "billing MySQL Postgres 17 June 14",
+  "para": "What condition must be met before the secondary copies leave the previous database setup?",
+  "mixed": "Postgres로 청구 시스템 옮기는 주말이 언제야?"
+ },
+ "g-en06": {
+  "exact": "Marlowe Street flat lease August 31",
+  "para": "What rate hike did the property owner propose for extending the apartment contract?",
+  "mixed": "Marlowe 아파트 임대 연장에서 우리가 제시할 인상률은 몇 퍼센트야?"
+ },
+ "g-en07": {
+  "exact": "Pip tabby rabies booster Fernhill",
+  "para": "How long should the striped kitty go without food ahead of her shot?",
+  "mixed": "Pip 예방접종은 몇 월에 어느 동물병원에서 맞아?"
+ },
+ "g-en08": {
+  "exact": "ingest pods evicted PodDisruptionBudget 2 GiB",
+  "para": "What fixes did we apply after the intake workloads got kicked off their hosts?",
+  "mixed": "ingest 파드가 노드에서 쫓겨난 원인이 뭐였어?"
+ },
+ "g-en09": {
+  "exact": "Nana Odile Saint-Aubrac framed map",
+  "para": "What present did we get for grandma's ninetieth celebration and when do we collect it?",
+  "mixed": "Odile 할머니 생신 선물은 어느 마을 지도야?"
+ },
+ "g-en10": {
+  "exact": "desk 104 centimeters forty minutes",
+  "para": "How high should the work surface be raised when I'm on my feet?",
+  "mixed": "서서 일할 때 자세는 몇 분마다 바꾸는 게 좋다고 적어뒀지? monitor 높이는?"
+ },
+ "g-en11": {
+  "exact": "Lumen payment gateway ops/rotate_lumen.py secops",
+  "para": "How often do the live credentials for the checkout provider get swapped out?",
+  "mixed": "Lumen 결제 키 교체 스크립트는 어디에 있어?"
+ },
+ "g-en12": {
+  "exact": "late blight Brandywine tomatoes copper fungicide",
+  "para": "What treatment do the diseased heirloom plants need and how frequently?",
+  "mixed": "Brandywine 토마토 역병에는 뭘 뿌려야 해?"
+ },
+ "g-en13": {
+  "exact": "Halvard new engineers buddy laptop",
+  "para": "How long does a fresh hire work alongside a mentor after joining?",
+  "mixed": "Halvard 신입 개발자는 첫 주 안에 뭘 해야 해?"
+ },
+ "g-en14": {
+  "exact": "Ridgeback Marathon 40 percent tempo",
+  "para": "By how much should running volume drop in the last stretch before the race?",
+  "mixed": "Ridgeback 대회 전에 탄수화물은 며칠 동안 많이 먹어?"
+ },
+ "g-en15": {
+  "exact": "TN-770 toner floor 3 printer",
+  "para": "Where can I get into the storage closet holding the copier cartridges?",
+  "mixed": "사무실 프린터 toner 보관함 열쇠는 누가 갖고 있어?"
+ },
+ "g-en16": {
+  "exact": "Kyoto Kumano Kodo October 9 ryokan",
+  "para": "How must we pay at the traditional inn on the trip?",
+  "mixed": "Kyoto에 며칠 묵고 다음에 어디로 걷기 여행 가?"
+ },
+ "g-en17": {
+  "exact": "Halvard reviewers nit linter",
+  "para": "How quickly should feedback on a pull request come back?",
+  "mixed": "Halvard 코드 리뷰에서 선택적인 제안 앞에는 뭘 붙여?"
+ },
+ "g-en18": {
+  "exact": "Theo cashews pistachios epinephrine",
+  "para": "Which nuts can the boy eat safely and where is his emergency injector stored?",
+  "mixed": "Theo 알레르기 주사기는 어느 가방 어디에 있어?"
+ },
+ "g-en19": {
+  "exact": "rooftop array 412 kWh July",
+  "para": "How did we recover the drop in electricity generation previously?",
+  "mixed": "지붕 태양광이 지난 여름에 작년보다 몇 percent 줄었어?"
+ },
+ "g-en20": {
+  "exact": "data engineer loop Priya Castellane SQL",
+  "para": "Who conducts the architecture interview for the pipeline role, and how soon do candidates hear back?",
+  "mixed": "Priya가 담당하는 면접 단계는 뭐야?"
+ },
+ "g-en21": {
+  "exact": "cellar 2016 Barolo 65 percent",
+  "para": "Until what year should the Piedmont reds stay lying down?",
+  "mixed": "Barolo 보관하는 지하실 온도랑 습도는 얼마로 맞춰?"
+ },
+ "g-en22": {
+  "exact": "Time Machine Synology Backblaze B2",
+  "para": "How often do we verify that recovering files from the archive actually works?",
+  "mixed": "Synology로 노트북 백업은 매일 몇 시에 돌아가?"
+ },
+ "g-en23": {
+  "exact": "board deck runway 19 months Aurelio Maddox",
+  "para": "Who receives the preliminary version of the autumn investor presentation and by which date?",
+  "mixed": "Aurelio에게 보낼 이사회 자료에서 현금 여유 기간은 몇 개월로 고쳐?"
+ },
+ "g-en24": {
+  "exact": "gravel bike 2400 km 38 psi",
+  "para": "What inflation level do the wheels get at the back for varied surfaces?",
+  "mixed": "자갈길 자전거 chain은 몇 킬로미터마다 기름칠해?"
+ },
+ "g-en25": {
+  "exact": "postmortem blameless timeline root cause",
+  "para": "How many follow-up tasks must an incident write-up include and what is the deadline to share it?",
+  "mixed": "postmortem 문서는 사고 후 며칠 안에 공개해야 해?"
+ },
+ "g-en26": {
+  "exact": "fiddle leaf fig calathea filtered water",
+  "para": "Which of my greenery wants purified moisture and a spray on its foliage?",
+  "mixed": "calathea 말고 다른 화분은 흙이 얼마나 마르면 물 줘?"
+ },
+ "g-en27": {
+  "exact": "LaunchDarkly flags 90 days cleanup ticket",
+  "para": "What must be deleted from the source before retiring a stale toggle?",
+  "mixed": "LaunchDarkly에서 오래된 플래그는 며칠 지나면 정리 티켓이 생겨?"
+ },
+ "g-en28": {
+  "exact": "Veridian translation gigs May 31",
+  "para": "What is the cutoff for reporting my side earnings from language work?",
+  "mixed": "Veridian 번역 수입 신고 마감이 언제야?"
+ },
+ "g-en29": {
+  "exact": "Ethiopian Guji 18 grams 93 degrees",
+  "para": "What should I adjust when the coffee pulls too quickly?",
+  "mixed": "Guji 원두는 몇 초 동안 몇 도로 뽑아?"
+ },
+ "g-en30": {
+  "exact": "iOS Android every second Tuesday release captain",
+  "para": "Who can authorize an urgent patch to bypass the regular phone app cadence?",
+  "mixed": "iOS 앱 배포 전 코드 동결은 무슨 요일이야?"
+ },
+ "g-en31": {
+  "exact": "Halina Szpak spare key uncle Bram",
+  "para": "Who lives next door with a duplicate for our front door?",
+  "mixed": "Halina 다음으로 연락해야 하는 사람은 누구야?"
+ },
+ "g-en32": {
+  "exact": "p95 latency 180 640 milliseconds synonym expansion",
+  "para": "What went wrong that made query response times balloon in early autumn?",
+  "mixed": "검색 p95 지연이 늘어난 뒤 롤백한 날짜가 언제야?"
+ },
+ "g-en33": {
+  "exact": "metronome 80 bpm Travis picking",
+  "para": "What tempo do I set the click for my warm-up exercises on the instrument?",
+  "mixed": "Travis 주법 연습 다음에는 뭘 해?"
+ },
+ "g-en34": {
+  "exact": "Nimbusly hosting auto-renews January 1",
+  "para": "How much notice is needed to stop the cloud provider agreement from extending itself?",
+  "mixed": "Nimbusly 계약 할인 협상은 몇 월 전에 끝내야 해?"
+ },
+ "g-en35": {
+  "exact": "2019 hatchback Kessler Motors 96000",
+  "para": "At what mileage is the lubricant swap scheduled for the compact car?",
+  "mixed": "Kessler에서 타이밍 벨트 갈았을 때 주행거리가 얼마였어?"
+ },
+ "g-en36": {
+  "exact": "Hanseatic League Ilse Varga sleep science",
+  "para": "Which medieval trading alliance is the subject of the fall nonfiction pick?",
+  "mixed": "Varga 소설이 들어있는 가을 독서 목록은 한 달에 몇 권 읽어?"
+ },
+ "g-en37": {
+  "exact": "on-call Monday 10 am handoff note",
+  "para": "What information does the departing responder pass along to the next person?",
+  "mixed": "handoff 메모를 쓰는 당직 교대는 무슨 요일 몇 시야?"
+ },
+ "g-en38": {
+  "exact": "nine volt batteries four smoke alarms March",
+  "para": "How frequently do I press the check on the fire sensors?",
+  "mixed": "화재 경보기 battery는 몇 월에 갈아?"
+ },
+ "g-en39": {
+  "exact": "small business churn 6.1 percent Q2",
+  "para": "Which subscription term kept SMB customers better following the cost adjustment?",
+  "mixed": "소규모 사업자 이탈률이 가격 변경 뒤 몇 percent까지 올랐어?"
+ },
+ "g-en40": {
+  "exact": "Callum canoe 2012 Marisol",
+  "para": "What anecdote kicks off the wedding address and how long may it run?",
+  "mixed": "Callum 결혼식 축사는 어떤 이야기로 시작해?"
+ },
+ "g-ko01": {
+  "exact": "김장 절임배추 40킬로 광천",
+  "para": "겨울 밑반찬 담그러 가는 곳이 어디고, 미리 소금에 절인 채소는 얼마나 시켰어?",
+  "mixed": "What weekend is 김장 at grandma's place and where do we buy the 새우젓?"
+ },
+ "g-ko02": {
+  "exact": "보증금 2억 3천 임차권등기명령",
+  "para": "방을 빼는 날 건물 소유자한테서 받아야 할 금액이 얼마야?",
+  "mixed": "How much 보증금 is the landlord returning on move-out day?"
+ },
+ "g-ko03": {
+  "exact": "나비 설사 연어 저알러지 사료",
+  "para": "우리 집 냥이 배탈 때문에 먹이를 어떤 생선 제품으로 교체했고 옛것과 얼마나 오래 같이 줘?",
+  "mixed": "What fish is the new hypoallergenic food for 나비 based on, and how long is the switch-over?"
+ },
+ "g-ko04": {
+  "exact": "피싱 대응 보안 교육 VPN",
+  "para": "해마다 사기 메일 훈련을 안 끝낸 사람은 어떤 불이익을 받아?",
+  "mixed": "What happens to your VPN access if you skip the annual 보안 교육?"
+ },
+ "g-ko05": {
+  "exact": "요추 4번 5번 맥켄지 신전",
+  "para": "뼈 전문 병원에서 척추 아래쪽 어느 마디에 문제가 있다고 했어? 몸 젖히는 동작은 매일 몇 회야?",
+  "mixed": "How many times a day should I do the McKenzie extension for my 허리?"
+ },
+ "g-ko06": {
+  "exact": "제주 애월 펜션 3박 렌터카",
+  "para": "섬으로 놀러 갈 때 빌린 차를 돌려줄 땐 기름을 어떻게 해 둬야 해?",
+  "mixed": "How many nights is the 펜션 in Aewol booked for the October trip?"
+ },
+ "g-ko07": {
+  "exact": "3분기 매출 42억 108퍼센트",
+  "para": "올해 세 번째 쿼터 판매액에서 국외 몫이 차지하는 비율은 몇 프로야?",
+  "mixed": "What share of Q3 revenue came from 해외 customers?"
+ },
+ "g-ko08": {
+  "exact": "하준 구민체육센터 수영 수경",
+  "para": "아들 물놀이 교실 갈 때 물안경이랑 모자는 어디에 넣어 뒀어?",
+  "mixed": "Which days and what time is 하준's swimming lesson?"
+ },
+ "g-ko09": {
+  "exact": "배치 서버 디스크 98퍼센트 logrotate",
+  "para": "야간 작업 머신의 저장 공간이 거의 찼을 때 기록물 유지 일수를 며칠로 바꿨어?",
+  "mixed": "What retention period did we set for logrotate on the 배치 server?"
+ },
+ "g-ko10": {
+  "exact": "아버지 건강검진 11월 8일 강남 대장내시경",
+  "para": "아빠 몸 체크 받는 곳이 어디고 그 하루 전 밤 몇 시부터 아무것도 안 드셔야 해?",
+  "mixed": "From what time the night before must my father start fasting for his 건강검진?"
+ },
+ "g-ko11": {
+  "exact": "신규 입사자 맥북 김서연 매니저",
+  "para": "새로 들어온 직원 아이디 만들어 달라고 누구한테 말해?",
+  "mixed": "Who in the IT team handles account setup for 신규 입사자?"
+ },
+ "g-ko12": {
+  "exact": "청양고추 모종 12포기 탄저병",
+  "para": "매운 열매 어린 나무 몇 그루 옮겨 놓았고 우기 오기 전에 뭘 해?",
+  "mixed": "How many 청양고추 seedlings did we plant, and what to do before the rainy season?"
+ },
+ "g-ko13": {
+  "exact": "주담대 변동금리 4.2퍼센트 고정금리 3.9퍼센트",
+  "para": "집 사면서 빌린 돈 이자율을 바뀌지 않는 걸로 옮기면 몇 프로야? 미리 갚을 때 내는 비용은 아직 붙어?",
+  "mixed": "What fixed rate are we switching the 주담대 to, and is the early repayment fee still charged?"
+ },
+ "g-ko14": {
+  "exact": "회의록 결정 사항 담당자 노션",
+  "para": "미팅 메모 맨 앞줄에 꼭 들어가야 하는 세 가지가 뭐야?",
+  "mixed": "Within how many hours after a meeting must the 회의록 go up on Notion?"
+ },
+ "g-ko15": {
+  "exact": "보리 아침 7시 저녁 8시 산책",
+  "para": "더운 계절에 강쥐 데리고 밖에 나갈 땐 왜 어두워진 다음이어야 해?",
+  "mixed": "How long is each walk for 보리, and why go out after sunset in summer?"
+ },
+ "g-ko16": {
+  "exact": "한남동 프렌치 르블랑 12월 14일",
+  "para": "부부 십 년째 되는 날 밥 먹으러 잡아둔 식당 이름이 뭐고 어떤 좌석을 달라고 했어?",
+  "mixed": "What time is the anniversary dinner at 르블랑?"
+ },
+ "g-ko17": {
+  "exact": "상품 조회 API 레디스 320밀리초 45밀리초",
+  "para": "물건 정보 불러오는 엔드포인트에 메모리 저장소를 달아서 속도가 얼마에서 얼마로 빨라졌어?",
+  "mixed": "When does the Redis 캐시 get invalidated for the product lookup API?"
+ },
+ "g-ko18": {
+  "exact": "서윤 수요일 음악학원 체르니 30번",
+  "para": "큰애 건반 수업이 무슨 날 몇 시에 있고 요즘 연습하는 연습곡 번호는 뭐야?",
+  "mixed": "Which Czerny piece is 서윤 practicing this month?"
+ },
+ "g-ko19": {
+  "exact": "3월 22일 포장이사 한빛익스프레스 전입신고",
+  "para": "새집으로 옮기는 날 짐 옮겨주는 회사 이름이 뭐고, 주소 변경이랑 통신 회선 옮기기는 며칠 앞서 해?",
+  "mixed": "Which moving company did we pick for the 이사?"
+ },
+ "g-ko20": {
+  "exact": "운영 배포 오류율 2퍼센트 롤백",
+  "para": "프로덕션에 새 코드 올린 뒤 실패 비율이 몇 프로를 초과하면 되돌리고, 그 결정은 누가 해?",
+  "mixed": "Above what error rate do we roll back a production 배포, and who decides?"
+ },
+ "g-ko21": {
+  "exact": "현미밥 닭가슴살 샐러드 주 3회",
+  "para": "살 빼는 동안 밤 몇 시 지나면 아무것도 입에 안 대고, 웨이트는 일주일에 몇 번 해?",
+  "mixed": "What do I eat for lunch on the 다이어트 plan, and after what hour is eating off-limits?"
+ },
+ "g-ko22": {
+  "exact": "자동차 보험 9월 30일 다이렉트 블랙박스",
+  "para": "차량 사고 대비 계약 다시 맺을 때 어떤 두 가지 감액 조건을 추가했어?",
+  "mixed": "Which discounts did we add when renewing the car 보험 online?"
+ },
+ "g-ko23": {
+  "exact": "하반기 워크숍 11월 13일 가평 리조트",
+  "para": "연말 무렵 회사 단합 행사는 어디서 며칠 동안 하고, 다룰 안건은 뭐야?",
+  "mixed": "Where is the second-half 워크숍 held, and what are the two topics?"
+ },
+ "g-ko24": {
+  "exact": "어금니 신경치료 크라운",
+  "para": "이빨 뿌리 시술은 몇 회로 진행되고 끝나면 뭘 덮어? 그동안 먹으면 안 되는 건?",
+  "mixed": "How many sessions is the root canal on my 어금니, and what goes on at the end?"
+ },
+ "g-ko25": {
+  "exact": "회원 탈퇴 개인정보 30일 전자상거래법",
+  "para": "계정을 없앤 사용자의 데이터는 며칠 지나면 지우고, 구매 내역은 법대로 얼마나 오래 남겨?",
+  "mixed": "How long are payment records kept under the e-commerce law after 회원 탈퇴?"
+ },
+ "g-ko26": {
+  "exact": "베란다 상추 깻잎 액체 비료",
+  "para": "집 발코니 채소 화단에 영양제는 얼마나 자주 줘?",
+  "mixed": "How often do the 상추 and perilla on the balcony get watered?"
+ },
+ "g-ko27": {
+  "exact": "토요일 강남역 카페 영어 회화 스터디",
+  "para": "주말 외국어 말하기 모임은 어디서 몇 시에 모이고 다가오는 회차 이야깃거리는 뭐야?",
+  "mixed": "Where does the Saturday 영어 회화 study group meet, and what's this week's topic?"
+ },
+ "g-ko28": {
+  "exact": "노트북 배터리 72퍼센트 서비스센터",
+  "para": "업무용 랩탑 전지 용량이 몇 프로까지 내려가서 바꾸기로 했고, 고치는 동안 며칠 걸려?",
+  "mixed": "How many days is the 배터리 replacement for the work laptop, and do I get a loaner?"
+ },
+ "g-ko29": {
+  "exact": "추석 선물 거래처 20곳 한우 세트",
+  "para": "가을 명절에 협력사 몇 군데에 소고기 꾸러미를 부치고, 동료들은 뭘 받아? 도착은 언제까지?",
+  "mixed": "How many partner companies get the 한우 set for Chuseok, and by when must delivery finish?"
+ },
+ "g-ko30": {
+  "exact": "밤 11시 잠자리 휴대폰 커피",
+  "para": "카페인 음료는 낮 몇 시가 지나면 끊고, 눕기 전에 얼마나 오래 스마트폰을 멀리해?",
+  "mixed": "After what time in the afternoon is 커피 off-limits under the sleep routine?"
+ },
+ "g-ko31": {
+  "exact": "새벽 3시 집계 배치 원천 테이블 센서",
+  "para": "이른 아침 합산 잡이 왜 늦어졌고, 재발 방지로 뭘 넣었어?",
+  "mixed": "Why did the early-morning 집계 batch finish late, and what did we add to prevent it?"
+ },
+ "g-ko32": {
+  "exact": "전혈 헌혈 8주 12월 2일 헌혈증",
+  "para": "피를 다시 기부할 수 있는 날짜가 언제고, 그 증서는 어디에 보관해?",
+  "mixed": "When is the next eligible date for 헌혈, and where do the certificates go?"
+ },
+ "g-ko33": {
+  "exact": "고객 문의 영업일 4시간 환불 팀장",
+  "para": "사용자 질문에는 얼마 만에 첫 회신을 보내고, 돈을 돌려달라는 건은 누구 허락이 필요해?",
+  "mixed": "Within how many business hours do we send the first reply to a 고객 inquiry?"
+ },
+ "g-ko34": {
+  "exact": "지리산 종주 등산화 헤드랜턴 대피소",
+  "para": "남부 큰 산맥 횡단 때 묵을 쉼터 자리는 얼마나 앞서 잡을 수 있어?",
+  "mixed": "How far in advance do 대피소 reservations open for the Jirisan traverse?"
+ },
+ "g-ko35": {
+  "exact": "넷플릭스 유튜브 프리미엄 4만 2천 원",
+  "para": "매달 나가는 스트리밍이랑 온라인 보관함 요금을 다 더하면 얼마야?",
+  "mixed": "What's the combined monthly cost of my 구독 services, and what's the plan for unused ones?"
+ },
+ "g-ko36": {
+  "exact": "파이썬 ruff 타입 힌트 PR",
+  "para": "스네이크 언어 소스는 어떤 도구로 정렬하고, 검증 케이스가 빠진 변경 요청은 어떻게 돼?",
+  "mixed": "Which formatter do we use for Python, and are PRs without 테스트 merged?"
+ },
+ "g-ko37": {
+  "exact": "어머니 칠순 5월 17일 수원 한정식집",
+  "para": "엄마 일흔 번째 생신 모임에 일가 몇 분이 오고, 별도로 주문하는 음식은 뭐야?",
+  "mixed": "How many relatives are coming to mom's 칠순 lunch in Suwon?"
+ },
+ "g-ko38": {
+  "exact": "재택근무 주 2회 화요일 전원 출근 메신저",
+  "para": "집에서 일하는 날에는 몇 시부터 몇 시까지 채팅에 바로 대답해야 해? 모두 사무실로 오는 날은 언제야?",
+  "mixed": "Which day is everyone required in the office under the 재택근무 rule?"
+ },
+ "g-ko39": {
+  "exact": "무선 청소기 헤파 필터 V15-H",
+  "para": "코드리스 진공 기계 거름망은 몇 개월 주기로 갈고 부품 번호가 뭐야?",
+  "mixed": "How often does the HEPA 필터 on the cordless vacuum get replaced, and what's the model number?"
+ },
+ "g-ko40": {
+  "exact": "개발 블로그 쿠버네티스 비용 절감 사내 검색",
+  "para": "기술 포스팅은 한 달에 몇 개 쓰기로 했고, 요즘 다루는 두 가지 이야기는 뭐야?",
+  "mixed": "What are this month's two topics for the dev 블로그, one about Kubernetes cost and the other?"
+ },
+ "g-ja01": {
+  "exact": "横浜 仙台 転出届 区役所",
+  "para": "住まいを別の都市に移す際、公共料金の契約はいつまでに止めておく必要がある？",
+  "mixed": "When is the move to 仙台 and by when must the 転出届 and utility cancellations be handled?"
+ },
+ "g-ja02": {
+  "exact": "柴犬 コタロウ 狂犬病 さくら動物クリニック",
+  "para": "うちのワンちゃんの注射はどうやって申し込めばいい？",
+  "mixed": "How do I book the rabies shot for Kotaro the 柴犬 and where is it done?"
+ },
+ "g-ja03": {
+  "exact": "新入社員研修 四月一日 八階会議室",
+  "para": "採用されたばかりの人向けのトレーニングはどのフロアで開かれる？",
+  "mixed": "Which floor of the head office hosts the new hire 研修 and what happens on the last day?"
+ },
+ "g-ja04": {
+  "exact": "豚骨スープ 黒マー油 細麺",
+  "para": "豚の骨からとる出汁はどれくらいの間火にかける？",
+  "mixed": "How long does the 豚骨 broth simmer and what toppings finish the ramen?"
+ },
+ "g-ja05": {
+  "exact": "決済API メモリ不足 キャッシュ 肥大化",
+  "para": "支払い処理の基盤が落ちたのはなぜで、どう直した？",
+  "mixed": "Why did the payment API server go down and what did we change to the キャッシュ to fix it?"
+ },
+ "g-ja06": {
+  "exact": "健康診断 十月二十日 絶食",
+  "para": "毎年受ける身体のチェックの前夜、何時から食べてはいけない？",
+  "mixed": "When is the annual 健康診断 and from what time the night before do I stop eating?"
+ },
+ "g-ja07": {
+  "exact": "英会話レッスン カナダ エミリー先生",
+  "para": "外国語のスピーキング指導をしてくれる人はどの国から来た？",
+  "mixed": "Which evening is my online English lesson and where is Emily 先生 from?"
+ },
+ "g-ja08": {
+  "exact": "食費 五万円 格安SIM",
+  "para": "レストランで食べる頻度はどのくらいに抑える？携帯の契約はどう変える？",
+  "mixed": "How often can we eat out now that 食費 went over budget, and what happens to the phone plan?"
+ },
+ "g-ja09": {
+  "exact": "京都 嵐山 旅館 竹林",
+  "para": "秋の古都への旅で、朝早くどこを散歩するつもり？",
+  "mixed": "How many nights do we stay at the Arashiyama 旅館 and what is the early-morning plan?"
+ },
+ "g-ja10": {
+  "exact": "プルリクエスト 差し戻し nit 二営業日",
+  "para": "コードの確認はどれくらいの期間で回答すべきで、自動検証がない変更はどう扱う？",
+  "mixed": "How fast must a code review be returned and what happens to a プルリクエスト without tests?"
+ },
+ "g-ja11": {
+  "exact": "ミニトマト バジル 液体肥料",
+  "para": "家の外のスペースで栽培している野菜とハーブに、暑い季節は何度給水する？",
+  "mixed": "How often do the balcony ミニトマト and basil get watered in summer and how often fertilizer?"
+ },
+ "g-ja12": {
+  "exact": "車検 ディーラー ブレーキパッド",
+  "para": "自動車の定期検査はいつまでで、同時に頼む部品は何？",
+  "mixed": "When is the 車検 due and what extra part replacement do we ask the dealer for?"
+ },
+ "g-ja13": {
+  "exact": "読書会 山吹ハル 長編小説",
+  "para": "本について語り合う集まりで、次に取り上げる作家は誰？",
+  "mixed": "Where does the 読書会 meet and whose novel is this month's pick?"
+ },
+ "g-ja14": {
+  "exact": "在宅勤務 週三日 全員出社",
+  "para": "リモートで働ける日数の上限はいくつで、必ずオフィスに来るのはいつ？",
+  "mixed": "How many days a week is 在宅勤務 allowed and which weekdays require coming in?"
+ },
+ "g-ja15": {
+  "exact": "布団 十一時 スマホ コーヒー",
+  "para": "眠りの質を上げるため、カフェインを控えるのは何時から？",
+  "mixed": "What time do I go to bed and after what hour is コーヒー off limits?"
+ },
+ "g-ja16": {
+  "exact": "健太 結婚式 乾杯 山登り",
+  "para": "友達の披露宴でのトーストは何のエピソードで切り出し、長さはどれくらいに収める？",
+  "mixed": "Which story opens the wedding 乾杯 speech for Kenta and how long should it run?"
+ },
+ "g-ja17": {
+  "exact": "PostgreSQL 顧客データベース 夜間バッチ 差分",
+  "para": "DBを新しいシステムに載せ替える間、書き込みはどう制限され、変更分はいつ反映される？",
+  "mixed": "When does the customer database move to PostgreSQL and how are 差分 synced during the migration?"
+ },
+ "g-ja18": {
+  "exact": "さくら ピアノ教室 ブルグミュラー 十五番",
+  "para": "子どもが鍵盤楽器を習いに行くのは何曜日の何時？",
+  "mixed": "When is Sakura's ピアノ教室 and which piece is she practicing this month?"
+ },
+ "g-ja19": {
+  "exact": "防災リュック 乾パン 懐中電灯 三リットル",
+  "para": "災害に備えたかばんの持ち物はどのくらいの頻度で確認する？",
+  "mixed": "What goes into the 防災 backpack and how often is it checked?"
+ },
+ "g-ja20": {
+  "exact": "動画配信 音楽配信 クラウド 四千八百円",
+  "para": "ストリーミングなどのサブスクの毎月の支払いは全部でいくら？",
+  "mixed": "What is the combined monthly cost of the streaming and cloud subscriptions, and which ones get 解約?"
+ },
+ "g-zh01": {
+  "exact": "上海 杭州 顺风搬运",
+  "para": "换住处的时候，宽带转移需要多早办理？",
+  "mixed": "When is the move to Hangzhou, which 搬家公司 did we book, and how early must the internet transfer be requested?"
+ },
+ "g-zh02": {
+  "exact": "橘猫 豆豆 三联疫苗",
+  "para": "家里的小猫接种之前需要禁食多长时间？",
+  "mixed": "When does Doudou the 橘猫 get her annual checkup and how long must she fast before the vaccine?"
+ },
+ "g-zh03": {
+  "exact": "三千二百万元 百分之一百零五 海外市场",
+  "para": "这一季的营收是多少，国外业务占了几成？",
+  "mixed": "What was last quarter's 销售额 and what share came from overseas markets?"
+ },
+ "g-zh04": {
+  "exact": "日志堆积 批处理服务器 百分之九十七 日志轮转",
+  "para": "机器硬盘快满了是什么原因，记录文件现在留多久？",
+  "mixed": "Why did the batch server disk fill up and how long is the 日志 retention now?"
+ },
+ "g-zh05": {
+  "exact": "糙米饭 鸡胸肉沙拉 力量训练",
+  "para": "减重计划里几点之后就不能再用餐了？",
+  "mixed": "What do I eat for lunch on the diet and after what hour is 进食 not allowed?"
+ },
+ "g-zh06": {
+  "exact": "年会 一月十八日 西湖",
+  "para": "企业年终聚会在哪里办，各团队要出什么？",
+  "mixed": "When and where is the company 年会 and what must each department prepare?"
+ },
+ "g-zh07": {
+  "exact": "臼齿 根管治疗 牙冠",
+  "para": "牙医的疗程要去几趟，中间饮食有什么禁忌？",
+  "mixed": "How many visits does the 根管治疗 take and what should I avoid eating meanwhile?"
+ },
+ "g-zh08": {
+  "exact": "注销账号 三十天 支付记录 五年",
+  "para": "会员退出平台后，他们的资料多久会被清除？",
+  "mixed": "How long after a user deletes their account is 个人信息 removed, and how long are payment records kept?"
+ },
+ "g-zh09": {
+  "exact": "音阶 节拍器 八十",
+  "para": "弹琴的日常安排里，速度机器调到多少？",
+  "mixed": "How long do I practice scales each day and what tempo is the 节拍器 set to?"
+ },
+ "g-zh10": {
+  "exact": "车险 行车记录仪 里程附加险",
+  "para": "汽车保单什么时候失效，新方案里加了哪些优惠？",
+  "mixed": "When does the 车险 expire and which discounts were added on renewal?"
+ },
+ "g-zh11": {
+  "exact": "错误率 百分之二 回滚 值班工程师",
+  "para": "部署之后失败比例达到什么阈值要撤回，谁来拍板？",
+  "mixed": "Above what error rate do we 回滚 a release and who makes the call?"
+ },
+ "g-zh12": {
+  "exact": "生菜 小葱 液体肥料",
+  "para": "家里露台的蔬菜多久灌一回水，营养剂多久加一回？",
+  "mixed": "What grows on the balcony and how often do the 生菜 get water and fertilizer?"
+ },
+ "g-zh13": {
+  "exact": "南京西路 英语口语小组 咖啡馆",
+  "para": "外语会话聚会在哪条街举行，这次讨论什么主题？",
+  "mixed": "Where and when does the English 口语 group meet and what is this week's topic?"
+ },
+ "g-zh14": {
+  "exact": "笔记本电池 健康度 百分之七十 售后中心",
+  "para": "工作用的电脑续航元件衰减到多少，修理要几日？",
+  "mixed": "How low did the work laptop 电池 health drop and how long will the repair take?"
+ },
+ "g-zh15": {
+  "exact": "中秋节 月饼礼盒 二十家 水果箱",
+  "para": "秋天的节日给伙伴公司和同事分别准备了什么，截止哪天？",
+  "mixed": "What 中秋 gifts go to clients versus team members and by when must they ship?"
+ },
+ "g-zh16": {
+  "exact": "十一点 上床 手机 咖啡",
+  "para": "为了休息得好，午后几点起就不能摄入提神饮料？",
+  "mixed": "What time do I go to bed and after what hour is 咖啡 not allowed?"
+ },
+ "g-zh17": {
+  "exact": "汇总任务 凌晨三点 源表 传感器",
+  "para": "夜里跑的聚合作业为什么推后结束，做了什么修复？",
+  "mixed": "Why did the nightly 汇总 job finish late and what was added to prevent it?"
+ },
+ "g-zh18": {
+  "exact": "全血 十二月二日 献血证",
+  "para": "我什么时候可以再去捐血，那张凭证收在哪儿？",
+  "mixed": "When can I donate blood again and where is the 献血证 kept?"
+ },
+ "g-zh19": {
+  "exact": "武功山 登山鞋 登山杖 头灯",
+  "para": "徒步那座山的峰顶露营需要多早订位？",
+  "mixed": "What gear did I buy for the Wugong Mountain hike and how early must the summit 帐篷 be booked?"
+ },
+ "g-zh20": {
+  "exact": "视频会员 音乐会员 云盘 一百二十元",
+  "para": "各种订阅服务每个月总共花多少钱？",
+  "mixed": "What do the video, music and 云盘 subscriptions cost per month in total and which get cancelled?"
+ },
+ "g-es01": {
+  "exact": "Lucía pasaporte Chamberí 14 de enero",
+  "para": "¿Qué documentos y pago debo traer a la oficina policial cuando renueve mi identificación de viaje?",
+  "mixed": "When is Lucía's appointment at the comisaría and what must she bring?"
+ },
+ "g-es02": {
+  "exact": "arroz bomba azafrán garrofón",
+  "para": "¿Qué ingredientes lleva el plato valenciano que preparamos el fin de semana y cómo se trata el líquido?",
+  "mixed": "What rice and other ingredients go into the Sunday paella and how is the caldo handled?"
+ },
+ "g-es03": {
+  "exact": "servidor facturación nube 8 de junio",
+  "para": "¿Cuándo migramos la máquina de cobros y qué comprobación debe cumplirse antes de apagar las copias?",
+  "mixed": "When does the billing server move to la nube and how long do the read réplicas stay?"
+ },
+ "g-es04": {
+  "exact": "menisco Marta Quiroga sentadillas",
+  "para": "¿Qué ejercicios me recetó la especialista para la lesión de rodilla y cuándo puedo volver a trotar?",
+  "mixed": "What exercises did Marta Quiroga prescribe after the menisco tear and when can I run again?"
+ },
+ "g-es05": {
+  "exact": "calle Olmo 31 de agosto casero",
+  "para": "¿Qué aumento de renta pide el propietario del apartamento y cuánto le ofrecemos nosotros?",
+  "mixed": "When does the lease on the calle Olmo flat end and what rent increase does the casero want?"
+ },
+ "g-es06": {
+  "exact": "Misi rabia clínica veterinaria Albaida",
+  "para": "¿Cuánto tiempo sin comer necesita la gata antes de su inyección en el centro de animales?",
+  "mixed": "Where does Misi get her rabies vacuna and how long must she stay en ayunas beforehand?"
+ },
+ "g-es07": {
+  "exact": "gasto discrecional tercer trimestre Iñaki Soler",
+  "para": "¿Quién debe aprobar los desplazamientos a conferencias caros mientras dure la restricción presupuestaria?",
+  "mixed": "Who has to sign off on expensive conference travel during the quarterly gasto freeze?"
+ },
+ "g-es08": {
+  "exact": "huerto azotea riego por goteo abono orgánico",
+  "para": "¿Con qué frecuencia fertilizamos las hortalizas que cultivamos en el tejado?",
+  "mixed": "What is planted in the rooftop huerto and how often do we water and apply abono?"
+ },
+ "g-es09": {
+  "exact": "guardias rotan traspaso despliegues",
+  "para": "¿Qué día y hora cambia el turno de disponibilidad y qué debe documentar la persona que lo entrega?",
+  "mixed": "When do the guardias rotate and what must the outgoing person leave in the traspaso note?"
+ },
+ "g-es10": {
+  "exact": "traducciones Veridia 30 de junio impuestos 2025",
+  "para": "¿Cuál es la fecha límite para presentar a Hacienda lo cobrado por el trabajo lingüístico freelance?",
+  "mixed": "By when must the freelance translation income for Veridia be declared, and which carpeta holds the invoices?"
+ },
+ "g-es11": {
+  "exact": "café Huila 18 gramos 38 27 segundos",
+  "para": "¿Qué receta de espresso usamos con los granos colombianos y qué ajuste hacemos si la extracción va demasiado veloz?",
+  "mixed": "What espresso recipe do we use for the Huila beans, and how should I adjust the grind if the shot runs rápido?"
+ },
+ "g-es12": {
+  "exact": "abuela Remedios Villanúa mapa enmarcado",
+  "para": "¿Qué regalo pedimos para el noventa cumpleaños de la yaya y cuándo lo vamos a buscar?",
+  "mixed": "What gift did we order for abuela Remedios and when do we pick it up?"
+ },
+ "g-es13": {
+  "exact": "cadena engrasada 300 kilómetros 2,6 bar 2,8",
+  "para": "¿Cuánto aire llevan las ruedas de la bicicleta y con qué kilometraje lubricamos la transmisión?",
+  "mixed": "How often does the bike chain get lubed and what tire presión do we run front and back?"
+ },
+ "g-es14": {
+  "exact": "postmortem cronología causa raíz cinco días hábiles",
+  "para": "¿Qué secciones debe tener el análisis de un incidente y en qué plazo hay que compartirlo?",
+  "mixed": "Which sections must every postmortem include and within how many días hábiles is it published?"
+ },
+ "g-es15": {
+  "exact": "escalas metrónomo 80 arpegios fingerpicking",
+  "para": "¿Cuánto tiempo dedico a los ejercicios técnicos de guitarra y a qué tempo?",
+  "mixed": "How long are the escalas in my guitar routine and what comes after the fingerpicking?"
+ },
+ "g-es16": {
+  "exact": "Nubalia 1 de enero 60 días",
+  "para": "¿Con cuánto margen debo avisar al proveedor de alojamiento web para que no se prorrogue el acuerdo automáticamente?",
+  "mixed": "How far in advance must I cancel the Nubalia hosting contrato to stop the auto-renewal?"
+ },
+ "g-es17": {
+  "exact": "Teo anacardos pistachos autoinyector",
+  "para": "¿Qué frutos secos puede comer el niño sin problema y dónde guardamos la medicación de emergencia?",
+  "mixed": "Which nuts can Teo eat safely and where is the autoinyector kept?"
+ },
+ "g-es18": {
+  "exact": "placas 395 kWh julio 8 por ciento",
+  "para": "¿Cuánta energía generaron los paneles fotovoltaicos este verano y qué mantenimiento mejoró el rendimiento?",
+  "mixed": "How much did the rooftop placas produce this summer compared to last year, and what helped recover the loss?"
+ },
+ "g-es19": {
+  "exact": "utilitario 2019 correa de distribución Talleres Beltrán",
+  "para": "¿En qué garaje repararon el motor de mi vehículo y cuándo debo llevarlo a la siguiente revisión de lubricante?",
+  "mixed": "Which Talleres replaced the correa on the hatchback and when is the next oil change due?"
+ },
+ "g-es20": {
+  "exact": "padrino Álvaro canoa 2012 Marisa",
+  "para": "¿Con qué anécdota abro el brindis en la boda de mi amigo y cuánto debe durar?",
+  "mixed": "Which story opens the padrino speech for Álvaro and who do we brindar to at the end?"
+ },
+ "g-de01": {
+  "exact": "Köln Leipzig Ummeldung Bürgeramt",
+  "para": "Wie viel Zeit haben wir nach dem Wohnortwechsel, um die neue Adresse bei der Behörde zu registrieren?",
+  "mixed": "When is the move to Leipzig and how soon after must the Ummeldung be done?"
+ },
+ "g-de02": {
+  "exact": "Dackel Fritz Tollwutimpfung Tierarztpraxis",
+  "para": "Wie vereinbare ich den Besuch für die Spritze unseres Hundes?",
+  "mixed": "When does Fritz the Dackel get his rabies shot and how do we book the Tierarztpraxis?"
+ },
+ "g-de03": {
+  "exact": "4,1 Millionen 106 Prozent Auslandsanteil",
+  "para": "Wie hoch waren die Einnahmen im letzten Vierteljahr und welcher Teil kam aus dem Export?",
+  "mixed": "How much Umsatz did we make last quarter and what share came from abroad?"
+ },
+ "g-de04": {
+  "exact": "Orthopäde Bandscheibenvorfall L4 L5 McKenzie",
+  "para": "Welche Gymnastik soll ich wie oft für meinen Rücken machen und was soll ich lassen?",
+  "mixed": "Which Übungen did the Orthopäde prescribe for my back and how often?"
+ },
+ "g-de05": {
+  "exact": "Zahlungsdienst 3. September Cache Speicherlimit",
+  "para": "Warum war die Bezahlfunktion frühmorgens nicht erreichbar und wie wurde das Problem behoben?",
+  "mixed": "Why did the Zahlungsdienst fail overnight and what limit did we set afterwards?"
+ },
+ "g-de06": {
+  "exact": "Roggensauerteig Gustav eins zu eins",
+  "para": "Wie oft bekommt mein Brotansatz Nahrung und wann erreicht er seinen Höhepunkt?",
+  "mixed": "How often is the Roggensauerteig Gustav fed and in what ratio, and when is it most active?"
+ },
+ "g-de07": {
+  "exact": "Übersetzungen Veridian 31. Juli Arbeitszimmer",
+  "para": "Bis wann melde ich dem Finanzamt mein freiberufliches Honorar und wo finde ich die Rechnungen?",
+  "mixed": "By when must the Veridian translation income be declared and which Ordner holds the receipts?"
+ },
+ "g-de08": {
+  "exact": "Gravelbike Bremsbeläge 2400 Kilometern 2,6 2,8 bar",
+  "para": "Mit wie viel Luft fahre ich die Räder meines Fahrrads und nach welcher Strecke schmiere ich den Antrieb?",
+  "mixed": "At what mileage do I oil the Kette and what Reifendruck do I run front and rear?"
+ },
+ "g-de09": {
+  "exact": "Entwickler Laptop Patin Fix",
+  "para": "Wie lange begleitet eine Mentorin frisch eingestellte Programmierer und was sollen sie anfangs abschließen?",
+  "mixed": "What do new Entwickler get on day one and how long do they work with a Patin?"
+ },
+ "g-de10": {
+  "exact": "Keller 12 und 14 Grad 65 Prozent Barolo 2016",
+  "para": "Welche Temperatur und Feuchte braucht mein Weinlager, und wie lange soll der italienische Rotwein reifen?",
+  "mixed": "What temperature and humidity should the Weinkeller have, and how long do the Barolo bottles stay liegend?"
+ },
+ "g-de11": {
+  "exact": "Trauzeugenrede Jonas Kanugeschichte Lea",
+  "para": "Mit welcher Anekdote eröffne ich meine Ansprache auf der Hochzeit meines Freundes und wie lang darf sie sein?",
+  "mixed": "Which story opens the Trauzeugenrede for Jonas and who do we toast at the end?"
+ },
+ "g-de12": {
+  "exact": "Dachanlage 405 kWh neun Prozent",
+  "para": "Wie viel Strom lieferten die Solarmodule im Sommer und welche Pflege hat den Ertrag wieder gesteigert?",
+  "mixed": "How much did the Dachanlage produce this summer compared to last year, and what fixed the drop?"
+ },
+ "g-de13": {
+  "exact": "Rufbereitschaft Montag zehn Uhr Übergabenotiz",
+  "para": "Wann rotiert der Notfalldienst im Team und was muss die abtretende Person dokumentieren?",
+  "mixed": "When does the Rufbereitschaft rotate and what goes into the Übergabenotiz?"
+ },
+ "g-de14": {
+  "exact": "Rauchmelder vier März Knopf",
+  "para": "Wann im Jahr tausche ich die Energiezellen der Brandwarngeräte und wie oft prüfe ich sie?",
+  "mixed": "In which month do the Rauchmelder batteries get changed and how often are they tested?"
+ },
+ "g-de15": {
+  "exact": "Tonleitern Metronom 80 Zupfmuster",
+  "para": "Wie lange übe ich Skalen auf der Gitarre und in welchem Tempo?",
+  "mixed": "How long do I practice Tonleitern with the metronome and what comes after?"
+ },
+ "g-de16": {
+  "exact": "Wolkenwerk 1. Januar 60 Tage Kündigung",
+  "para": "Wie früh muss ich dem Hosting-Anbieter absagen, damit die Vereinbarung nicht von selbst weiterläuft?",
+  "mixed": "How far in advance must I cancel the Wolkenwerk contract to prevent the automatic Verlängerung?"
+ },
+ "g-de17": {
+  "exact": "Theo Cashewkerne Pistazien Adrenalin-Pen",
+  "para": "Welche Sorte Schalenfrüchte kann der Junge problemlos essen und wo liegt sein Notfallmedikament?",
+  "mixed": "Which nuts is Theo allergic to and where is the Adrenalin-Pen kept?"
+ },
+ "g-de18": {
+  "exact": "Kleinwagen 2019 Zahnriemen Werkstatt Kessler",
+  "para": "In welchem Betrieb wurde das Auto repariert und bei welcher Laufleistung steht der kommende Service an?",
+  "mixed": "Which Werkstatt replaced the Zahnriemen on the small car and when is the next oil change due?"
+ },
+ "g-de19": {
+  "exact": "p95-Latenz Ranking-Update 180 640 Millisekunden Synonymerweiterung",
+  "para": "Warum wurden Abfragen plötzlich so langsam und wann haben wir die Änderung zurückgenommen?",
+  "mixed": "Why did search Latenz jump after the ranking update and when did we roll back?"
+ },
+ "g-de20": {
+  "exact": "Herbstlektüre Hanse Ilse Varga Schlafforschung",
+  "para": "Welche Titel will ich in dieser Jahreszeit lesen und in welchem Rhythmus?",
+  "mixed": "Which books are on my autumn Leseliste and how many per month?"
+ }
+}

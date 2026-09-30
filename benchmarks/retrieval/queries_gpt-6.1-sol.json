@@ -1,0 +1,802 @@
+{
+ "g-en01": {
+  "exact": "Orchard 10.40 tunneling",
+  "para": "Which destination range remains routed inside the secure connection?",
+  "mixed": "Orchard 연결에서 화상회의 통신은 어떤 경로로 보내나요?"
+ },
+ "g-en02": {
+  "exact": "Halvard Q3 Ines Borowczyk",
+  "para": "Whose authorization is required for pricey symposium trips?",
+  "mixed": "학술행사 출장비가 기준액을 넘으면 누구의 승인을 받아야 하나요?"
+ },
+ "g-en03": {
+  "exact": "rye Gus peaks",
+  "para": "How long does the fermented culture take to reach maximum activity following nourishment?",
+  "mixed": "Gus 발효종은 따뜻한 부엌에서 먹이를 준 뒤 언제 가장 활발해지나요?"
+ },
+ "g-en04": {
+  "exact": "meniscus Tomasz Wrenfield step-downs",
+  "para": "At what recovery milestone may jogging resume?",
+  "mixed": "반월판 부상 뒤 달리기는 몇 주째부터 허용되나요?"
+ },
+ "g-en05": {
+  "exact": "MySQL Postgres 17 checksums",
+  "para": "What validation must succeed before secondary readers leave their previous infrastructure?",
+  "mixed": "청구 시스템 이전 때 읽기용 복제본은 어떤 검증이 끝날 때까지 기존 환경에 남나요?"
+ },
+ "g-en06": {
+  "exact": "Marlowe August 31 counteroffer",
+  "para": "What smaller percentage uplift should be proposed for extending the tenancy?",
+  "mixed": "Marlowe 집 계약 연장 때 임대료 인상률을 얼마로 역제안하나요?"
+ },
+ "g-en07": {
+  "exact": "Pip rabies November Fernhill",
+  "para": "How long must the striped feline abstain from eating ahead of her visit?",
+  "mixed": "Pip 예방접종 진료 전에는 몇 시간 동안 먹이를 주지 않아야 하나요?"
+ },
+ "g-en08": {
+  "exact": "evicted 90 GiB PodDisruptionBudget",
+  "para": "Which resource safeguard was introduced following workload removal under RAM exhaustion?",
+  "mixed": "수집 작업이 메모리 부족으로 쫓겨난 뒤 PodDisruptionBudget 외에 자원 요청량은 얼마로 늘렸나요?"
+ },
+ "g-en09": {
+  "exact": "Odile's 90th Saint-Aubrac framer",
+  "para": "What cartographic keepsake was purchased to celebrate grandmother's milestone?",
+  "mixed": "할머니의 아흔 번째 생신에는 고향과 관련된 어떤 선물을 주문했나요?"
+ },
+ "g-en10": {
+  "exact": "104 centimeters forty posture",
+  "para": "How frequently should upright work alternate with another position?",
+  "mixed": "서서 일하는 책상의 높이는 얼마이고 자세는 얼마나 자주 바꾸나요?"
+ },
+ "g-en11": {
+  "exact": "Lumen 60 ops/rotate_lumen.py secops",
+  "para": "How frequently are live transaction credentials replaced?",
+  "mixed": "Lumen 운영 인증키는 며칠 간격으로 교체하나요?"
+ },
+ "g-en12": {
+  "exact": "Brandywine blight copper fungicide",
+  "para": "Which metallic antifungal treatment tackles the diseased crop?",
+  "mixed": "Brandywine 토마토에 역병이 생기면 어떤 약제를 얼마나 자주 뿌리나요?"
+ },
+ "g-en13": {
+  "exact": "Halvard laptop buddy fix",
+  "para": "How long is a fresh technical hire partnered with a mentor?",
+  "mixed": "신입 개발자는 입사 후 동료와 짝을 이뤄 얼마 동안 일하나요?"
+ },
+ "g-en14": {
+  "exact": "Ridgeback 40 tempo Carb",
+  "para": "By what proportion should training distance decrease ahead of the endurance race?",
+  "mixed": "Ridgeback 대회 준비 막바지에는 주간 주행거리를 얼마나 줄이나요?"
+ },
+ "g-en15": {
+  "exact": "TN-770 toner reception",
+  "para": "Who holds the lock opener for the consumables cupboard?",
+  "mixed": "TN-770 소모품을 보관하는 장의 열쇠는 어디에서 받나요?"
+ },
+ "g-en16": {
+  "exact": "Kyoto Kumano Kodo ryokan",
+  "para": "Which accommodation requires physical currency rather than a card?",
+  "mixed": "일본 일정에서 ryokan 숙박비는 어떤 방식으로 내야 하나요?"
+ },
+ "g-en17": {
+  "exact": "Halvard nit linter merge",
+  "para": "What label identifies nonmandatory feedback?",
+  "mixed": "선택적으로 반영할 검토 의견에는 nit 표시를 어떻게 붙이나요?"
+ },
+ "g-en18": {
+  "exact": "Theo cashews pistachios epinephrine",
+  "para": "Where should the lifesaving injector always be carried?",
+  "mixed": "Theo 응급 주사기는 어떤 가방의 어느 칸에 보관하나요?"
+ },
+ "g-en19": {
+  "exact": "412 kWh July 9",
+  "para": "What maintenance previously recovered the photovoltaic system's lost generation?",
+  "mixed": "지붕 태양광 발전량이 줄었을 때 지난번에는 어떤 관리로 회복했나요?"
+ },
+ "g-en20": {
+  "exact": "SQL Priya Castellane recruiter",
+  "para": "Who conducts the architecture interview for the analytics specialist role?",
+  "mixed": "데이터 개발자 채용 과정에서 시스템 설계 면접은 누가 맡나요?"
+ },
+ "g-en21": {
+  "exact": "65 2016 Barolo 2030",
+  "para": "What orientation is recommended for the aged Italian reds during storage?",
+  "mixed": "Barolo 병은 언제까지 어떤 방향으로 눕혀 보관하나요?"
+ },
+ "g-en22": {
+  "exact": "Synology NAS Backblaze B2",
+  "para": "How frequently should recovery from saved snapshots be rehearsed?",
+  "mixed": "노트북 백업본이 제대로 복구되는지 얼마 간격으로 시험하나요?"
+ },
+ "g-en23": {
+  "exact": "19 Aurelio Maddox 20th",
+  "para": "Who receives preliminary governance presentation materials, and by which deadline?",
+  "mixed": "이사회 발표 초안은 누구에게 며칠까지 보내야 하나요?"
+ },
+ "g-en24": {
+  "exact": "300 2400 38 psi",
+  "para": "What inflation setting is recommended for the leading wheel on varied surfaces?",
+  "mixed": "비포장 자전거의 앞바퀴와 뒷바퀴 공기압은 각각 얼마인가요?"
+ },
+ "g-en25": {
+  "exact": "postmortem timeline Blameless owners",
+  "para": "How soon must an incident retrospective be released?",
+  "mixed": "장애 회고에는 어떤 항목을 담고 며칠 안에 공개해야 하나요?"
+ },
+ "g-en26": {
+  "exact": "fiddle fig calathea misting",
+  "para": "What surface-depth moisture condition signals that the indoor tree needs hydration?",
+  "mixed": "떡갈고무나무는 흙이 어느 깊이까지 말랐을 때 물을 주나요?"
+ },
+ "g-en27": {
+  "exact": "90 LaunchDarkly archiving branch",
+  "para": "What must a maintainer delete before retiring an obsolete rollout toggle?",
+  "mixed": "LaunchDarkly 기능 표시를 보관 처리하기 전에 소유자는 무엇을 제거해야 하나요?"
+ },
+ "g-en28": {
+  "exact": "Veridian May 31 2025",
+  "para": "Which workspace-related allowance can reduce the independent linguist's taxable earnings?",
+  "mixed": "Veridian 번역 수입을 신고할 때 집에서 일한 공간에 대해 어떤 공제를 신청하나요?"
+ },
+ "g-en29": {
+  "exact": "Ethiopian Guji 18 93",
+  "para": "How should burr spacing be adjusted when extraction finishes too quickly?",
+  "mixed": "Guji 커피 추출이 너무 빠르면 분쇄도를 어떻게 바꾸나요?"
+ },
+ "g-en30": {
+  "exact": "iOS Android Thursday hotfixes",
+  "para": "Whose permission allows an urgent patch to bypass the regular delivery schedule?",
+  "mixed": "모바일 앱 긴급 수정이 정규 배포 일정을 건너뛰려면 누구의 허가가 필요한가요?"
+ },
+ "g-en31": {
+  "exact": "Halina Szpak Bram spare",
+  "para": "Who should be contacted ahead of the relative during a crisis?",
+  "mixed": "집에 비상 상황이 생기면 친척보다 먼저 누구에게 연락하나요?"
+ },
+ "g-en32": {
+  "exact": "p95 180 640 synonym",
+  "para": "What uncontrolled linguistic broadening caused retrieval performance to deteriorate?",
+  "mixed": "검색 지연 급증의 원인이 된 synonym 처리는 어떤 문제가 있었나요?"
+ },
+ "g-en33": {
+  "exact": "metronome 80 bpm Travis",
+  "para": "What rhythmic speed is prescribed for the initial instrumental drills?",
+  "mixed": "기타 음계 연습에서 박자기는 어느 속도로 맞추나요?"
+ },
+ "g-en34": {
+  "exact": "Nimbusly January 60 committed-use",
+  "para": "How much advance notice prevents the infrastructure agreement from extending itself?",
+  "mixed": "Nimbusly 계약 자동 연장을 막으려면 얼마나 일찍 해지해야 하나요?"
+ },
+ "g-en35": {
+  "exact": "2019 96000 Kessler Motors 105000",
+  "para": "At what odometer reading is the upcoming lubricant replacement scheduled?",
+  "mixed": "해치백의 다음 엔진오일 교환은 주행거리 얼마일 때 해야 하나요?"
+ },
+ "g-en36": {
+  "exact": "Hanseatic League Ilse Varga",
+  "para": "Which medieval trading federation appears in the seasonal nonfiction selection?",
+  "mixed": "가을 독서 목록에는 어떤 중세 무역 동맹의 역사책이 들어 있나요?"
+ },
+ "g-en37": {
+  "exact": "Monday 10 silenced deploys",
+  "para": "What unresolved operational concerns must the departing duty specialist document?",
+  "mixed": "당직을 넘기는 개발자는 남아 있는 경보와 어떤 운영 정보를 기록하나요?"
+ },
+ "g-en38": {
+  "exact": "nine volt March detector",
+  "para": "How frequently should household fire-warning devices undergo a push-switch check?",
+  "mixed": "화재 감지기는 버튼을 눌러 얼마나 자주 작동을 확인하나요?"
+ },
+ "g-en39": {
+  "exact": "6.1 Q2 Annual churned",
+  "para": "Which subscription duration had better retention following a tariff increase?",
+  "mixed": "가격 인상 뒤 소규모 사업자 고객은 연간 계약과 월간 계약 중 어느 쪽이 덜 이탈했나요?"
+ },
+ "g-en40": {
+  "exact": "Callum canoe 2012 Marisol",
+  "para": "Which paddling anecdote should introduce the wedding address?",
+  "mixed": "Callum 결혼식 축사는 어떤 옛이야기로 시작해야 하나요?"
+ },
+ "g-ko01": {
+  "exact": "절임배추 40킬로를 광천 시장에서",
+  "para": "겨울철 먹을 발효 반찬은 어디서 담그기로 했지?",
+  "mixed": "Where will the family make 김장, and how much cabbage was ordered?"
+ },
+ "g-ko02": {
+  "exact": "보증금 2억 3천을 임차권등기명령을",
+  "para": "맡겨 둔 목돈을 제때 못 받으면 어떤 법적 조치를 취하지?",
+  "mixed": "What legal step protects the tenant if 보증금 is returned late?"
+ },
+ "g-ko03": {
+  "exact": "나비가 연어 저알러지",
+  "para": "반려묘의 묽은 변 때문에 먹이를 바꿀 때 적응에 며칠을 두지?",
+  "mixed": "How gradually should the cat transition to the new hypoallergenic 사료?"
+ },
+ "g-ko04": {
+  "exact": "6월까지 피싱 VPN",
+  "para": "가짜 메일을 가려내는 필수 강좌를 안 들으면 어떤 연결을 못 쓰지?",
+  "mixed": "What access is restricted when employees skip 보안 교육?"
+ },
+ "g-ko05": {
+  "exact": "요추 4번 5번 맥켄지",
+  "para": "등 아래쪽 통증을 다스리는 몸 펴기는 매일 몇 차례 하지?",
+  "mixed": "How often should the prescribed back-extension 운동 be performed?"
+ },
+ "g-ko06": {
+  "exact": "애월 펜션에 3박 렌터카는",
+  "para": "섬 관광 때 빌린 차를 돌려줄 때 기름은 얼마나 넣어야 하지?",
+  "mixed": "What fuel level is required when returning the 렌터카?"
+ },
+ "g-ko07": {
+  "exact": "42억으로 108퍼센트를 18퍼센트다",
+  "para": "일곱째 달부터 아홉째 달까지 거둔 실적은 정해 둔 기준을 얼마나 웃돌았지?",
+  "mixed": "How far above target was third-quarter 매출?"
+ },
+ "g-ko08": {
+  "exact": "하준이는 구민체육센터에서 수경과 앞주머니에",
+  "para": "물속에서 쓰는 안경과 모자는 어디 넣어 뒀지?",
+  "mixed": "Where are the child's 수경 and 수모 stored?"
+ },
+ "g-ko09": {
+  "exact": "98퍼센트에 logrotate 14일로",
+  "para": "저장 공간이 거의 찬 뒤 쌓인 실행 흔적을 며칠까지만 남기게 했지?",
+  "mixed": "How did retention change after the 디스크 nearly filled up?"
+ },
+ "g-ko10": {
+  "exact": "11월 8일 강남 대장내시경",
+  "para": "아빠의 정기 검사에 앞서 음식 섭취를 언제 멈춰야 하지?",
+  "mixed": "When must fasting begin before 아버지's medical checkup?"
+ },
+ "g-ko11": {
+  "exact": "맥북과 모니터 김서연 매니저에게",
+  "para": "새로 온 동료의 로그인 권한은 누구한테 부탁하지?",
+  "mixed": "Who handles account creation for a 신규 입사자?"
+ },
+ "g-ko12": {
+  "exact": "청양고추 모종 12포기를 탄저병",
+  "para": "매운 채소를 심은 뒤 우기가 닥치기 앞서 어떤 대비를 하지?",
+  "mixed": "What precautions should protect the 청양고추 before the rainy season?"
+ },
+ "g-ko13": {
+  "exact": "4.2퍼센트로 3.9퍼센트 중도상환수수료는",
+  "para": "집을 담보로 빌린 돈의 이자를 바꾸면서 일찍 갚는 비용도 내야 하지?",
+  "mixed": "What rate will replace the variable 주담대 rate?"
+ },
+ "g-ko14": {
+  "exact": "담당자 기한을 24시간 노션에",
+  "para": "논의 내용을 남긴 문서는 종료 뒤 언제까지 게시해야 하지?",
+  "mixed": "How soon after a meeting must 회의록 be uploaded?"
+ },
+ "g-ko15": {
+  "exact": "보리는 7시와 8시에 30분씩",
+  "para": "더운 계절에는 반려견을 데리고 밖에 언제 나서지?",
+  "mixed": "Why should the dog go outside only after sunset in 여름?"
+ },
+ "g-ko16": {
+  "exact": "10주년 한남동 르블랑을 14일",
+  "para": "부부가 된 지 십 년을 축하하는 식사에는 어떤 좌석을 부탁했지?",
+  "mixed": "Was a 창가 seat requested for the anniversary dinner?"
+ },
+ "g-ko17": {
+  "exact": "레디스 320밀리초에서 45밀리초로",
+  "para": "물건 수량이 달라질 때 임시 저장된 값을 어떻게 다루지?",
+  "mixed": "What happens to the 캐시 when inventory changes?"
+ },
+ "g-ko18": {
+  "exact": "서윤이는 체르니 30번 7번",
+  "para": "여자아이가 건반 악기에서 익혀야 할 연습곡은 어느 번호지?",
+  "mixed": "Which numbered piano exercise is this month's 과제?"
+ },
+ "g-ko19": {
+  "exact": "22일 한빛익스프레스로 전입신고와",
+  "para": "새집으로 옮기기 며칠 앞서 주소 등록과 통신망 이동을 접수하지?",
+  "mixed": "How early should 전입신고 and network relocation be arranged?"
+ },
+ "g-ko20": {
+  "exact": "오류율이 2퍼센트를 롤백 판단은",
+  "para": "실서비스를 바꾼 뒤 실패 비율이 어느 선을 넘으면 되돌리지?",
+  "mixed": "What error threshold triggers an immediate 롤백?"
+ },
+ "g-ko21": {
+  "exact": "현미밥 닭가슴살 샐러드로 근력",
+  "para": "체중을 줄이는 동안 늦은 끼니는 몇 시를 넘기면 금하지?",
+  "mixed": "What is the evening eating cutoff in the 식단?"
+ },
+ "g-ko22": {
+  "exact": "다이렉트 블랙박스 마일리지 특약을",
+  "para": "차량 보장 계약에 운행 거리와 녹화 기기를 활용한 어떤 혜택을 더했지?",
+  "mixed": "Which discounts were added during 자동차 보험 renewal?"
+ },
+ "g-ko23": {
+  "exact": "13일부터 가평 리조트에서 로드맵과",
+  "para": "연말 무렵 떠나는 합숙 모임에서는 무엇을 논의하지?",
+  "mixed": "What is the retreat's 주제 besides the product roadmap?"
+ },
+ "g-ko24": {
+  "exact": "어금니 신경치료를 크라운을",
+  "para": "아래턱 안쪽 치아를 고치는 동안 어떤 먹거리를 삼가야 하지?",
+  "mixed": "What foods should be avoided during 어금니 treatment?"
+ },
+ "g-ko25": {
+  "exact": "30일 전자상거래법에 5년",
+  "para": "계정을 없앤 사람의 신상 자료와 구매 이력은 각각 언제 없애지?",
+  "mixed": "How long are 결제 기록 retained after an account is closed?"
+ },
+ "g-ko26": {
+  "exact": "상추와 깻잎을 이틀에 비료를",
+  "para": "집 밖 작은 공간에서 기르는 잎채소에는 영양제를 얼마나 자주 넣지?",
+  "mixed": "How often do the balcony greens receive 액체 비료?"
+ },
+ "g-ko27": {
+  "exact": "강남역 카페에서 회화 스터디를",
+  "para": "외국어 말하기 모임에서는 이번에 어떤 경험을 이야기하지?",
+  "mixed": "What travel-related topic will the 회화 group discuss this week?"
+ },
+ "g-ko28": {
+  "exact": "72퍼센트로 서비스센터에서 3일이고",
+  "para": "업무용 컴퓨터의 전원 부품을 고치는 동안 대신 쓸 기기를 주나?",
+  "mixed": "Will a temporary computer be provided during 배터리 replacement?"
+ },
+ "g-ko29": {
+  "exact": "20곳에 한우 과일 10일까지",
+  "para": "가을 명절에 협력사와 동료에게 각각 어떤 먹거리를 보내지?",
+  "mixed": "How do the 추석 gifts differ between business partners and coworkers?"
+ },
+ "g-ko30": {
+  "exact": "11시에 휴대폰을 2시 커피를",
+  "para": "숙면을 위해 카페인 음료를 끊는 시각은 언제지?",
+  "mixed": "What is the afternoon cutoff for 커피?"
+ },
+ "g-ko31": {
+  "exact": "3시 원천 테이블 센서를",
+  "para": "앞 단계가 끝나야 후속 계산이 돌도록 어떤 감지 장치를 붙였지?",
+  "mixed": "What dependency check was added to prevent 집계 delays?"
+ },
+ "g-ko32": {
+  "exact": "전혈 8주 2일이다 서랍에",
+  "para": "피를 기증한 뒤 다시 참여할 수 있는 날짜는 언제지?",
+  "mixed": "When is the next eligible 헌혈 date?"
+ },
+ "g-ko33": {
+  "exact": "영업일 4시간 1차 팀장",
+  "para": "돈을 돌려 달라는 건을 진행하려면 누구의 허락을 받아야 하지?",
+  "mixed": "Whose approval is needed before processing 환불?"
+ },
+ "g-ko34": {
+  "exact": "지리산 스틱 헤드랜턴을 대피소",
+  "para": "긴 산행 때 머리에 다는 불빛 말고 어떤 도구를 몇 자루 가져가지?",
+  "mixed": "How far ahead do 대피소 bookings open for the mountain traverse?"
+ },
+ "g-ko35": {
+  "exact": "넷플릭스 유튜브 프리미엄 클라우드",
+  "para": "영상과 온라인 공간에 내는 정기 비용은 매월 모두 얼마지?",
+  "mixed": "What is the combined monthly 구독료 for the three services?"
+ },
+ "g-ko36": {
+  "exact": "ruff 타입 힌트를 PR은",
+  "para": "검증 절차가 빠진 변경 제안은 통합할 수 있나?",
+  "mixed": "What requirement blocks merging changes that lack 테스트?"
+ },
+ "g-ko37": {
+  "exact": "17일 수원 한정식집에서 32명이",
+  "para": "엄마의 일흔 번째 생일 모임에는 가족이 몇 명 오지?",
+  "mixed": "How many relatives will attend the 칠순 celebration?"
+ },
+ "g-ko38": {
+  "exact": "2회까지 화요일은 10시부터 4시까지는",
+  "para": "집에서 일할 때 채팅에 즉각 답해야 하는 구간은 언제지?",
+  "mixed": "During which hours is chat availability mandatory while doing 재택근무?"
+ },
+ "g-ko39": {
+  "exact": "헤파 석 먼지통은 V15-H다",
+  "para": "바닥 먼지를 빨아들이는 기기의 여과 부품은 얼마나 자주 바꾸지?",
+  "mixed": "How frequently should the vacuum's 헤파 필터 be replaced?"
+ },
+ "g-ko40": {
+  "exact": "쿠버네티스 비용 절감과 검색",
+  "para": "기술 게시물에서 이번에 다룰 두 가지 소재는 무엇이지?",
+  "mixed": "What two subjects are planned for this month's 개발 블로그 posts?"
+ },
+ "g-ja01": {
+  "exact": "十五日 横浜 仙台 転出届",
+  "para": "住まいを変える際、エネルギー供給の契約をやめる締め切りはいつですか？",
+  "mixed": "What is the utility cancellation deadline before 引っ越す?"
+ },
+ "g-ja02": {
+  "exact": "柴犬 コタロウ 狂犬病 さくら動物クリニック",
+  "para": "飼っているわんこの注射の申し込みには、どんな連絡手段が使えますか？",
+  "mixed": "How do I book a 予防接種 for the dog?"
+ },
+ "g-ja03": {
+  "exact": "四月一日 三週間 八階会議室",
+  "para": "入ったばかりの職員向けの講習は、ビルのどのフロアで実施されますか？",
+  "mixed": "Which floor hosts the 新入社員 orientation?"
+ },
+ "g-ja04": {
+  "exact": "豚骨スープ 十二時間 黒マー油",
+  "para": "とんこつのだしを火にかけておく長さは、どれくらいですか？",
+  "mixed": "How long should 豚骨スープ simmer?"
+ },
+ "g-ja05": {
+  "exact": "九月三日 決済API メモリ不足 肥大化",
+  "para": "支払い処理が動かなくなった際、記憶領域の使いすぎを抑えるために何をしましたか？",
+  "mixed": "What fixed the outage in 決済API?"
+ },
+ "g-ja06": {
+  "exact": "十月二十日 夜九時 絶食",
+  "para": "定期的な体の検査に備えて、食べるのをやめるのはいつからですか？",
+  "mixed": "When should fasting begin before 健康診断?"
+ },
+ "g-ja07": {
+  "exact": "水曜 夜七時 カナダ エミリー",
+  "para": "外国語を教えてくれる人の故郷は、どこの国ですか？",
+  "mixed": "Where is the 講師 originally from?"
+ },
+ "g-ja08": {
+  "exact": "月五万円 外食 格安SIM",
+  "para": "飲食店でのごはんを、七日あたり何度に抑えることにしましたか？",
+  "mixed": "What weekly limit was set for 外食?"
+ },
+ "g-ja09": {
+  "exact": "十一月 嵐山 二泊 竹林",
+  "para": "秋のお出かけでは、宿に何晩滞在するつもりですか？",
+  "mixed": "How many nights are booked at the 旅館?"
+ },
+ "g-ja10": {
+  "exact": "二営業日 プルリクエスト 差し戻し nit",
+  "para": "検証コードを伴わない変更提案は、どのように扱われますか？",
+  "mixed": "What happens to a プルリクエスト without automated checks?"
+ },
+ "g-ja11": {
+  "exact": "ミニトマト バジル 朝夕 液体肥料",
+  "para": "暑い季節の鉢植えへの給水は、一日あたり何度ですか？",
+  "mixed": "How often do ミニトマト need watering in summer?"
+ },
+ "g-ja12": {
+  "exact": "来年二月 ディーラー ブレーキパッド",
+  "para": "自動車の法定点検と一緒に、どの制動部品を取り替えてもらいますか？",
+  "mixed": "Which parts should be replaced alongside 車検?"
+ },
+ "g-ja13": {
+  "exact": "月末 土曜日 山吹ハル 長編小説",
+  "para": "本好きの集まりで取り上げる作品を書いたのは誰ですか？",
+  "mixed": "Which author wrote this month's 課題本?"
+ },
+ "g-ja14": {
+  "exact": "週三日 火曜日 木曜日 十六時",
+  "para": "自宅で働くことが許されるのは、七日あたり最大何日ですか？",
+  "mixed": "What is the weekly limit for 在宅勤務?"
+ },
+ "g-ja15": {
+  "exact": "夜十一時 スマホ 午後三時 コーヒー",
+  "para": "眠りにつく準備として、携帯端末の利用を何分前からやめますか？",
+  "mixed": "When should I stop using スマホ before bed?"
+ },
+ "g-ja16": {
+  "exact": "健太 乾杯 大学時代 山登り",
+  "para": "友だちの披露宴で話す内容は、どれほどの長さに収めますか？",
+  "mixed": "What is the time limit for the 乾杯 speech?"
+ },
+ "g-ja17": {
+  "exact": "十二月 PostgreSQL 読み取り専用 夜間バッチ",
+  "para": "保存先を変えているあいだ、利用者は情報を書き換えられますか？",
+  "mixed": "Can users write records during the PostgreSQL 移行?"
+ },
+ "g-ja18": {
+  "exact": "さくら 金曜 ピアノ ブルグミュラー",
+  "para": "女の子が鍵盤のおけいこで取り組む作品は、誰が作ったものですか？",
+  "mixed": "Which composer wrote the assigned 練習曲?"
+ },
+ "g-ja19": {
+  "exact": "三リットル 乾パン 懐中電灯 モバイルバッテリー",
+  "para": "避難用のかばんの内容を確かめる間隔は、どれくらいですか？",
+  "mixed": "How often should the 防災リュック be checked?"
+ },
+ "g-ja20": {
+  "exact": "動画配信 音楽配信 クラウド 四千八百円",
+  "para": "定期購入サービスへの支払いは、ひと月あたりいくらになりましたか？",
+  "mixed": "What is the total monthly cost of 配信 subscriptions?"
+ },
+ "g-zh01": {
+  "exact": "二十日 上海 杭州 顺风搬运",
+  "para": "换住处时，宽带转接手续应当早多久办理？",
+  "mixed": "How far ahead should I request 网络迁移?"
+ },
+ "g-zh02": {
+  "exact": "橘猫 豆豆 三联疫苗 四小时",
+  "para": "给这只毛色金黄的小家伙注射之前，须禁食多久？",
+  "mixed": "How long must the 橘猫 fast before vaccination?"
+ },
+ "g-zh03": {
+  "exact": "第三季度 三千二百万元 百分之一百零五 海外市场",
+  "para": "境外业务在总营收中所占的份额是多少？",
+  "mixed": "What share of revenue came from 海外市场?"
+ },
+ "g-zh04": {
+  "exact": "日志堆积 磁盘 百分之九十七 十四天",
+  "para": "为缓解存储空间紧张，旧运行条目的存放时长改为多久？",
+  "mixed": "What retention window was chosen after the 磁盘 alert?"
+ },
+ "g-zh05": {
+  "exact": "糙米饭 鸡胸肉沙拉 七点 力量训练",
+  "para": "为了瘦身，一星期安排几回抗阻锻炼？",
+  "mixed": "How often is 力量训练 scheduled?"
+ },
+ "g-zh06": {
+  "exact": "一月十八日 西湖 酒店 节目",
+  "para": "企业岁末聚会时，各科室须贡献什么演出内容？",
+  "mixed": "What should each department contribute to 年会?"
+ },
+ "g-zh07": {
+  "exact": "左下方 臼齿 根管治疗 牙冠",
+  "para": "后槽牙的诊疗结束后，会套上什么保护物？",
+  "mixed": "What goes on the 臼齿 after the final session?"
+ },
+ "g-zh08": {
+  "exact": "注销账号 个人信息 三十天 支付记录 五年",
+  "para": "会员退会以后，交易凭据须留存多久？",
+  "mixed": "How long are 支付记录 retained after account closure?"
+ },
+ "g-zh09": {
+  "exact": "二十分钟 音阶 节拍器 八十",
+  "para": "弹奏由低到高的连续乐音时，计时打点工具应调成什么速度？",
+  "mixed": "What speed should the 节拍器 use?"
+ },
+ "g-zh10": {
+  "exact": "九月底 网上 行车记录仪 里程附加险",
+  "para": "为车辆保障办理延期时，摄像设备带来了哪种优惠？",
+  "mixed": "Which discount was added during 续保?"
+ },
+ "g-zh11": {
+  "exact": "错误率 百分之二 回滚 值班工程师",
+  "para": "新程序投入运行后，失败比例到了什么程度就须恢复旧版？",
+  "mixed": "What failure threshold triggers 回滚?"
+ },
+ "g-zh12": {
+  "exact": "生菜 小葱 两天 液体肥料",
+  "para": "露天小平台的盆栽，补充养分的频率是多少？",
+  "mixed": "How often should the 阳台 crops receive fertilizer?"
+ },
+ "g-zh13": {
+  "exact": "周六 十点 南京西路 咖啡馆",
+  "para": "外语对话聚会这回讨论的是出游时遇见的哪类事情？",
+  "mixed": "What is this week's discussion topic in the 口语小组?"
+ },
+ "g-zh14": {
+  "exact": "电池健康度 百分之七十 售后中心 三天",
+  "para": "便携电脑送修后，预计要等多久才能取回？",
+  "mixed": "How long will the 电池 replacement take?"
+ },
+ "g-zh15": {
+  "exact": "二十家 月饼礼盒 水果箱 九月十日",
+  "para": "赏月佳节，伙伴企业收到的赠品是什么？",
+  "mixed": "What gifts are being sent to 合作客户?"
+ },
+ "g-zh16": {
+  "exact": "十一点 一小时 手机 两点 咖啡",
+  "para": "临近就寝时，应提前多久停止使用移动电话？",
+  "mixed": "How long before bed should 手机 use stop?"
+ },
+ "g-zh17": {
+  "exact": "凌晨三点 源表加载 两个小时 上游完成传感器",
+  "para": "夜间统计作业为等待前置步骤结束，补充了什么检测装置？",
+  "mixed": "What dependency signal was added to the 汇总任务?"
+ },
+ "g-zh18": {
+  "exact": "全血 十二月二日 献血证 抽屉",
+  "para": "无偿捐出的红色生命液体，其证明凭据收在哪里？",
+  "mixed": "Where is the 献血证 stored?"
+ },
+ "g-zh19": {
+  "exact": "武功山 登山杖 头灯 山顶帐篷",
+  "para": "峰顶的露营住处，须早多久预约？",
+  "mixed": "How far ahead must the 山顶帐篷 be reserved?"
+ },
+ "g-zh20": {
+  "exact": "视频会员 音乐会员 云盘 一百二十元",
+  "para": "影音及线上存储服务的每期总支出是多少？",
+  "mixed": "What is the total monthly cost including 云盘?"
+ },
+ "g-es01": {
+  "exact": "Lucía Chamberí 14 enero",
+  "para": "¿Qué cantidad de retratos exige el trámite para renovar el documento de viaje?",
+  "mixed": "How many photos are required for the pasaporte appointment?"
+ },
+ "g-es02": {
+  "exact": "arroz bomba azafrán garrofón",
+  "para": "¿Se debe agitar el contenido mientras cuece este plato valenciano?",
+  "mixed": "Should I stir the paella after adding stock?"
+ },
+ "g-es03": {
+  "exact": "facturación nube junio réplicas",
+  "para": "¿Qué comprobación permite retirar las copias consultables durante el traslado informático?",
+  "mixed": "When can the réplicas be retired during migration?"
+ },
+ "g-es04": {
+  "exact": "menisco Marta Quiroga octava",
+  "para": "¿Cuánto debe esperar la persona lesionada para retomar el trote?",
+  "mixed": "When can running resume after the menisco injury?"
+ },
+ "g-es05": {
+  "exact": "Olmo 31 agosto 5",
+  "para": "¿Qué porcentaje de incremento se ofrece como respuesta a la propuesta del arrendador?",
+  "mixed": "What percentage should the alquiler counteroffer propose?"
+ },
+ "g-es06": {
+  "exact": "Misi rabia noviembre Albaida",
+  "para": "¿Cuánto tiempo necesita permanecer sin comer el felino previo a su inmunización?",
+  "mixed": "How long must the cat fast before the vacuna?"
+ },
+ "g-es07": {
+  "exact": "discrecional 800 Iñaki Soler",
+  "para": "¿Quién debe autorizar los desplazamientos profesionales que superan el límite monetario establecido?",
+  "mixed": "Who must approve travel to congresos that exceeds the spending threshold?"
+ },
+ "g-es08": {
+  "exact": "azotea pimientos goteo orgánico",
+  "para": "¿Con qué frecuencia se fertilizan las hortalizas cultivadas sobre el edificio?",
+  "mixed": "How often should the huerto receive fertilizer?"
+ },
+ "g-es09": {
+  "exact": "lunes diez traspaso despliegues",
+  "para": "¿Qué incidencias y publicaciones de software debe documentar el responsable saliente?",
+  "mixed": "What must the guardias handover document contain?"
+ },
+ "g-es10": {
+  "exact": "Veridia 30 junio 2025",
+  "para": "¿Dónde se archivan los comprobantes del trabajo lingüístico para presentarlos al fisco?",
+  "mixed": "Where are the facturas for translation work stored?"
+ },
+ "g-es11": {
+  "exact": "Huila 18 38 27",
+  "para": "¿Cómo debe ajustarse la molienda cuando la extracción tarda demasiado poco?",
+  "mixed": "How should grind size change if the café extracts too quickly?"
+ },
+ "g-es12": {
+  "exact": "Remedios Villanúa 90 12",
+  "para": "¿Qué obsequio cartográfico se ha preparado para el aniversario de la anciana?",
+  "mixed": "What gift was ordered for the abuela?"
+ },
+ "g-es13": {
+  "exact": "300 2400 2,6 2,8",
+  "para": "¿Cuánto aire requiere el neumático anterior de la bicicleta?",
+  "mixed": "What is the recommended tire pressure delante?"
+ },
+ "g-es14": {
+  "exact": "postmortem cronología raíz hábiles",
+  "para": "¿Cuál es el plazo laboral para difundir el análisis posterior a un incidente?",
+  "mixed": "How many días hábiles are allowed before publishing the incident report?"
+ },
+ "g-es15": {
+  "exact": "Veinte metrónomo 80 fingerpicking",
+  "para": "¿Qué duración tiene el ejercicio inicial de sucesiones de notas al practicar el instrumento?",
+  "mixed": "How long should escalas practice last?"
+ },
+ "g-es16": {
+  "exact": "Nubalia enero 60 antelación",
+  "para": "¿Con cuánta anticipación debe comunicarse la baja para evitar otra prórroga?",
+  "mixed": "What notice period for cancelación prevents automatic renewal?"
+ },
+ "g-es17": {
+  "exact": "Teo anacardos pistachos autoinyector",
+  "para": "¿Dónde se guarda el dispositivo de emergencia contra reacciones alimentarias?",
+  "mixed": "Where should the autoinyector always stay?"
+ },
+ "g-es18": {
+  "exact": "395 kWh julio 8",
+  "para": "¿Qué tarea de cuidado permitió recuperar el rendimiento de los paneles fotovoltaicos?",
+  "mixed": "What maintenance restored output from the placas?"
+ },
+ "g-es19": {
+  "exact": "2019 96.000 Beltrán 105.000",
+  "para": "¿A qué kilometraje corresponde sustituir nuevamente el lubricante del motor?",
+  "mixed": "At what mileage is the next aceite service due?"
+ },
+ "g-es20": {
+  "exact": "Álvaro canoa 2012 Marisa",
+  "para": "¿Qué anécdota náutica debería abrir la intervención del acompañante principal del novio?",
+  "mixed": "Which story should open the padrino speech?"
+ },
+ "g-de01": {
+  "exact": "15. November Köln Leipzig Bürgeramt",
+  "para": "Welche Frist gilt für die Registrierung des neuen Wohnsitzes?",
+  "mixed": "What is the registration deadline after the Umzug?"
+ },
+ "g-de02": {
+  "exact": "Dackel Fritz April Tollwutimpfung",
+  "para": "Über welchen Kommunikationsweg lässt sich der Besuch zur Schutzspritze vereinbaren?",
+  "mixed": "How can I book the Tollwutimpfung for the dog?"
+ },
+ "g-de03": {
+  "exact": "4,1 Millionen 106 22",
+  "para": "Wie groß war die Erlösquote aus internationalen Geschäften?",
+  "mixed": "What share of revenue was the Auslandsanteil?"
+ },
+ "g-de04": {
+  "exact": "Bandscheibenvorfall L4 L5 McKenzie-Übungen",
+  "para": "Wie häufig sollen die empfohlenen Streckbewegungen pro Tag ausgeführt werden?",
+  "mixed": "How often should the McKenzie-Übungen be performed?"
+ },
+ "g-de05": {
+  "exact": "3. September Zahlungsdienst Cache Speicherlimit",
+  "para": "Welche Begrenzung verhinderte weiteres unkontrolliertes Wachstum des Zwischenspeichers?",
+  "mixed": "What change fixed the Zahlungsdienst outage?"
+ },
+ "g-de06": {
+  "exact": "Roggensauerteig Gustav Mehl Wasser",
+  "para": "Wie lange braucht der Brotansatz nach einer Fütterung bis zum Höhepunkt seiner Aktivität?",
+  "mixed": "How long after feeding does the Roggensauerteig peak?"
+ },
+ "g-de07": {
+  "exact": "Veridian 31. Juli 2025 Arbeitszimmer",
+  "para": "Wo sind die Nachweise für die Sprachdienstleistungen zur Abgabe beim Finanzamt abgelegt?",
+  "mixed": "Where are the Belege for translation income stored?"
+ },
+ "g-de08": {
+  "exact": "Gravelbike 300 2400 2,6",
+  "para": "Welcher Luftdruck ist für das vordere Rad vorgesehen?",
+  "mixed": "What is the recommended front Reifendruck?"
+ },
+ "g-de09": {
+  "exact": "Laptop Patin Woche Fix",
+  "para": "Wie lange begleitet eine Mentorin frisch eingestellte Programmierer?",
+  "mixed": "How long does the Patin support a new hire?"
+ },
+ "g-de10": {
+  "exact": "Barolo-Flaschen 2016 2030 Luftfeuchtigkeit",
+  "para": "Welche Ausrichtung sollen die italienischen Rotweine während der Aufbewahrung haben?",
+  "mixed": "How should the Barolo-Flaschen be positioned during storage?"
+ },
+ "g-de11": {
+  "exact": "Jonas Kanugeschichte 2012 Lea",
+  "para": "Welche Höchstdauer gilt für die Ansprache des Begleiters des Bräutigams?",
+  "mixed": "What is the time limit for the Trauzeugenrede?"
+ },
+ "g-de12": {
+  "exact": "Juli 405 kWh neun",
+  "para": "Welche Pflegemaßnahme stellte die Leistung der Photovoltaikmodule weitgehend wieder her?",
+  "mixed": "What maintenance restored output from the Dachanlage?"
+ },
+ "g-de13": {
+  "exact": "Montag zehn Übergabenotiz Deployments",
+  "para": "Welche Warnmeldungen und bevorstehenden Softwareveröffentlichungen muss die ablösende Person dokumentieren?",
+  "mixed": "What must the Rufbereitschaft handover include?"
+ },
+ "g-de14": {
+  "exact": "Batterien vier Rauchmelder März",
+  "para": "Wie häufig sollen die Brandwarngeräte durch Drücken des Tasters geprüft werden?",
+  "mixed": "How often should the Rauchmelder be tested?"
+ },
+ "g-de15": {
+  "exact": "Zwanzig Tonleitern Metronom 80",
+  "para": "Welche Geschwindigkeit soll der Taktgeber beim Einspielen des Saiteninstruments haben?",
+  "mixed": "What speed should the Metronom use for warmup?"
+ },
+ "g-de16": {
+  "exact": "Wolkenwerk 1. Januar 60",
+  "para": "Welche Vorlaufzeit braucht die Abbestellung, damit keine weitere Laufzeit beginnt?",
+  "mixed": "What notice period for Kündigung prevents automatic renewal?"
+ },
+ "g-de17": {
+  "exact": "Theo Cashewkerne Pistazien Adrenalin-Pen",
+  "para": "Wo wird das Notfallmedikament gegen lebensbedrohliche Nahrungsmittelreaktionen aufbewahrt?",
+  "mixed": "Where is the emergency medication kept in the Rucksacktasche?"
+ },
+ "g-de18": {
+  "exact": "2019 Zahnriemen 96.000 Kessler 105.000",
+  "para": "Ab welchem Kilometerstand ist frisches Motorschmiermittel wieder fällig?",
+  "mixed": "At what mileage is the next Ölwechsel due?"
+ },
+ "g-de19": {
+  "exact": "p95-Latenz 180 640 Synonymerweiterung",
+  "para": "Welche unkontrollierte Ausweitung bedeutungsähnlicher Begriffe verursachte die langsameren Ergebnisantworten?",
+  "mixed": "What caused the slowdown in the Suche after the ranking update?"
+ },
+ "g-de20": {
+  "exact": "Hanse Ilse Varga Schlafforschung",
+  "para": "Wie viele Werke sollen innerhalb eines Kalendermonats gelesen werden?",
+  "mixed": "What monthly reading target applies to the Herbstlektüre?"
+ }
+}

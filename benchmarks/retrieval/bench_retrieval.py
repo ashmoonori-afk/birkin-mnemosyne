@@ -117,6 +117,8 @@ def evaluate(engine: Engine, queries: list[rc.Query], k: int = K) -> dict[str, A
     by_kind: dict[tuple[str, str], list[int | None]] = {}
     by_lang: dict[tuple[str, str], list[int | None]] = {}
     by_kind_lang: dict[tuple[str, str, str], list[int | None]] = {}
+    by_author_kind: dict[tuple[str, str, str], list[int | None]] = {}
+    by_author_lang: dict[tuple[str, str, str], list[int | None]] = {}
     lat: list[float] = []
     for q in queries:
         t0 = time.perf_counter()
@@ -126,10 +128,14 @@ def evaluate(engine: Engine, queries: list[rc.Query], k: int = K) -> dict[str, A
         by_kind.setdefault((q.split, q.kind), []).append(rank)
         by_lang.setdefault((q.split, q.lang), []).append(rank)
         by_kind_lang.setdefault((q.split, q.kind, q.lang), []).append(rank)
+        by_author_kind.setdefault((q.split, q.author, q.kind), []).append(rank)
+        by_author_lang.setdefault((q.split, q.author, q.lang), []).append(rank)
     return {
         "by_kind": {key: rank_metrics(r) for key, r in by_kind.items()},
         "by_lang": {key: rank_metrics(r) for key, r in by_lang.items()},
         "by_kind_lang": {key: rank_metrics(r) for key, r in by_kind_lang.items()},
+        "by_author_kind": {key: rank_metrics(r) for key, r in by_author_kind.items()},
+        "by_author_lang": {key: rank_metrics(r) for key, r in by_author_lang.items()},
         "latency_ms": {"p50": percentile(lat, 50), "p95": percentile(lat, 95)},
     }
 
@@ -240,6 +246,19 @@ def render(results: list[dict[str, Any]], split: str = "test") -> str:
             cells = " | ".join(f"{r['by_kind_lang'][(split, kind, lang)]['mrr']:.3f}"
                                for kind in rc.QUERY_KINDS)
             lines.append(f"| {r['engine']} | {r['size']} | {lang} | {cells} |")
+    authors = sorted({a for r in results for (_, a, _) in r["by_author_kind"]})
+    lines += ["", f"### MRR by query author ({split} split)", "",
+              "| engine | notes | author | " + " | ".join(rc.QUERY_KINDS) + " | "
+              + " | ".join(rc.LANGS) + " |",
+              "|---|---|---|" + "---|" * (len(rc.QUERY_KINDS) + len(rc.LANGS))]
+    for r in results:
+        for author in authors:
+            cells = [f"{r['by_author_kind'][(split, author, kind)]['mrr']:.3f}"
+                     for kind in rc.QUERY_KINDS]
+            cells += [f"{r['by_author_lang'][(split, author, lang)]['mrr']:.3f}"
+                      for lang in rc.LANGS]
+            lines.append(f"| {r['engine']} | {r['size']} | {author} | "
+                         + " | ".join(cells) + " |")
     lines += ["", "### Footprint (latency pooled over dev + test queries)", "",
               ("| engine | notes | index on disk | build | p50 | p95 | cold wall "
                "| cold load | peak RSS |"),
@@ -257,7 +276,8 @@ def _jsonable(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for r in results:
         r = dict(r)
-        for key in ("by_kind", "by_lang", "by_kind_lang"):
+        for key in ("by_kind", "by_lang", "by_kind_lang", "by_author_kind",
+                    "by_author_lang"):
             r[key] = {"/".join(k): v for k, v in r[key].items()}
         out.append(r)
     return out

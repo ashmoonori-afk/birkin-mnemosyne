@@ -8,9 +8,11 @@ their gold note (otherwise the "paraphrase" numbers would be a lexical test).
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
 import math
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -23,6 +25,7 @@ import bench_retrieval as br
 import retrieval_corpus as rc
 
 SPLITS = ("dev", "test")
+TEST_QUERY_DIGEST = "49bc8e6f84907cfea986f23619e750e8bacfac6755c4230ced4e045306854145"
 
 
 def test_gold_corpus_shape():
@@ -48,7 +51,7 @@ def test_split_is_disjoint_and_complete():
 
 def test_queries_cover_each_split_and_kind():
     qs = rc.queries()
-    assert len(qs) == len(rc.gold_notes()) * len(rc.QUERY_KINDS)
+    assert len(qs) == len(rc.gold_notes()) * len(rc.QUERY_KINDS) * len(rc.AUTHORS)
     gold = {g.slug for g in rc.gold_notes()}
     assert all(q.gold in gold for q in qs)
     assert {(q.split, q.kind) for q in qs} == {
@@ -69,11 +72,90 @@ def test_paraphrase_queries_share_little_vocabulary(lang):
     assert sum(ratios) / len(ratios) <= 0.05
 
 
-def test_exact_queries_are_lexical():
-    for g in rc.gold_notes():
-        q = rc.content_units(g.queries["exact"])
+def test_test_split_is_frozen():
+    # Pinned before any tuning: changing which notes are test is a breaking
+    # change to every reported number and must be deliberate.
+    test = sorted(g.slug for g in rc.gold_notes() if g.split == "test")
+    digest = hashlib.sha256(",".join(test).encode()).hexdigest()
+    assert (len(test), digest) == (108, "f0ec29b013c5e55a286123a3e958a6e1cf01f75898a3417d07f3198187da7900")
+
+
+def test_test_queries_are_frozen():
+    # Freezes the query texts of the test split too, not just its notes.
+    rows = sorted((q.author, q.gold, q.kind, q.text) for q in rc.queries()
+                  if q.split == "test")
+    digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
+    assert (len(rows), digest) == (972, TEST_QUERY_DIGEST)
+
+
+_NATIVE_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
+_LATIN_WORD = re.compile(r"[A-Za-z\u00c0-\u024f]{3,}")
+_NUMBER = re.compile(r"(?<![A-Za-z0-9\-])\d+(?:[.,]\d+)*(?![A-Za-z0-9])")
+
+
+def mixed_rule_problem(note: rc.Note, query: str) -> str | None:
+    """Why a code-switched query breaks the authoring rule, or None."""
+    numbers = _NUMBER.findall(query)
+    if numbers:
+        return f"contains numbers {numbers} (answers must not be in the query)"
+    if note.lang == "en":
+        latin = _LATIN_WORD.findall(query)
+        if not _NATIVE_RUN.search(query) or len(latin) > 1:
+            return f"needs Korean with at most one English word, has {latin}"
+    elif note.lang in ("ko", "ja", "zh"):
+        runs = _NATIVE_RUN.findall(query)
+        if not 1 <= len(runs) <= 2 or len(_LATIN_WORD.findall(query)) < 2:
+            return f"needs English plus 1-2 native words, has {runs}"
+    else:
+        doc = rc.content_units(note.title + " " + note.body)
+        shared = {u for u in rc.content_units(query) if not u.isdigit()} & doc
+        if not 1 <= len(shared) <= 3:
+            return f"needs 1-2 native words (+1 name), shares {sorted(shared)}"
+    return None
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_mixed_queries_follow_the_code_switching_rule(author):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    problems = {slug: mixed_rule_problem(gold[slug], kinds["mixed"])
+                for slug, kinds in rc.author_queries(author).items()}
+    assert {s: p for s, p in problems.items() if p} == {}
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_author_sets_cover_every_gold_note(author):
+    sets = rc.author_queries(author)
+    assert set(sets) == {g.slug for g in rc.gold_notes()}
+    for kinds in sets.values():
+        assert set(kinds) == set(rc.QUERY_KINDS)
+        assert all(isinstance(q, str) and q.strip() for q in kinds.values())
+
+
+@pytest.mark.parametrize("author", [a for a in rc.AUTHORS if a != rc.INLINE_AUTHOR])
+@pytest.mark.parametrize("lang", rc.LANGS)
+def test_external_author_paraphrases_share_little_vocabulary(author, lang):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    ratios = []
+    for slug, kinds in rc.author_queries(author).items():
+        g = gold[slug]
+        if g.lang != lang:
+            continue
+        q = rc.content_units(kinds["para"])
         doc = rc.content_units(g.title + " " + g.body)
-        assert len(q & doc) / len(q) >= 0.6, g.slug
+        assert q, slug
+        ratios.append(len(q & doc) / len(q))
+    assert max(ratios) <= 0.3
+    assert sum(ratios) / len(ratios) <= 0.06
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_exact_queries_are_lexical_for_every_author(author):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    for slug, kinds in rc.author_queries(author).items():
+        q = rc.content_units(kinds["exact"])
+        doc = rc.content_units(gold[slug].title + " " + gold[slug].body)
+        assert q, (author, slug)
+        assert len(q & doc) / len(q) >= 0.6, (author, slug)
 
 
 def test_content_units_fold_scripts():
@@ -158,6 +240,7 @@ def test_bm25_run_on_gold_corpus(tmp_path):
     assert set(res["by_kind"]) == {(s, k) for s in SPLITS for k in rc.QUERY_KINDS}
     assert set(res["by_lang"]) == {(s, lang) for s in SPLITS for lang in rc.LANGS}
     assert res["by_kind_lang"][("test", "exact", "en")]["r@5"] >= 0.9
+    assert {a for (_, a, _) in res["by_author_kind"]} == set(rc.AUTHORS)
     assert br.sidecar_bytes(vault) > 0
 
 
@@ -165,10 +248,13 @@ def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
     out = tmp_path / "bench.json"
     br.main(["--sizes", "160", "--json", str(out)])
     printed = capsys.readouterr().out
-    for header in ("Quality by language", "Quality by query kind", "Footprint"):
+    for header in ("Quality by language", "Quality by query kind",
+                   "MRR by query author", "Footprint"):
         assert header in printed
     [row] = json.loads(out.read_text())["results"]
     assert row["size"] == 160 and row["index_bytes"] > 0
     assert row["cold_wall_ms"] >= row["cold_load_ms"] > 0
     assert row["peak_rss"] > 0
     assert set(row["by_lang"]) == {f"{s}/{lang}" for s in SPLITS for lang in rc.LANGS}
+    assert set(row["by_author_kind"]) == {f"{s}/{a}/{k}" for s in SPLITS
+                                          for a in rc.AUTHORS for k in rc.QUERY_KINDS}
