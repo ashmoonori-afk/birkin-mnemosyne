@@ -267,3 +267,97 @@ used for any decision):
 Rejected on dev: suffix stemmers, Hangul unigrams, title weighting, k1/b
 changes, Korean particle stripping, Japanese script segmentation, a
 term-coverage bonus, per-script average document length.
+
+## Compact index + stopwords (core, zero dependencies)
+
+Two changes to what is stored, measured back to back against main (`git
+9678ef4`'s tree) on the same machine and corpus:
+
+1. **Compact format (lossless).** The index file stores each note as a
+   positional row under a field header, one shared sorted vocabulary, and each
+   note's postings as base64 varint pairs (term-id delta, term frequency),
+   written as UTF-8 instead of `\u` escapes.
+2. **Corpus-wide stopwords.** Terms that occur in more than
+   `max(5 % of notes, 50)` notes are left out of the stored postings and
+   skipped in queries (the list is kept in the index file and is sticky until
+   `rebuild()`). Small vaults (the 160-note run) are untouched.
+
+Stated tolerance for size changes: at most -0.02 MRR on any language slice.
+
+#### main (JSON index v3) -> compact index v4 + stopwords (test split): R@5 and MRR per slice
+
+| notes | slice | n | R@5 | MRR |
+|---|---|---|---|---|
+| 160 | en | 252 | 0.698 -> 0.698 (=0.000) | 0.591 -> 0.591 (=0.000) |
+| 160 | ko | 243 | 0.654 -> 0.654 (=0.000) | 0.579 -> 0.579 (=0.000) |
+| 160 | ja | 99 | 0.848 -> 0.848 (=0.000) | 0.794 -> 0.794 (=0.000) |
+| 160 | zh | 135 | 0.867 -> 0.867 (=0.000) | 0.818 -> 0.818 (=0.000) |
+| 160 | es | 108 | 0.769 -> 0.769 (=0.000) | 0.698 -> 0.698 (=0.000) |
+| 160 | de | 135 | 0.756 -> 0.756 (=0.000) | 0.689 -> 0.689 (=0.000) |
+| 160 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 160 | para (all langs) | 324 | 0.370 -> 0.370 (=0.000) | 0.269 -> 0.269 (=0.000) |
+| 160 | mixed (all langs) | 324 | 0.855 -> 0.855 (=0.000) | 0.729 -> 0.729 (=0.000) |
+| 1000 | en | 252 | 0.679 -> 0.655 (-0.024) | 0.581 -> 0.570 (-0.012) |
+| 1000 | ko | 243 | 0.613 -> 0.663 (+0.049) | 0.554 -> 0.587 (+0.033) |
+| 1000 | ja | 99 | 0.848 -> 0.848 (=0.000) | 0.782 -> 0.796 (+0.014) |
+| 1000 | zh | 135 | 0.830 -> 0.822 (-0.007) | 0.766 -> 0.785 (+0.019) |
+| 1000 | es | 108 | 0.694 -> 0.722 (+0.028) | 0.655 -> 0.693 (+0.038) |
+| 1000 | de | 135 | 0.741 -> 0.756 (+0.015) | 0.664 -> 0.707 (+0.042) |
+| 1000 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 1000 | para (all langs) | 324 | 0.302 -> 0.269 (-0.034) | 0.219 -> 0.210 (-0.009) |
+| 1000 | mixed (all langs) | 324 | 0.830 -> 0.895 (+0.065) | 0.701 -> 0.769 (+0.068) |
+| 10000 | en | 252 | 0.655 -> 0.643 (-0.012) | 0.568 -> 0.562 (-0.006) |
+| 10000 | ko | 243 | 0.609 -> 0.679 (+0.070) | 0.559 -> 0.598 (+0.040) |
+| 10000 | ja | 99 | 0.848 -> 0.889 (+0.040) | 0.782 -> 0.792 (+0.010) |
+| 10000 | zh | 135 | 0.822 -> 0.830 (+0.007) | 0.764 -> 0.774 (+0.009) |
+| 10000 | es | 108 | 0.704 -> 0.722 (+0.019) | 0.673 -> 0.696 (+0.023) |
+| 10000 | de | 135 | 0.741 -> 0.748 (+0.007) | 0.681 -> 0.706 (+0.025) |
+| 10000 | exact (all langs) | 324 | 1.000 -> 1.000 (=0.000) | 1.000 -> 1.000 (=0.000) |
+| 10000 | para (all langs) | 324 | 0.281 -> 0.275 (-0.006) | 0.205 -> 0.202 (-0.002) |
+| 10000 | mixed (all langs) | 324 | 0.830 -> 0.904 (+0.074) | 0.722 -> 0.774 (+0.052) |
+
+#### MRR per query author (test split)
+
+| notes | author | exact | para | mixed |
+|---|---|---|---|---|
+| 160 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.348 -> 0.348 (=0.000) | 0.707 -> 0.707 (=0.000) |
+| 160 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.197 -> 0.197 (=0.000) | 0.820 -> 0.820 (=0.000) |
+| 160 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.261 -> 0.261 (=0.000) | 0.660 -> 0.660 (=0.000) |
+| 1000 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.301 -> 0.300 (-0.001) | 0.664 -> 0.777 (+0.113) |
+| 1000 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.154 -> 0.139 (-0.015) | 0.780 -> 0.783 (+0.004) |
+| 1000 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.203 -> 0.192 (-0.012) | 0.660 -> 0.747 (+0.086) |
+| 10000 | claude-fable-5.1 | 1.000 -> 1.000 (=0.000) | 0.271 -> 0.289 (+0.018) | 0.698 -> 0.794 (+0.095) |
+| 10000 | claude-opus-5.5 | 1.000 -> 1.000 (=0.000) | 0.146 -> 0.133 (-0.013) | 0.780 -> 0.782 (+0.001) |
+| 10000 | gpt-6.1-sol | 1.000 -> 1.000 (=0.000) | 0.198 -> 0.185 (-0.013) | 0.686 -> 0.746 (+0.060) |
+
+#### Footprint
+
+| notes | index on disk | p50 | p95 | cold wall | peak RSS |
+|---|---|---|---|---|---|
+| 160 | 0.27 MB -> 0.14 MB | 0.5 -> 0.6 ms | 0.6 -> 0.7 ms | 36 -> 42 ms | 23 -> 23 MB |
+| 1000 | 1.57 MB -> 0.52 MB | 3.1 -> 3.8 ms | 3.5 -> 4.6 ms | 53 -> 113 ms | 31 -> 29 MB |
+| 10000 | 15.79 MB -> 4.39 MB | 38.5 -> 37.6 ms | 44.7 -> 43.4 ms | 308 -> 215 ms | 123 -> 86 MB |
+
+Queries whose gold rank improved / worsened: 
+
+| notes | en | ko | ja | zh | es | de |
+|---|---|---|---|---|---|---|
+| 1000 | 4 up / 15 down | 23 up / 0 down | 11 up / 10 down | 10 up / 8 down | 11 up / 3 down | 13 up / 4 down |
+| 10000 | 5 up / 10 down | 24 up / 0 down | 9 up / 8 down | 11 up / 10 down | 7 up / 3 down | 11 up / 6 down |
+
+Reading:
+
+- The index at 10k notes shrinks from 15.8 MB to 4.4 MB (-72 %; the original
+  BM25 v1 index was 9.6 MB), peak RSS from 123 to 86 MB and cold start from
+  308 to 215 ms.
+- The compact format alone changes no ranking (bit-identical results at 160
+  notes, where no stopword applies).
+- Stopwords help code-switched queries (+0.05-0.07 MRR) and Korean most
+  (24 queries up, none down at 10k); Japanese, Chinese, Spanish and German
+  gain too. **English pays within the stated tolerance**: MRR -0.012 at 1k and
+  -0.006 at 10k, mostly paraphrase queries whose only lexical overlap with
+  their note was a very common word. The rule was chosen on the dev split
+  (English -0.002 there) and not re-tuned on these numbers.
+- Measured and rejected on dev: pruning ultra-rare terms (df = 1). It saves
+  0.2 MB of 5.5 MB but deletes the names exact queries look for (exact MRR
+  0.996 -> 0.766).
