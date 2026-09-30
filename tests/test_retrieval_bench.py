@@ -8,6 +8,7 @@ their gold note (otherwise the "paraphrase" numbers would be a lexical test).
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json
 import math
@@ -48,7 +49,7 @@ def test_split_is_disjoint_and_complete():
 
 def test_queries_cover_each_split_and_kind():
     qs = rc.queries()
-    assert len(qs) == len(rc.gold_notes()) * len(rc.QUERY_KINDS)
+    assert len(qs) == len(rc.gold_notes()) * len(rc.QUERY_KINDS) * len(rc.AUTHORS)
     gold = {g.slug for g in rc.gold_notes()}
     assert all(q.gold in gold for q in qs)
     assert {(q.split, q.kind) for q in qs} == {
@@ -67,6 +68,48 @@ def test_paraphrase_queries_share_little_vocabulary(lang):
         ratios.append(len(q & doc) / len(q))
     assert max(ratios) <= 0.3
     assert sum(ratios) / len(ratios) <= 0.05
+
+
+def test_test_split_is_frozen():
+    # Pinned before any tuning: changing which notes are test is a breaking
+    # change to every reported number and must be deliberate.
+    test = sorted(g.slug for g in rc.gold_notes() if g.split == "test")
+    digest = hashlib.sha256(",".join(test).encode()).hexdigest()
+    assert (len(test), digest) == (108, "f0ec29b013c5e55a286123a3e958a6e1cf01f75898a3417d07f3198187da7900")
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_author_sets_cover_every_gold_note(author):
+    sets = rc.author_queries(author)
+    assert set(sets) == {g.slug for g in rc.gold_notes()}
+    for kinds in sets.values():
+        assert set(kinds) == set(rc.QUERY_KINDS)
+        assert all(isinstance(q, str) and q.strip() for q in kinds.values())
+
+
+@pytest.mark.parametrize("author", [a for a in rc.AUTHORS if a != rc.INLINE_AUTHOR])
+@pytest.mark.parametrize("lang", rc.LANGS)
+def test_external_author_paraphrases_share_little_vocabulary(author, lang):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    ratios = []
+    for slug, kinds in rc.author_queries(author).items():
+        g = gold[slug]
+        if g.lang != lang:
+            continue
+        q = rc.content_units(kinds["para"])
+        doc = rc.content_units(g.title + " " + g.body)
+        ratios.append(len(q & doc) / len(q))
+    assert max(ratios) <= 0.3
+    assert sum(ratios) / len(ratios) <= 0.06
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_exact_queries_are_lexical_for_every_author(author):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    for slug, kinds in rc.author_queries(author).items():
+        q = rc.content_units(kinds["exact"])
+        doc = rc.content_units(gold[slug].title + " " + gold[slug].body)
+        assert len(q & doc) / len(q) >= 0.6, (author, slug)
 
 
 def test_exact_queries_are_lexical():
@@ -158,6 +201,7 @@ def test_bm25_run_on_gold_corpus(tmp_path):
     assert set(res["by_kind"]) == {(s, k) for s in SPLITS for k in rc.QUERY_KINDS}
     assert set(res["by_lang"]) == {(s, lang) for s in SPLITS for lang in rc.LANGS}
     assert res["by_kind_lang"][("test", "exact", "en")]["r@5"] >= 0.9
+    assert {a for (_, a, _) in res["by_author_kind"]} == set(rc.AUTHORS)
     assert br.sidecar_bytes(vault) > 0
 
 

@@ -30,12 +30,21 @@ the translation of the gold note is neither rewarded nor punished.
 
 from __future__ import annotations
 
+import json
 import random
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from pathlib import Path
 
 QUERY_KINDS = ("exact", "para", "mixed")
+# Query authors. The inline set below was written with the corpus; the two
+# JSON sets were written afterwards, independently, by models that saw only
+# the notes (never each other's or the inline queries).
+INLINE_AUTHOR = "claude-opus-5.5"
+AUTHOR_FILES = {"gpt-6.1-sol": "queries_gpt-6.1-sol.json",
+                "claude-fable-5.1": "queries_claude-fable-5.1.json"}
+AUTHORS = (INLINE_AUTHOR, *AUTHOR_FILES)
 LANGS = ("en", "ko", "ja", "zh", "es", "de")
 
 # Function words ignored by the paraphrase-overlap check (not by any engine).
@@ -105,6 +114,7 @@ class Query:
     lang: str
     split: str
     siblings: frozenset[str] = frozenset()
+    author: str = INLINE_AUTHOR
 
 
 # (title, body, exact, para, mixed)
@@ -1179,10 +1189,24 @@ def gold_notes() -> list[Note]:
     return out
 
 
-def queries() -> list[Query]:
-    return [Query(text=text, gold=g.slug, kind=kind, lang=g.lang, split=g.split,
-                  siblings=g.siblings)
-            for g in gold_notes() for kind, text in g.queries.items()]
+def author_queries(author: str) -> dict[str, dict[str, str]]:
+    """slug -> {kind: query} for one author."""
+    if author == INLINE_AUTHOR:
+        return {g.slug: dict(g.queries) for g in gold_notes()}
+    path = Path(__file__).with_name(AUTHOR_FILES[author])
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def queries(authors: tuple[str, ...] = AUTHORS) -> list[Query]:
+    gold = {g.slug: g for g in gold_notes()}
+    out: list[Query] = []
+    for author in authors:
+        for slug, kinds in author_queries(author).items():
+            g = gold[slug]
+            out.extend(Query(text=kinds[kind], gold=slug, kind=kind, lang=g.lang,
+                             split=g.split, siblings=g.siblings, author=author)
+                       for kind in QUERY_KINDS)
+    return out
 
 
 def corpus(n_total: int = 160, seed: int = 0) -> list[Note]:
