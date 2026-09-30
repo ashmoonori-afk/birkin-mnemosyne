@@ -465,7 +465,8 @@ with ProfileMemory(vault_path, review) as profiles:
     profiles.flush()
 ```
 
-The protected `system/` directory contains exactly five role files:
+The `system/` directory, owned by `ProfileMemory`, contains exactly five role
+files (the curation gate does not special-case them):
 
 | File | Guidance stored |
 |---|---|
@@ -528,7 +529,7 @@ my_vault/
   identity/
   knowledge/
   journal/
-  system/                       # protected role files owned by ProfileMemory
+  system/                       # role files owned by ProfileMemory
   _archive/                     # soft-forgotten notes
   .mnemosyne-index.json.z        # rebuildable compressed index cache
   .mnemosyne-dynamics.json       # persistent usage state
