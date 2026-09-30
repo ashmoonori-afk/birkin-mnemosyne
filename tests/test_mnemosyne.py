@@ -8,6 +8,7 @@ from __future__ import annotations
 import config
 
 import json
+import zlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -152,7 +153,7 @@ def test_index_from_older_tokenizer_is_rebuilt(tmp_path):
         "confidence": 0.5, "polarity": "positive", "expires_at": None,
         "summary": "", "mtime": st.st_mtime, "size": st.st_size,
         "doclen": 0, "terms": {}}}}
-    (tmp_path / mnemosyne.INDEX_FILE).write_text(json.dumps(stale), encoding="utf-8")
+    (tmp_path / mnemosyne.INDEX_FILE).write_bytes(zlib.compress(json.dumps(stale).encode()))
     dex = mnemosyne.Mnemosyne(tmp_path)
     assert [h["slug"] for h in dex.search("車検")] == ["ja"]
 

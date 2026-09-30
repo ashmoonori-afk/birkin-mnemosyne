@@ -275,10 +275,11 @@ The index cache is now level-1 zlib over the same JSON layout
 removed on the next save). It is lossless: measured back to back against main
 (`9678ef4`'s tree), every R@1/R@5/MRR/nDCG value on every language, query kind
 and author slice is identical at 160, 1k and 10k notes, and no query changed
-rank. Stated tolerance for size-only changes was at most -0.02 MRR on any
+rank (compressed run at `6b326b3`; later commits touch tests, docs and
+snippets only). Stated tolerance for size-only changes was at most -0.02 MRR on any
 slice; the chosen change uses none of it.
 
-#### Footprint, main -> compressed cache (test split)
+#### Footprint, main -> compressed cache (decimal MB; latency pooled over dev + test queries)
 
 | notes | index on disk | p50 | p95 | cold wall | peak RSS |
 |---|---|---|---|---|---|
@@ -293,12 +294,15 @@ Cost of saving (median of 20 `note_written` calls, one edited note):
 | 1000 | 10.0 ms | 19.5 ms |
 | 10000 | 108.7 ms | 184.3 ms |
 
-Reading: the cache is 79 % smaller at every size (3.3 MB at 10k notes, vs
-9.6 MB for the original BM25 v1 index). Search latency and cold start are
-unchanged within run-to-run noise. Saving a note costs ~75 ms more at 10k
+Reading: the cache is 74-79 % smaller (74 % at 160 notes, 79 % at 10k; 3.27 MB
+at 10k vs 9.6 MB for the original BM25 v1 index). Search never reads the
+cache file, and decompressing it costs ~1 ms per 0.35 MB; the p50 / p95 /
+cold-start differences in the table (largest: +1.6 ms p95 and +8 ms cold at
+1k) come from single runs and were not repeated to bound noise. Saving a note costs ~75 ms more at 10k
 notes because the whole cache is compressed on every save, and peak RSS during
 load is ~15 MB higher at 10k (compressed and decoded text are briefly held
-together).
+together). A vault shared by an older and a newer version keeps rebuilding:
+the old version writes `.mnemosyne-index.json`, the new one deletes it.
 
 Alternatives measured at 10k notes (same machine; encode / decode time of the
 cache alone):
@@ -308,7 +312,7 @@ cache alone):
 | plain JSON (main) | 15.79 MB | 98 ms | 132 ms |
 | delta + varint postings, shared vocabulary (no zlib) | 5.52 MB | 243 ms | 205 ms |
 | vocabulary + delta layout + zlib level 1 | 2.21 MB | 318 ms | 178 ms |
-| **main layout + zlib level 1 (chosen)** | **3.26 MB** | **184 ms** | **168 ms** |
+| **main layout + zlib level 1 (chosen)** | **3.26 MB** (3.27 MB with the vault's own run) | **184 ms** | **168 ms** |
 | main layout + zlib level 6 | 2.60 MB | 388 ms | 128 ms |
 
 The hand-written varint codec was 70 % larger than zlib and slower on both

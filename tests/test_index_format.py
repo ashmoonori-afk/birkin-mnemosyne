@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import zlib
 from pathlib import Path
+
+import pytest
 
 from birkin_mnemosyne import mnemosyne
 
@@ -58,10 +61,19 @@ def test_unchanged_notes_are_not_reparsed_on_load(tmp_path, monkeypatch):
     assert mnemosyne.Mnemosyne(vault).search("kimchi 배추")
 
 
-def test_corrupt_cache_is_rebuilt(tmp_path):
+@pytest.mark.parametrize("damage", [
+    lambda blob: b"\x78\x01garbage",
+    lambda blob: blob[: len(blob) // 2],
+    lambda blob: b"",
+    lambda blob: zlib.compress(b"{not json"),
+    lambda blob: zlib.compress(b"[1, 2]"),
+    lambda blob: zlib.compress("\ud7ff".encode("utf-8")[:1]),
+], ids=["garbage", "truncated", "empty", "not-json", "json-list", "not-utf8"])
+def test_corrupt_cache_is_rebuilt(tmp_path, damage):
     vault = _vault(tmp_path)
     mnemosyne.Mnemosyne(vault).rebuild()
-    (vault / mnemosyne.INDEX_FILE).write_bytes(b"\x78\x01garbage")
+    path = vault / mnemosyne.INDEX_FILE
+    path.write_bytes(damage(path.read_bytes()))
     assert mnemosyne.Mnemosyne(vault).search("豚骨")[0]["slug"] == "ramen"
 
 
