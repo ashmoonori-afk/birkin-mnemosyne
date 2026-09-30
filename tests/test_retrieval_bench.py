@@ -25,7 +25,7 @@ import bench_retrieval as br
 import retrieval_corpus as rc
 
 SPLITS = ("dev", "test")
-TEST_QUERY_DIGEST = "8cd2ec2b4d7000a8457310742002168c5416c1099b9deff3e9ee8cd346a0b951"
+TEST_QUERY_DIGEST = "49bc8e6f84907cfea986f23619e750e8bacfac6755c4230ced4e045306854145"
 
 
 def test_gold_corpus_shape():
@@ -90,15 +90,14 @@ def test_test_queries_are_frozen():
 
 _NATIVE_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
 _LATIN_WORD = re.compile(r"[A-Za-z\u00c0-\u024f]{3,}")
-_NUMBER = re.compile(r"(?<![A-Za-z0-9\-])\d{2,}(?![A-Za-z0-9])")
+_NUMBER = re.compile(r"(?<![A-Za-z0-9\-])\d+(?:[.,]\d+)*(?![A-Za-z0-9])")
 
 
 def mixed_rule_problem(note: rc.Note, query: str) -> str | None:
     """Why a code-switched query breaks the authoring rule, or None."""
-    lead = note.title + " " + note.body.split("\n\n")[0]
-    copied = set(_NUMBER.findall(query)) & set(_NUMBER.findall(lead))
-    if copied:
-        return f"restates numbers {sorted(copied)}"
+    numbers = _NUMBER.findall(query)
+    if numbers:
+        return f"contains numbers {numbers} (answers must not be in the query)"
     if note.lang == "en":
         latin = _LATIN_WORD.findall(query)
         if not _NATIVE_RUN.search(query) or len(latin) > 1:
