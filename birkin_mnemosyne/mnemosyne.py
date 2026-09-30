@@ -67,6 +67,7 @@ RELATED_QUERY_TERMS = 12
 INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: compact rows
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
+STOP_FRACTION, STOP_MIN_DF = 0.05, 50  # terms in > max(5% of notes, 50) are stopwords
 
 INDEX_FILE = ".mnemosyne-index.json"
 DYNAMICS_FILE = ".mnemosyne-dynamics.json"
@@ -335,7 +336,7 @@ def _doc_length(terms: dict[str, int]) -> int:
 
 
 # -- on-disk index format (v4) ------------------------------------------------
-# {"version": 4, "fields": [...], "vocab": [term, ...],
+# {"version": 4, "fields": [...], "vocab": [term, ...], "stop": [term, ...],
 #  "notes": {slug: [<one value per field>..., postings, (rel if non-default)]}}
 # postings = base64 of varint pairs (term-id delta, tf) over ascending ids.
 
@@ -385,27 +386,28 @@ def _default_rel(slug_: str, zone: str) -> str:
     return f"{zone}/{slug_}.md" if zone else f"{slug_}.md"
 
 
-def _encode_index(notes: dict[str, dict[str, Any]]) -> str:
-    vocab = sorted({t for e in notes.values() for t in e["terms"]})
+def _encode_index(notes: dict[str, dict[str, Any]], stop: set[str]) -> str:
+    vocab = sorted({t for e in notes.values() for t in e["terms"]} - stop)
     ids = {t: i for i, t in enumerate(vocab)}
     rows: dict[str, list[Any]] = {}
     for s, e in notes.items():
         row = [e[f] for f in _ROW_FIELDS]
         row.append(_pack_postings(sorted((ids[t], tf)
-                                         for t, tf in e["terms"].items())))
+                                         for t, tf in e["terms"].items()
+                                         if t not in stop)))
         if e["rel"] != _default_rel(s, e["zone"]):
             row.append(e["rel"])
         rows[s] = row
     return json.dumps({"version": INDEX_VERSION, "fields": list(_ROW_FIELDS),
-                       "vocab": vocab, "notes": rows},
+                       "vocab": vocab, "stop": sorted(stop), "notes": rows},
                       separators=(",", ":"), ensure_ascii=False)
 
 
-def _decode_index(text: str) -> dict[str, dict[str, Any]]:
+def _decode_index(text: str) -> tuple[dict[str, dict[str, Any]], set[str]]:
     data = json.loads(text)
     if (data.get("version") != INDEX_VERSION
             or data.get("fields") != list(_ROW_FIELDS)):
-        return {}
+        return {}, set()
     vocab = data["vocab"]
     width = len(_ROW_FIELDS)
     notes: dict[str, dict[str, Any]] = {}
@@ -414,7 +416,7 @@ def _decode_index(text: str) -> dict[str, dict[str, Any]]:
         e["terms"] = {vocab[i]: tf for i, tf in _unpack_postings(row[width])}
         e["rel"] = row[width + 1] if len(row) > width + 1 else _default_rel(s, e["zone"])
         notes[s] = e
-    return notes
+    return notes, set(data.get("stop", ()))
 
 
 def _entry_expired(entry: dict[str, Any], today: date) -> bool:
@@ -444,6 +446,7 @@ class Mnemosyne:
         self._dyn: dict[str, Any] | None = None
         self._postings: dict[str, dict[str, int]] = {}
         self._avgdl = 0.0
+        self._stop: set[str] = set()
 
     # -- persistence --------------------------------------------------------
 
@@ -457,10 +460,11 @@ class Mnemosyne:
 
     def _load(self) -> None:
         try:
-            notes = _decode_index(self._index_path.read_text(encoding="utf-8"))
+            notes, stop = _decode_index(self._index_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, KeyError, IndexError, TypeError,
                 AttributeError):
-            notes = {}   # unreadable / older cache: refresh() rebuilds it
+            notes, stop = {}, set()   # unreadable / older cache: rebuilt
+        self._stop = stop
         self._notes = notes
         self._postings = {}
         for s, e in notes.items():
@@ -483,7 +487,8 @@ class Mnemosyne:
 
     def _save_index(self) -> None:
         try:
-            atomic_write(self._index_path, _encode_index(self._notes or {}))
+            atomic_write(self._index_path,
+                         _encode_index(self._notes or {}, self._refresh_stop()))
         except OSError:
             pass   # cache flush is best-effort; rebuilt on next load
 
@@ -493,6 +498,16 @@ class Mnemosyne:
                          json.dumps(self._dyn, separators=(",", ":")))
         except OSError:
             pass   # losing one access event beats failing the user's turn
+
+    def _refresh_stop(self) -> set[str]:
+        """Stopwords: every term already dropped from the stored index (sticky
+        until :meth:`rebuild`) plus any term now in more than
+        ``max(STOP_FRACTION x notes, STOP_MIN_DF)`` notes. Such terms carry
+        almost no BM25 weight in any language; dropping them shrinks the
+        index and removes noise from long queries."""
+        limit = max(STOP_FRACTION * len(self._notes or {}), STOP_MIN_DF)
+        self._stop |= {t for t, post in self._postings.items() if len(post) > limit}
+        return self._stop
 
     # -- postings maintenance ------------------------------------------------
 
@@ -593,6 +608,7 @@ class Mnemosyne:
                 self._load_dynamics()   # skip parsing the index we discard
             self._notes = {}
             self._postings = {}
+            self._stop = set()
             self.refresh()
             return self.stats()
 
@@ -714,7 +730,7 @@ class Mnemosyne:
         """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only."""
         self.refresh()
         now = now or datetime.now(timezone.utc)
-        terms = tokenize(query)
+        terms = [tok for tok in tokenize(query) if tok not in self._stop]
         with self._lock:
             notes = self._notes or {}
             if not terms or not notes:
