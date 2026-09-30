@@ -350,19 +350,23 @@ to Korean ones:
 | variant (10k notes) | en | ko | zh |
 |---|---|---|---|
 | current core | 0.528 | 0.597 | 0.756 |
-| no stems in mixed-script queries | 0.482 (1 up / 11 down) | 0.629 (10 up / 0 down) | 0.778 (2 up / 0 down) |
+| stems x 0 on notes with no native-script match | 0.482 (1 up / 11 down) | 0.629 (10 up / 0 down) | 0.778 (2 up / 0 down) |
 | stems x 0.25 on notes with no native-script match | 0.511 (1 up / 7 down) | 0.617 (6 up / 0 down) | 0.778 (2 up / 0 down) |
 | stems x 0.5 on notes with no native-script match | 0.519 (1 up / 5 down) | 0.609 (4 up / 0 down) | 0.756 |
-| `max(word, stem)` instead of word + stem, any weight | same as "no stems" | same | same |
+| `max(word, stem)` instead of word + stem, stem weight 0.25 or 0.5 | 0.481-0.482 (0-1 up / 11 down) | 0.629 (10 up / 0 down) | 0.778 (2 up / 0 down) |
 
-The same trade appears at 160 and 1k notes. The script coordination bonus is
-no lever either: `SCRIPT_BONUS` from 0 to 2.0 changes no gold rank at 1k
-notes, because the Korean notes of this corpus are written in Hangul only.
+("Native-script match" = the note matched a Hangul or Han/kana term of the
+query. `max` with stem weight 1.0 was measured at 160 and 1k notes only and
+stays within 0.002 English MRR of the `max` row there.) The same trade appears
+at 160 and 1k notes. The script coordination bonus is no lever either:
+`SCRIPT_BONUS` from 0 to 2.0 changes no gold rank at 1k notes.
 
 **2. Boosting the minority script looks like a free win on this benchmark.**
-In all 109 code-switched dev queries of the `mixed` kind, the gold note is
-written in the script the query uses least ("English plus one Korean word"
-targets the Korean note). Multiplying the idf of the minority-script terms
+Of the 117 `mixed` dev queries for en/ko/ja/zh notes, 109 mix two scripts (the
+other 8 ask about an English note in Korean only), and in every one of the 109
+the gold note is written in the script the query uses least ("English plus one
+Korean word" targets the Korean note; pinned by
+`test_mixed_dev_queries_target_the_minority_script`). Multiplying the idf of the minority-script terms
 (ties and single-script queries untouched) helps every language it touches and
 lowers no query, for every author:
 
@@ -384,7 +388,7 @@ Spanish, German, exact and paraphrase queries do not move.
 the opposite kind of question.** The authoring rule for `mixed` ("Korean with
 at most one English word for English notes; English plus one or two native
 words otherwise") makes the gold note the minority-script one by construction,
-for all three authors. The mirror case is at least as common in real use: a
+for all three authors. The mirror case also occurs in real use: a
 question in the note's own language with one foreign word dropped in, where
 that word is the asker's gloss and is not in the note. Two authors wrote such
 `counter` questions for the 39 en/ko/ja/zh dev notes, from a notes-only export
@@ -402,11 +406,12 @@ author), MRR and queries that lost rank against the current core:
 | 2.0 | unchanged | 0.923 (2 down) / 0.923 (1 down) / 0.923 (1 down) |
 
 Every lost query goes from rank 1 to rank 2 (R@5 stays 1.000): the boosted
-English word ("routine", "checklist") lifts an English note with that word in
-its title past the Korean note the question is about. English, Japanese and
+English word ("routine", "checklist") lets an English note that contains it
+overtake the Korean note the question is about. English, Japanese and
 Chinese counter questions do not move for either author. Switching the boost
 off when some note already holds a given share (0.3 to 0.7) of the query's
-majority-script terms removes dev gains but not the loss at 160 notes.
+majority-script terms removes part of the dev gains and never the loss at 160
+notes.
 
 Decision: the two authors disagree (one unaffected, one lower at every boost
 for at least one corpus size), so the boost is not an improvement under the
