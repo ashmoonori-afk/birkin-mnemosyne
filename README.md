@@ -12,10 +12,10 @@ meaning-based retrieval.
 
 ## Install
 
-Requires Python >= 3.10. Install directly from GitHub:
+Requires Python >= 3.10. Install from PyPI:
 
 ```bash
-pip install git+https://github.com/ashmoonori-afk/birkin-mnemosyne
+pip install birkin-mnemosyne
 ```
 
 From a checkout, the existing development and benchmark commands are:
@@ -287,7 +287,7 @@ with no transformer at query time. Install the extra and explicitly prepare
 its model once:
 
 ```bash
-pip install "birkin-mnemosyne[semantic] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne"
+pip install "birkin-mnemosyne[semantic]"
 python -m birkin_mnemosyne.semantic
 ```
 
@@ -370,11 +370,11 @@ extra — the core library stays stdlib-only — and runs with one command over
 stdio:
 
 ```bash
-uvx --from "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne" \
+uvx --from "birkin-mnemosyne[mcp]" \
     mnemosyne-mcp --vault ~/mnemosyne
 ```
 
-(or `pip install "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne"`
+(or `pip install "birkin-mnemosyne[mcp]"`
 and run `mnemosyne-mcp`). The first launch downloads the SDK; if your client
 times out on that first start, run the command once in a terminal.
 
@@ -387,7 +387,7 @@ times out on that first start, run the command once in a terminal.
 
 ```bash
 claude mcp add --scope user mnemosyne -- \
-  uvx --from "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne" \
+  uvx --from "birkin-mnemosyne[mcp]" \
   mnemosyne-mcp --vault ~/mnemosyne
 ```
 
@@ -400,7 +400,7 @@ claude mcp add --scope user mnemosyne -- \
     "mnemosyne": {
       "command": "uvx",
       "args": [
-        "--from", "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne",
+        "--from", "birkin-mnemosyne[mcp]",
         "mnemosyne-mcp", "--vault", "~/mnemosyne"
       ]
     }
@@ -413,7 +413,7 @@ claude mcp add --scope user mnemosyne -- \
 ```toml
 [mcp_servers.mnemosyne]
 command = "uvx"
-args = ["--from", "birkin-mnemosyne[mcp] @ git+https://github.com/ashmoonori-afk/birkin-mnemosyne",
+args = ["--from", "birkin-mnemosyne[mcp]",
         "mnemosyne-mcp", "--vault", "~/mnemosyne"]
 ```
 
