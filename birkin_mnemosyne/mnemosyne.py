@@ -58,6 +58,8 @@ K1, B = 1.5, 0.75                     # Okapi BM25 (mempalace searcher.py)
 CAND = 32                             # BM25 candidates before re-ranking
 FUSE_DEPTH = 100                      # per-leg ranks fed to RRF (semantic)
 RRF_K = 5                             # reciprocal-rank-fusion constant (dev-tuned)
+SEM_WEIGHT = 0.4                      # semantic vote in the fusion (dev-tuned) ...
+SEM_WEIGHT_CJK = 1.0                  # ... and for queries written mostly in Han/kana
 STRENGTH_STEP, STRENGTH_CAP = 0.25, 5.0
 STABILITY_INIT, STABILITY_GROWTH, STABILITY_CAP = 7.0, 1.5, 365.0
 EFF_FLOOR = 0.05                      # nothing fully vanishes (mempalace)
@@ -370,15 +372,23 @@ def _shared_ranks(ranking: list[tuple[str, float]]) -> dict[str, int]:
     return ranks
 
 
-def _rrf(rankings: list[list[tuple[str, float]]],
-         k: float | None = None) -> dict[str, float]:
-    """Reciprocal-rank fusion of best-first (slug, score) lists."""
+def _rrf(rankings: list[list[tuple[str, float]]], k: float | None = None,
+         weights: list[float] | None = None) -> dict[str, float]:
+    """Reciprocal-rank fusion of best-first (slug, score) lists; ``weights``
+    scales each list's vote (default 1 each)."""
     k = RRF_K if k is None else k
     fused: dict[str, float] = {}
-    for ranking in rankings:
+    for ranking, weight in zip(rankings, weights or [1.0] * len(rankings)):
         for s, rank in _shared_ranks(ranking).items():
-            fused[s] = fused.get(s, 0.0) + 1.0 / (k + rank)
+            fused[s] = fused.get(s, 0.0) + weight / (k + rank)
     return fused
+
+
+def _mostly_cjk(text: str) -> bool:
+    """True when at least half of the query's letters are Han or kana."""
+    letters = [c for c in text if c.isalpha()]
+    return bool(letters) and 2 * sum(
+        1 for c in letters if _CJK_CHAR.match(c)) >= len(letters)
 
 
 def _entry_expired(entry: dict[str, Any], today: date) -> bool:
@@ -709,14 +719,29 @@ class Mnemosyne:
             self._sem = False
             return []
 
+    def _covering(self, terms: list[str],
+                  bm_list: list[tuple[str, float]]) -> list[str]:
+        """Notes of the lexical leg that match every original unit of the
+        query, best first. Stems and single Han/kana characters are derived
+        from other units, so they do not count as original."""
+        posts = [self._postings.get(t, {}) for t in set(terms)
+                 if not t.endswith(STEM_MARK) and (len(t) > 1 or _script(t) != "cjk")]
+        if not posts:
+            return []
+        return [s for s, _ in bm_list if all(s in post for post in posts)]
+
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
                now: datetime | None = None) -> list[dict[str, Any]]:
         """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only.
 
-        With the semantic leg active, the base score is the reciprocal-rank
-        fusion ``sum 1/(RRF_K + rank)`` of the BM25 and semantic rankings
-        (top ``FUSE_DEPTH`` of each) instead of the raw BM25 score."""
+        With the semantic leg active, the score is a reciprocal-rank fusion
+        of two rankings (top ``FUSE_DEPTH`` of each): the lexical one above,
+        boosts included, and the semantic one weighted by ``SEM_WEIGHT``
+        (``SEM_WEIGHT_CJK`` for queries written mostly in Han/kana). Notes
+        that contain every original unit of the query keep their lexical
+        order ahead of everything else, so an exact keyword lookup returns
+        what the core returns."""
         self.refresh()
         now = now or datetime.now(timezone.utc)
         terms = tokenize(query)
@@ -728,17 +753,37 @@ class Mnemosyne:
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
             base = bm25_scores(terms, self._postings, doclens,
                                self._avgdl, len(notes))
+            pri = self.zone_priorities(today=now.date())
+
+            def boost(s: str) -> float:
+                eff = effective_strength(self.dynamics_of(s), now)
+                return (1 + W_DYN * eff / STRENGTH_CAP
+                        + W_ZONE * pri.get(notes[s]["zone"], 0.0))
+
             bm_order: dict[str, int] = {}
             if sem_ranked:
-                bm_list = sorted(base.items(), key=lambda kv: kv[1],
-                                 reverse=True)[:FUSE_DEPTH]
+                # The lexical leg is ranked the way the core ranks (usage and
+                # zone boosts included) and nothing multiplies the fused score:
+                # reciprocal ranks sit so close together (1/6 vs 1/7) that a
+                # boost applied after fusion would reorder them at will.
+                top = sorted(base.items(), key=lambda kv: kv[1],
+                             reverse=True)[:FUSE_DEPTH]
+                bm_list = sorted(((s, v * boost(s)) for s, v in top),
+                                 key=lambda kv: kv[1], reverse=True)
                 bm_order = _shared_ranks(bm_list)
-                base = _rrf([bm_list, [(s, v) for s, v in sem_ranked if s in notes]])
+                base = _rrf(
+                    [bm_list, [(s, v) for s, v in sem_ranked if s in notes]],
+                    weights=[1.0, SEM_WEIGHT_CJK if _mostly_cjk(query) else SEM_WEIGHT])
+                # notes that hold every original unit of the query stay first,
+                # in lexical order; fusion orders everything after them
+                covering = self._covering(terms, bm_list)
+                top_fused = max(base.values(), default=0.0)
+                for i, s in enumerate(covering):
+                    base[s] = top_fused + len(covering) - i
             unranked = len(bm_order) + 1
             # fused ties (a note first in one leg only) go to BM25's pick
             cands = sorted(base.items(), key=lambda kv: (
                 -kv[1], bm_order.get(kv[0], unranked)))[:CAND]
-            pri = self.zone_priorities(today=now.date())
             # TTL is a user-facing calendar date -> LOCAL today, matching
             # memory._is_expired (render/list/purge) so no path disagrees.
             expiry_today = date.today()
@@ -753,9 +798,7 @@ class Mnemosyne:
                         continue
                 elif z == ARCHIVE_ZONE and not include_archive:
                     continue
-                eff = effective_strength(self.dynamics_of(s), now)
-                score = bm * (1 + W_DYN * eff / STRENGTH_CAP
-                              + W_ZONE * pri.get(z, 0.0))
+                score = bm if sem_ranked else bm * boost(s)
                 hits.append({"slug": s, "title": e["title"], "zone": z,
                              "rel": e["rel"], "type": e["type"],
                              "summary": e["summary"], "links": e["links"],

@@ -60,9 +60,56 @@ def test_rrf_equal_scores_share_a_rank():
     assert fused["c"] == pytest.approx(1 / 13)
 
 
+def test_rrf_weights_scale_a_lists_vote():
+    fused = mnemosyne._rrf([[("a", 2.0)], [("b", 1.0)]], k=5, weights=[1.0, 0.4])
+    assert fused["a"] == pytest.approx(1 / 6)
+    assert fused["b"] == pytest.approx(0.4 / 6)
+
+
+def test_mostly_cjk_counts_han_and_kana_letters_only():
+    assert mnemosyne._mostly_cjk("車検の期限はいつ")
+    assert mnemosyne._mostly_cjk("回滚 規定")
+    assert not mnemosyne._mostly_cjk("rollback error rate 值班")
+    assert not mnemosyne._mostly_cjk("tax deadline 2024")
+    assert not mnemosyne._mostly_cjk("2024")
+
+
+def test_full_lexical_match_keeps_first_place_under_fusion(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic, "available", lambda: False)
+    _note(tmp_path, "full", "garage", "brake pads")
+    _note(tmp_path, "half", "garage two", "brake fluid and brake lines")
+    dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
+    # "half" is second in the lexical leg and first in the semantic one: its
+    # two votes beat the single vote of "full", which alone holds both words.
+    monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [("half", 0.9)])
+    fused = mnemosyne._rrf([[("full", 2.0), ("half", 1.0)], [("half", 0.9)]],
+                           weights=[1.0, mnemosyne.SEM_WEIGHT])
+    assert fused["half"] > fused["full"]
+    assert [h["slug"] for h in dex.search("brake pads")] == ["full", "half"]
+
+
+def test_usage_boost_ranks_the_lexical_leg_not_the_fused_score(tmp_path, monkeypatch):
+    monkeypatch.setattr(semantic, "available", lambda: False)
+    _note(tmp_path, "used", "notes", "brake service log")
+    _note(tmp_path, "fresh", "notes", "brake service log")
+    dex = mnemosyne.Mnemosyne(tmp_path, semantic=False)
+    for _ in range(3):
+        dex.record_access("used")
+    monkeypatch.setattr(dex, "_semantic_ranking", lambda query: [("fresh", 0.9)])
+    hits = dex.search("brake repair")
+    # lexical leg: used first (boosted), fresh second; semantic leg: fresh only
+    assert [h["slug"] for h in hits] == ["fresh", "used"]
+    assert hits[1]["score"] == pytest.approx(1 / (mnemosyne.RRF_K + 1))
+
+
 def test_chunk_text_splits_on_paragraphs_and_repeats_title():
     body = "\n\n".join(["x" * 150] * 4)
     chunks = semantic.chunk_text("T", body, max_chars=320)
     assert len(chunks) == 2
     assert all(c.startswith("T\n") for c in chunks)
     assert semantic.chunk_text("T", "") == ["T"]
+
+
+def test_chunk_text_cuts_a_paragraph_longer_than_a_chunk():
+    chunks = semantic.chunk_text("T", "x" * 1000, max_chars=400)
+    assert [len(c) for c in chunks] == [402, 402, 202]

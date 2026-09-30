@@ -96,7 +96,17 @@ def test_stale_sidecar_from_other_model_is_rebuilt(tmp_path, concept_model):
     assert idx.search("vehicle", 1)[0][0] == "car"
 
 
-def test_model_is_downloaded_and_converted_once(tmp_path, monkeypatch):
+def test_unprepared_model_falls_back_to_bm25(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(semantic, "available", lambda: True)
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
+    dex = mnemosyne.Mnemosyne(_vault(tmp_path), semantic=True)
+    with caplog.at_level(logging.WARNING):
+        hits = dex.search("brake pads")
+    assert [h["slug"] for h in hits] == ["car"]
+    assert "not prepared" in caplog.text
+
+
+def test_model_is_prepared_explicitly_and_only_once(tmp_path, monkeypatch):
     hub = pytest.importorskip("huggingface_hub")
     st = pytest.importorskip("safetensors.numpy")
     snap = tmp_path / "snap"
@@ -115,11 +125,13 @@ def test_model_is_downloaded_and_converted_once(tmp_path, monkeypatch):
 
     monkeypatch.setattr(hub, "snapshot_download", fake_snapshot)
     monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
-    first = semantic.SemanticIndex(tmp_path)._encoder()
-    again = semantic.SemanticIndex(tmp_path)._encoder()
+    with pytest.raises(RuntimeError, match="not prepared"):
+        semantic.SemanticIndex(tmp_path)._encoder()
+    assert calls == []                                  # a search never downloads
+    assert semantic.prepare() == semantic.prepare()
     assert len(calls) == 1
     assert not any("onnx" in p for p in calls[0]["allow_patterns"])
-    assert first.tokenize("car") == again.tokenize("car") == [2]
+    assert semantic.SemanticIndex(tmp_path)._encoder().tokenize("car") == [2]
 
 
 def test_model_failure_falls_back_to_bm25_with_warning(tmp_path, monkeypatch, caplog):
