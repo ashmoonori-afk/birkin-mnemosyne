@@ -453,6 +453,177 @@ long-lived process is running shows up in `search()` up to 2 s later (a
 deleted note can still be returned during that window). The optional semantic
 mode still scans on every search, through its own sync.
 
+## Search-time query expansion (core, zero dependencies, opt-in per search)
+
+`Mnemosyne.search(query, expansions=...)`, `VaultMemory.search` and the MCP
+`memory_search` tool accept terms the caller adds to a query:
+
+| tier | what the caller writes | weight |
+|---|---|---|
+| (the query itself) | - | 1.0 |
+| `synonyms` | close synonyms or other wordings of the query's key words | 0.75 |
+| `keywords` | the topic in the user's other working language(s) | 0.75 |
+| `related` | looser terms a note answering the question might contain | 0.4 |
+| `note_line` | one sentence written like a line of such a note | 0.4 |
+
+Each added term scores as BM25 scaled by its tier's weight, so a literal match
+counts most and a looser association least. A term already in the query is
+not counted again, a term given in several tiers keeps its highest weight, and
+a note that holds every original unit of the query stays ahead of every note
+only an expansion found. Nothing is stored: the index, the cache file and the
+ranking of a search without expansions are unchanged, and an existing vault
+needs no re-indexing. The library calls no model; the host that writes the
+tool call writes the expansions.
+
+### How it was measured
+
+Two writers, `claude-sonnet-5.5` and `gpt-6.1-sol`, were given only the query
+texts (not the notes, the gold labels or the query kind) and wrote, for each of
+the 1,537 query texts, 4-8 synonyms, 4-8 related terms, English keywords,
+Korean keywords and one sentence. The committed `expansions_<writer>.json`
+files hold what they wrote (the two keyword lists merged into `keywords`), and
+the engines `expanded-claude` and `expanded-gpt` replay them through the real
+library. The weights were chosen on the dev split:
+
+| weights (synonyms and keywords / related and note_line), dev, 10,000 notes | para MRR, claude / gpt writer | slices below the core |
+|---|---|---|
+| 0.5 / 0.25 | 0.947 / - | none (claude) |
+| **0.75 / 0.4** | **0.973 / 0.970** | none (claude); one at 160 notes (gpt), see below |
+| 1.0 / 0.5 | 0.982 / - | dev counterexample questions at 160 notes |
+
+### Test split (MRR, frozen; all three question authors pooled)
+
+| notes | search | en | ko | ja | zh | es | de | exact | para | mixed |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 160 | core | 0.591 | 0.579 | 0.794 | 0.818 | 0.698 | 0.689 | 1.000 | 0.269 | 0.729 |
+| 160 | expansions by claude-sonnet-5.5 | 0.979 | 0.996 | 1.000 | 1.000 | 0.993 | 0.972 | 1.000 | 0.992 | 0.974 |
+| 160 | expansions by gpt-6.1-sol | 0.984 | 0.981 | 0.957 | 0.961 | 0.927 | 0.884 | 1.000 | 0.970 | 0.901 |
+| 1,000 | core | 0.581 | 0.554 | 0.782 | 0.766 | 0.655 | 0.664 | 1.000 | 0.219 | 0.701 |
+| 1,000 | expansions by claude-sonnet-5.5 | 0.975 | 0.994 | 0.990 | 1.000 | 0.992 | 0.944 | 1.000 | 0.985 | 0.961 |
+| 1,000 | expansions by gpt-6.1-sol | 0.977 | 0.976 | 0.946 | 0.960 | 0.918 | 0.865 | 1.000 | 0.964 | 0.883 |
+| 10,000 | core | 0.568 | 0.559 | 0.782 | 0.764 | 0.673 | 0.681 | 1.000 | 0.205 | 0.722 |
+| 10,000 | expansions by claude-sonnet-5.5 | 0.975 | 0.990 | 0.975 | 1.000 | 0.993 | 0.942 | 1.000 | 0.981 | 0.958 |
+| 10,000 | expansions by gpt-6.1-sol | 0.967 | 0.973 | 0.957 | 0.956 | 0.931 | 0.871 | 1.000 | 0.952 | 0.894 |
+
+Per question author (the writer of the expansions never saw who asked):
+
+| notes | search | question author | para | mixed | en | ko |
+|---|---|---|---|---|---|---|
+| 160 | core | claude-fable-5.1 | 0.348 | 0.707 | 0.643 | 0.530 |
+| 160 | core | claude-opus-5.5 | 0.197 | 0.820 | 0.606 | 0.597 |
+| 160 | core | gpt-6.1-sol | 0.261 | 0.660 | 0.524 | 0.612 |
+| 160 | expansions by claude-sonnet-5.5 | claude-fable-5.1 | 0.991 | 0.979 | 0.976 | 0.994 |
+| 160 | expansions by claude-sonnet-5.5 | claude-opus-5.5 | 0.995 | 0.965 | 0.976 | 1.000 |
+| 160 | expansions by claude-sonnet-5.5 | gpt-6.1-sol | 0.991 | 0.978 | 0.984 | 0.994 |
+| 160 | expansions by gpt-6.1-sol | claude-fable-5.1 | 0.991 | 0.868 | 0.982 | 0.979 |
+| 160 | expansions by gpt-6.1-sol | claude-opus-5.5 | 0.935 | 0.919 | 0.982 | 0.984 |
+| 160 | expansions by gpt-6.1-sol | gpt-6.1-sol | 0.985 | 0.917 | 0.988 | 0.981 |
+| 1,000 | core | claude-fable-5.1 | 0.301 | 0.664 | 0.641 | 0.487 |
+| 1,000 | core | claude-opus-5.5 | 0.154 | 0.780 | 0.592 | 0.565 |
+| 1,000 | core | gpt-6.1-sol | 0.203 | 0.660 | 0.512 | 0.609 |
+| 1,000 | expansions by claude-sonnet-5.5 | claude-fable-5.1 | 0.981 | 0.969 | 0.970 | 0.988 |
+| 1,000 | expansions by claude-sonnet-5.5 | claude-opus-5.5 | 0.984 | 0.945 | 0.970 | 1.000 |
+| 1,000 | expansions by claude-sonnet-5.5 | gpt-6.1-sol | 0.991 | 0.970 | 0.984 | 0.994 |
+| 1,000 | expansions by gpt-6.1-sol | claude-fable-5.1 | 0.977 | 0.845 | 0.974 | 0.976 |
+| 1,000 | expansions by gpt-6.1-sol | claude-opus-5.5 | 0.937 | 0.905 | 0.970 | 0.984 |
+| 1,000 | expansions by gpt-6.1-sol | gpt-6.1-sol | 0.980 | 0.900 | 0.985 | 0.969 |
+| 10,000 | core | claude-fable-5.1 | 0.271 | 0.698 | 0.621 | 0.493 |
+| 10,000 | core | claude-opus-5.5 | 0.146 | 0.780 | 0.588 | 0.570 |
+| 10,000 | core | gpt-6.1-sol | 0.198 | 0.686 | 0.496 | 0.613 |
+| 10,000 | expansions by claude-sonnet-5.5 | claude-fable-5.1 | 0.981 | 0.965 | 0.970 | 0.981 |
+| 10,000 | expansions by claude-sonnet-5.5 | claude-opus-5.5 | 0.975 | 0.942 | 0.970 | 0.994 |
+| 10,000 | expansions by claude-sonnet-5.5 | gpt-6.1-sol | 0.986 | 0.967 | 0.985 | 0.994 |
+| 10,000 | expansions by gpt-6.1-sol | claude-fable-5.1 | 0.961 | 0.861 | 0.960 | 0.972 |
+| 10,000 | expansions by gpt-6.1-sol | claude-opus-5.5 | 0.923 | 0.914 | 0.962 | 0.978 |
+| 10,000 | expansions by gpt-6.1-sol | gpt-6.1-sol | 0.971 | 0.908 | 0.979 | 0.969 |
+
+Code-switched questions per language of the gold note:
+
+| notes | search | mixed: en | mixed: ko | mixed: ja | mixed: zh | mixed: es | mixed: de |
+|---|---|---|---|---|---|---|---|
+| 160 | core | 0.604 | 0.577 | 0.896 | 0.917 | 0.850 | 0.827 |
+| 160 | expansions by claude-sonnet-5.5 | 0.954 | 0.988 | 1.000 | 1.000 | 0.978 | 0.937 |
+| 160 | expansions by gpt-6.1-sol | 0.970 | 0.954 | 0.896 | 0.882 | 0.804 | 0.779 |
+| 1,000 | core | 0.598 | 0.555 | 0.865 | 0.856 | 0.808 | 0.800 |
+| 1,000 | expansions by claude-sonnet-5.5 | 0.948 | 0.981 | 0.985 | 1.000 | 0.976 | 0.883 |
+| 1,000 | expansions by gpt-6.1-sol | 0.959 | 0.945 | 0.867 | 0.881 | 0.755 | 0.746 |
+| 10,000 | core | 0.588 | 0.578 | 0.880 | 0.875 | 0.856 | 0.854 |
+| 10,000 | expansions by claude-sonnet-5.5 | 0.949 | 0.969 | 0.970 | 1.000 | 0.979 | 0.887 |
+| 10,000 | expansions by gpt-6.1-sol | 0.957 | 0.935 | 0.903 | 0.878 | 0.806 | 0.785 |
+
+Queries that moved, and the cost inside the ranking (macOS arm64, Python 3.11,
+1-minute load about 6, latency pooled over dev + test queries):
+
+| notes | search | queries up / down (of 972) | down: exact / para / mixed | index on disk | p50 | p95 |
+|---|---|---|---|---|---|---|
+| 160 | core | - | - | 0.07 MB | 0.08 ms | 0.16 ms |
+| 160 | expansions by claude-sonnet-5.5 | 377 / 4 | 0 / 0 / 4 | 0.07 MB | 0.21 ms | 0.37 ms |
+| 160 | expansions by gpt-6.1-sol | 362 / 29 | 0 / 0 / 29 | 0.07 MB | 0.20 ms | 0.29 ms |
+| 1,000 | core | - | - | 0.35 MB | 0.22 ms | 0.44 ms |
+| 1,000 | expansions by claude-sonnet-5.5 | 391 / 7 | 0 / 1 / 6 | 0.35 MB | 0.46 ms | 1.05 ms |
+| 1,000 | expansions by gpt-6.1-sol | 369 / 30 | 0 / 2 / 28 | 0.35 MB | 0.46 ms | 1.00 ms |
+| 10,000 | core | - | - | 3.27 MB | 1.83 ms | 4.93 ms |
+| 10,000 | expansions by claude-sonnet-5.5 | 387 / 8 | 0 / 1 / 7 | 3.27 MB | 4.36 ms | 13.43 ms |
+| 10,000 | expansions by gpt-6.1-sol | 366 / 25 | 0 / 1 / 24 | 3.27 MB | 3.46 ms | 10.28 ms |
+
+### Reading
+
+- Both writers lift every language and both low-overlap query kinds at every
+  size, for the questions of all three authors. Exact keyword queries do not
+  move.
+- With the expansions written by `claude-sonnet-5.5` no slice is below the
+  core at any size: pooled language, pooled kind, author x language, author x
+  kind and language x kind.
+- With the expansions written by `gpt-6.1-sol`, code-switched questions whose
+  gold note is Spanish or German are **below the core** at every size (about
+  -0.05 MRR; Chinese too at 160 notes), and one pooled slice is below at 160
+  notes (`claude-opus-5.5` code-switched R@5 0.972 -> 0.963, one query). These
+  questions are mostly English with one word of the note's language; this
+  writer answered with English and Korean terms, which favours English notes.
+  An expansion helps only as far as the writer guesses the note's language.
+- The index on disk is unchanged. A search with about 65 added terms costs
+  about twice the core's time in the ranking (10,000 notes: p50 1.8 -> 3.5-4.4
+  ms).
+- Writing the expansions cost 201 (claude) and 115 (gpt) output tokens per
+  query, plus about 91 input tokens, in calls of 30 queries. A host pays that
+  per search it chooses to widen.
+
+### What these numbers are not
+
+- **An upper bound, not a forecast.** The questions and the expansions are
+  both written by language models, and the benchmark's notes are about
+  everyday topics a model can guess vocabulary for. Human questions about
+  private notes will gain less. The literature's figure for query expansion
+  over BM25 with human queries is +3 % to +15 % (query2doc,
+  https://arxiv.org/abs/2303.07678).
+- **The full-match rule was added after a first look at the test split.** The
+  weights were frozen on dev without it, and that first test run showed 1-3 of
+  324 exact queries losing rank 1 (exact MRR 0.995-0.998, R@5 unchanged). The
+  rule is the one the semantic mode already uses, it changes no dev result,
+  and the tables above are a second run, of what ships. Outside the exact
+  rows the two runs differ by at most 0.011 MRR in any language.
+- The expansion quality depends on the host model; a weak or careless writer
+  was not measured.
+
+### Alternatives measured and not shipped
+
+Measured in a research harness outside this repository (same corpus, same
+split; not reproducible from the committed files):
+
+| alternative | result | why not |
+|---|---|---|
+| aliases written when a note is saved, indexed as a weighted field | test, 10,000 notes, claude / gpt aliases: en 0.926 / 0.925, ko 0.937 / 0.909, para 0.892 / 0.841, mixed 0.922 / 0.914, exact unchanged | lower than expansions on this split; index, memory and cold start about 2x; every existing note must be backfilled, and a half-backfilled vault ranks notes without aliases below the core |
+| aliases and expansions together | dev, 10,000 notes: en 0.989, ko 1.000, para 1.000, mixed 0.993 | +0.01 to +0.06 over expansions alone, for the costs above |
+| expansions from a bundled synonym list (WordNet, English only) | dev: en +0.000 to +0.021, code-switched -0.004 to -0.032, 10-27 slices below the core | no gain; no such list for the other five languages |
+| expansions from the vault itself (pseudo-relevance feedback, co-occurrence) | dev: every setting loses on exact or code-switched queries | no gain |
+
+Reproduce (the second command prints the before / after tables):
+
+```bash
+python benchmarks/retrieval/bench_retrieval.py --engines bm25 expanded-claude expanded-gpt --sizes 160 1000 10000 --json run.json
+python benchmarks/retrieval/compare.py run.json run.json --engine-before bm25 --engine-after expanded-claude
+```
+
 ## Optional semantic mode (`[semantic]` extra)
 
 The core stays standard library only. The `[semantic]` extra (numpy,

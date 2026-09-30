@@ -392,6 +392,142 @@ def _slug_kr() -> str:
     return slug("메모리 설계")
 
 
+# ---------------- search-time query expansion -------------------------------
+
+def test_expansions_find_a_note_the_query_words_miss():
+    m = _mem()
+    m.write_note("Sourdough", "feed the starter twice a day")
+    m.write_note("Taxes", "annual filing checklist")
+    eng = _engine()
+    assert eng.search("bread culture upkeep", now=NOW) == []
+    hits = eng.search("bread culture upkeep", now=NOW,
+                      expansions={"synonyms": ["starter", "levain"]})
+    assert [h["slug"] for h in hits] == ["sourdough"]
+
+
+def test_expansion_terms_rank_below_the_query_words_and_by_tier():
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    m.write_note("Gamma", "wombat habitat notes")
+    m.write_note("Omega", "numbat habitat notes")
+    eng = _engine()
+    # the expansion matches are the warmer notes: only the grading keeps the
+    # literal match first and the closer tier second
+    for i in range(3):
+        for s in ("gamma", "omega"):
+            eng.record_access(s, now=NOW + timedelta(hours=2 * i))
+    hits = eng.search("quokka", now=NOW + timedelta(hours=6),
+                      expansions={"related": ["numbat"], "synonyms": ["wombat"]})
+    assert [h["slug"] for h in hits] == ["alpha", "gamma", "omega"]
+
+
+def test_a_note_holding_every_query_word_stays_ahead_of_expansion_matches():
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    m.write_note("Gamma", "wombat burrow marsupial nocturnal grazing pouch")
+    eng = _engine()
+    for i in range(3):
+        eng.record_access("gamma", now=NOW + timedelta(hours=2 * i))
+    later = NOW + timedelta(hours=6)
+    hits = eng.search("quokka", now=later, expansions={"synonyms": [
+        "wombat", "burrow", "marsupial", "nocturnal", "grazing", "pouch"]})
+    assert [h["slug"] for h in hits] == ["alpha", "gamma"]
+    assert hits[0]["score"] == eng.search("quokka", now=later)[0]["score"]
+
+
+def test_expansion_weights_skip_query_words_and_keep_the_highest_tier():
+    got = mnemosyne.expansion_weights(
+        {"related": ["pizza dough"], "synonyms": "dough", "note_line": None},
+        mnemosyne.tokenize("pizza"))
+    assert got == {"dough": mnemosyne.EXPANSION_WEIGHTS["synonyms"]}
+
+
+def test_search_without_expansions_ranks_as_before():
+    m = _mem()
+    for i in range(6):
+        m.write_note(f"Note {i}", f"python tips number {i} " + "python " * i)
+    eng = _engine()
+    plain = eng.search("python tips", now=NOW)
+    assert eng.search("python tips", now=NOW, expansions={}) == plain
+    assert eng.search("python tips", now=NOW,
+                      expansions={"synonyms": None, "related": []}) == plain
+
+
+@pytest.mark.parametrize("bad", [
+    {"nicknames": ["x"]}, {"synonyms": [1, 2]}, {"synonyms": {"a": "b"}},
+    {"related": 7}, {"note_line": b"bytes"},
+    {"synonyms": (w for w in ["wombat"])}])
+def test_malformed_expansions_are_refused(bad):
+    m = _mem()
+    m.write_note("Alpha", "quokka habitat notes")
+    with pytest.raises(ValueError):
+        _engine().search("quokka", now=NOW, expansions=bad)
+
+
+def test_snippet_shows_the_passage_an_expansion_matched():
+    m = _mem()
+    m.write_note("Sourdough", "weekend baking log. " * 30
+                 + "feed the starter twice a day")
+    hits = m.search("bread culture upkeep",
+                    expansions={"synonyms": ["starter"]})
+    assert [h["title"] for h in hits] == ["sourdough"]
+    assert "starter" in hits[0]["snippet"]
+
+
+@pytest.mark.parametrize("where", ["zone", "archive", "expired"])
+def test_full_matches_this_search_cannot_return_take_no_candidate_slot(where):
+    m = _mem()
+    # many short unrelated notes keep the average note short, so the long
+    # full matches score below the short partial match, as in a real vault
+    for i in range(100):
+        m.write_note(f"Misc {i}", "unrelated", zone="misc")
+    filler = " ".join(f"pad{i}" for i in range(120))
+    for i in range(mnemosyne.CAND):
+        m.write_note(f"Far {i}", f"quokka habitat {filler}", zone="other",
+                     ttl_days=1 if where == "expired" else None)
+    m.write_note("Active", "quokka quokka quokka", zone="knowledge")
+    eng = _engine()
+    kw: dict = {"now": NOW}
+    if where == "zone":
+        kw["zone"] = "knowledge"
+    elif where == "archive":
+        for i in range(mnemosyne.CAND):
+            eng.rezone(f"far-{i}", mnemosyne.ARCHIVE_ZONE)
+    else:
+        for s in [s for s in eng.entries() if s.startswith("far-")]:
+            eng._notes[s] = {**eng._notes[s], "expires_at": "2000-01-01"}
+    plain = eng.search("quokka habitat", **kw)
+    assert [h["slug"] for h in plain] == ["active"]
+    assert eng.search("quokka habitat", expansions={"synonyms": ["unmatched"]},
+                      **kw) == plain
+
+
+def test_semantic_mode_keeps_a_full_match_first_with_its_own_score():
+    m = _mem()
+    m.write_note("Alpha", "quokka " + " ".join(f"pad{i}" for i in range(80)))
+    for i in range(mnemosyne.FUSE_DEPTH + 1):
+        m.write_note(f"Wide {i}", "wombat burrow")
+    eng = _engine()
+    eng._semantic_ranking = lambda query: [(f"wide-{i}", 1.0 - i / 1000)
+                                           for i in range(40)]
+    plain = eng.search("quokka", now=NOW)
+    wide = eng.search("quokka", now=NOW,
+                      expansions={"synonyms": ["wombat", "burrow"]})
+    assert plain[0]["slug"] == wide[0]["slug"] == "alpha"
+    assert wide[0]["score"] == plain[0]["score"]
+    assert {h["slug"] for h in wide[1:]} <= {f"wide-{i}" for i in range(101)}
+
+
+def test_a_one_shot_iterator_is_refused_by_both_search_entry_points():
+    m = _mem()
+    m.write_note("Gamma", "wombat burrow")
+    for search in (m.search, m.dex.search):
+        with pytest.raises(ValueError):
+            search("quokka", expansions={"synonyms": (w for w in ["wombat"])})
+    assert [h["title"] for h in m.search(
+        "quokka", expansions={"synonyms": ("wombat",)})] == ["gamma"]
+
+
 # ---------------- related / stale / rezone ----------------------------------
 
 def test_related_excludes_self_and_existing_links():

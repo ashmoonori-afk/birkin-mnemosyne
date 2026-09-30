@@ -44,6 +44,7 @@ import threading
 import time
 import unicodedata
 import zlib
+from collections.abc import Iterable, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -75,6 +76,10 @@ INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: zlib f
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
 SCAN_TTL = 2.0                        # search() stats the vault at most this often (s)
+# Search-time query expansion: the weight of a term the caller adds to a query,
+# graded by its distance from the query's own words (which weigh 1.0). Dev-tuned.
+EXPANSION_WEIGHTS = {"synonyms": 0.75, "keywords": 0.75,
+                     "related": 0.4, "note_line": 0.4}
 
 _clock = time.monotonic               # module-level so tests can drive the TTL
 
@@ -194,9 +199,40 @@ def _script(token: str) -> str:
     return "" if token.isdigit() else "latin"
 
 
+def expansion_weights(expansions: Mapping[str, Any],
+                      literal: Iterable[str]) -> dict[str, float]:
+    """{token: weight} for the terms a caller adds to a query at search time.
+
+    ``expansions`` maps a tier of ``EXPANSION_WEIGHTS`` to a string or a list
+    (or tuple) of strings; a one-shot iterator is refused, because callers
+    read the value more than once. A token already among the query's own tokens (``literal``) is
+    left out, so an expansion never counts a query word twice, and a token
+    given in several tiers keeps its highest weight. Raises ``ValueError``
+    for an unknown tier or a value that is not text."""
+    lit = set(literal)
+    out: dict[str, float] = {}
+    for tier, value in expansions.items():
+        weight = EXPANSION_WEIGHTS.get(tier)
+        if weight is None:
+            raise ValueError(f"unknown expansion tier {tier!r} "
+                             f"(want one of {sorted(EXPANSION_WEIGHTS)})")
+        if value is None:
+            continue
+        parts = [value] if isinstance(value, str) else value
+        if (not isinstance(parts, (list, tuple))
+                or not all(isinstance(p, str) for p in parts)):
+            raise ValueError(f"expansion tier {tier!r} must be a string or a "
+                             "list of strings")
+        for t in tokenize(" ".join(parts)):
+            if t not in lit and weight > out.get(t, 0.0):
+                out[t] = weight
+    return out
+
+
 def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
                 doclens: dict[str, int], avgdl: float,
-                n_docs: int) -> dict[str, float]:
+                n_docs: int, weights: Mapping[str, float] | None = None,
+                script_bonus: bool = True) -> dict[str, float]:
     """Okapi BM25 over an inverted index; returns {slug: score}.
 
     Queries that mix scripts get a coordination factor ``1 + SCRIPT_BONUS x
@@ -204,6 +240,10 @@ def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
     手続き") the rare English words otherwise let English notes that match
     only them outrank the note that matches both halves. Single-script
     queries are plain BM25.
+
+    ``weights`` scales single terms (a term it does not name weighs 1.0) and
+    ``script_bonus=False`` leaves the coordination factor out; both exist for
+    expansion terms, which must stay weaker than the query's own words.
     """
     scores: dict[str, float] = {}
     scripts: dict[str, set[str]] = {}
@@ -215,6 +255,8 @@ def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
             continue
         df = len(post)
         idf = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
+        if weights is not None:
+            idf *= weights.get(t, 1.0)
         script = _script(t)
         for s, tf in post.items():
             dl = doclens.get(s, avgdl)
@@ -222,7 +264,7 @@ def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
             scores[s] = scores.get(s, 0.0) + idf * tf * (K1 + 1) / denom
             if script:
                 scripts.setdefault(s, set()).add(script)
-    if len({_script(t) for t in uniq} - {""}) > 1:
+    if script_bonus and len({_script(t) for t in uniq} - {""}) > 1:
         for s in scores:
             scores[s] *= 1 + SCRIPT_BONUS * max(0, len(scripts.get(s, ())) - 1)
     return scores
@@ -743,8 +785,18 @@ class Mnemosyne:
 
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
-               now: datetime | None = None) -> list[dict[str, Any]]:
+               now: datetime | None = None,
+               expansions: Mapping[str, Any] | None = None
+               ) -> list[dict[str, Any]]:
         """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only.
+
+        ``expansions`` widens the query at search time without touching the
+        index: a caller that can paraphrase (the host model) passes
+        ``{"synonyms": [...], "keywords": [...], "related": [...],
+        "note_line": "..."}`` and each added term scores as BM25 scaled by its
+        tier's ``EXPANSION_WEIGHTS``, below the query's own words. A note that
+        holds every original unit of the query stays ahead of the notes only
+        an expansion found. ``None`` ranks exactly as before.
 
         With the semantic leg active, the score is a reciprocal-rank fusion
         of two rankings (top ``FUSE_DEPTH`` of each): the lexical one above,
@@ -763,68 +815,102 @@ class Mnemosyne:
                 self.refresh()
         now = now or datetime.now(timezone.utc)
         terms = tokenize(query)
+        added = expansion_weights(expansions, terms) if expansions else {}
         sem_ranked = self._semantic_ranking(query) if query.strip() else []
         with self._lock:
             notes = self._notes or {}
             if not notes or not (terms or sem_ranked):
                 return []
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
-            base = bm25_scores(terms, self._postings, doclens,
-                               self._avgdl, len(notes))
+            literal = bm25_scores(terms, self._postings, doclens,
+                                  self._avgdl, len(notes))
             pri = self.zone_priorities(today=now.date())
+            # TTL is a user-facing calendar date -> LOCAL today, matching
+            # memory._is_expired (render/list/purge) so no path disagrees.
+            expiry_today = date.today()
 
             def boost(s: str) -> float:
                 eff = effective_strength(self.dynamics_of(s), now)
                 return (1 + W_DYN * eff / STRENGTH_CAP
                         + W_ZONE * pri.get(notes[s]["zone"], 0.0))
 
-            bm_order: dict[str, int] = {}
-            if sem_ranked:
+            def visible(s: str) -> bool:
+                e = notes[s]
+                if _entry_expired(e, expiry_today):
+                    return False
+                if zone is not None:
+                    return e["zone"] == zone
+                return e["zone"] != ARCHIVE_ZONE or include_archive
+
+            def fuse(lexical: dict[str, float]) -> tuple[
+                    dict[str, float], dict[str, int], list[str]]:
+                """(fused scores, lexical ranks, notes that hold every
+                original unit of the query) for one lexical scoring."""
                 # The lexical leg is ranked the way the core ranks (usage and
                 # zone boosts included) and nothing multiplies the fused score:
                 # reciprocal ranks sit so close together (1/6 vs 1/7) that a
                 # boost applied after fusion would reorder them at will.
-                top = sorted(base.items(), key=lambda kv: kv[1],
+                top = sorted(lexical.items(), key=lambda kv: kv[1],
                              reverse=True)[:FUSE_DEPTH]
                 # equal scores fall back to the newer note, as in the core
                 bm_list = sorted(((s, v * boost(s)) for s, v in top),
                                  key=lambda kv: (kv[1], notes[kv[0]]["updated"]),
                                  reverse=True)
-                bm_order = _shared_ranks(bm_list)
-                base = _rrf(
+                fused = _rrf(
                     [bm_list, [(s, v) for s, v in sem_ranked if s in notes]],
                     weights=[1.0, SEM_WEIGHT_CJK if _mostly_cjk(query) else SEM_WEIGHT])
                 # notes that hold every original unit of the query stay first,
                 # in lexical order; fusion orders everything after them
                 covering = self._covering(query, terms, bm_list)
-                top_fused = max(base.values(), default=0.0)
+                top_fused = max(fused.values(), default=0.0)
                 for i, s in enumerate(covering):
-                    base[s] = top_fused + len(covering) - i
+                    fused[s] = top_fused + len(covering) - i
+                return fused, _shared_ranks(bm_list), covering
+
+            # Notes that hold every original unit of the query ("full") take
+            # no expansion score and keep the score the core gives them, so an
+            # exact keyword lookup returns what it returns without expansions.
+            base = literal
+            full: list[str] = []
+            if added:
+                full = self._covering(query, terms, sorted(
+                    literal.items(), key=lambda kv: kv[1],
+                    reverse=True)[:FUSE_DEPTH])
+                base = dict(literal)
+                for s, v in bm25_scores(list(added), self._postings, doclens,
+                                        self._avgdl, len(notes), weights=added,
+                                        script_bonus=False).items():
+                    if s not in full:
+                        base[s] = base.get(s, 0.0) + v
+            bm_order: dict[str, int] = {}
+            if sem_ranked:
+                base, bm_order, _ = fuse(base)
+                if added:
+                    core, _, full = fuse(literal)
+                    for s in full:
+                        base[s] = core[s]
+            # Only a note this search can return is moved to the front: a full
+            # match in another zone, archived or expired must not take a
+            # candidate slot from a note the core would have returned.
+            pinned = frozenset(s for s in full if visible(s))
             unranked = len(bm_order) + 1
             # fused ties (a note first in one leg only) go to BM25's pick
             cands = sorted(base.items(), key=lambda kv: (
-                -kv[1], bm_order.get(kv[0], unranked)))[:CAND]
-            # TTL is a user-facing calendar date -> LOCAL today, matching
-            # memory._is_expired (render/list/purge) so no path disagrees.
-            expiry_today = date.today()
+                kv[0] not in pinned, -kv[1],
+                bm_order.get(kv[0], unranked)))[:CAND]
             hits: list[dict[str, Any]] = []
             for s, bm in cands:
+                if not visible(s):
+                    continue
                 e = notes[s]
-                if _entry_expired(e, expiry_today):
-                    continue
-                z = e["zone"]
-                if zone is not None:
-                    if z != zone:
-                        continue
-                elif z == ARCHIVE_ZONE and not include_archive:
-                    continue
                 score = bm if sem_ranked else bm * boost(s)
-                hits.append({"slug": s, "title": e["title"], "zone": z,
+                hits.append({"slug": s, "title": e["title"], "zone": e["zone"],
                              "rel": e["rel"], "type": e["type"],
                              "summary": e["summary"], "links": e["links"],
                              "polarity": e["polarity"], "score": score,
                              "updated": e["updated"]})
-            hits.sort(key=lambda h: (h["score"], -bm_order.get(h["slug"], unranked),
+            hits.sort(key=lambda h: (h["slug"] in pinned, h["score"],
+                                     -bm_order.get(h["slug"], unranked),
                                      h["updated"]), reverse=True)
             return hits[:limit]
 

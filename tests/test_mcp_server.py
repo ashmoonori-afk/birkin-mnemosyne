@@ -159,6 +159,23 @@ def test_search_get_list_related_round_trip(tmp_path):
     assert "no note" in err(tmp_path, "memory_get_note", {"note": "nope"})
 
 
+def test_search_expansions_widen_the_query_and_are_bounded(tmp_path):
+    _seed(tmp_path)
+    miss = {"query": "levain upkeep"}
+    assert ok(tmp_path, "memory_search", miss)["results"] == []
+    hits = ok(tmp_path, "memory_search", {
+        **miss, "synonyms": ["starter"], "related": ["feeding"],
+        "note_line": "feed it twice a day"})["results"]
+    assert hits[0]["slug"] == "starter-feeding"
+    assert "starter" in hits[0]["snippet"]
+    assert call(tmp_path, "memory_search",
+                {**miss, "synonyms": [f"w{i}" for i in range(17)]}).is_error
+    assert call(tmp_path, "memory_search",
+                {**miss, "keywords": ["k" * 81]}).is_error
+    assert call(tmp_path, "memory_search",
+                {**miss, "note_line": "x" * 301}).is_error
+
+
 def test_get_records_access_but_search_does_not(tmp_path):
     remember(tmp_path, "Deploy runbook", "rsync then restart")
     dex = mnemosyne.Mnemosyne(tmp_path)

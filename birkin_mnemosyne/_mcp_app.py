@@ -26,15 +26,22 @@ from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
 from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
-from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, slug, tokenize
+from .mnemosyne import (ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug,
+                        tokenize)
 
 LOCK_FILE = ".mnemosyne-mcp.lock"
 NoteType = Literal["person", "project", "preference", "fact", "topic", "session"]
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
+ExpansionTerms = Annotated[
+    list[Annotated[str, Field(min_length=1, max_length=80)]] | None,
+    Field(max_length=16)]
 
 INSTRUCTIONS = """\
 Long-term memory: a vault of Markdown notes ranked by BM25 plus usage decay.
 - Recall before answering: memory_search, then memory_get_note for full text.
+- Search matches words, not meaning. When the note may be worded differently
+  from the question, also pass synonyms / keywords / related / note_line to
+  memory_search; the query's own words still rank highest.
 - Store durable facts with memory_remember (mode="create"; use "append" to add
   to a note, "replace" only with the expected_version from memory_get_note).
 - memory_forget archives (never deletes) and is a dry run unless confirm=true.
@@ -190,15 +197,39 @@ def create_server(vault: Path, *, evidence_required: bool = False) -> MCPServer:
         zone: Annotated[str | None, Field(
             description="restrict to one zone ('inbox' = vault root)")] = None,
         include_archive: bool = False,
+        synonyms: Annotated[ExpansionTerms, Field(
+            description="4-8 close synonyms or other wordings of the query's "
+            "key words, in the query's language; not words already in it")
+        ] = None,
+        keywords: Annotated[ExpansionTerms, Field(
+            description="4-8 keywords for the topic in the user's other "
+            "working language(s), e.g. English for a Korean query")] = None,
+        related: Annotated[ExpansionTerms, Field(
+            description="4-8 looser terms a note answering the question "
+            "might contain (broader, narrower or associated)")] = None,
+        note_line: Annotated[str | None, Field(
+            max_length=300, description="one short sentence written like a "
+            "line of a note that would answer the question")] = None,
     ) -> dict[str, Any]:
         """Search memory notes (BM25 + usage decay + zone priority).
 
+        Matching is lexical. The optional synonyms / keywords / related /
+        note_line widen the query at search time: their terms score lower
+        than the query's own words (synonyms and keywords 0.75, related and
+        note_line 0.4), so an exact match still ranks first. Fill them when
+        the note may use other words than the question; nothing is stored.
+
         Returns ranked hits with a snippet around the matched terms. Searching
         does not count as using a note; memory_get_note does."""
+        expansions = {tier: value for tier, value in (
+            ("synonyms", synonyms), ("keywords", keywords),
+            ("related", related), ("note_line", note_line)) if value}
         terms = tokenize(query)
+        terms += list(expansion_weights(expansions, terms))
         results = []
         for h in dex.search(query, limit=limit, zone=_zone_name(zone),
-                            include_archive=include_archive):
+                            include_archive=include_archive,
+                            expansions=expansions or None):
             try:
                 _, body = _read(h)
             except OSError:
