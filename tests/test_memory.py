@@ -1,4 +1,5 @@
 import config
+import pytest
 from birkin_mnemosyne import VaultMemory
 
 
@@ -104,3 +105,15 @@ def test_snippet_matches_accented_text_with_folded_terms():
     from birkin_mnemosyne.memory import _snippet
     text = ("x " * 200) + "La paella lleva azafrán y garrofón." + (" y" * 200)
     assert "azafrán" in _snippet(text, ["azafran"], width=60)
+
+
+@pytest.mark.parametrize("passage, query", [
+    ("die Straße ist gesperrt", "strasse"),
+    ("ＡＰＩ key rotated", "api"),
+    ("ｶﾞｲﾄﾞ lesson booked", "ガイド"),
+])
+def test_snippet_finds_late_passage_under_tokenizer_normalization(passage, query):
+    from birkin_mnemosyne.memory import _snippet
+    from birkin_mnemosyne.mnemosyne import tokenize
+    text = ("filler words here " * 30) + passage + (" tail" * 10)
+    assert passage in _snippet(text, tokenize(query), width=80)

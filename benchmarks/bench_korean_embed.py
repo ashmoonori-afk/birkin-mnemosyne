@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from birkin_mnemosyne.mnemosyne import bm25_scores, tokenize
+from birkin_mnemosyne.mnemosyne import _doc_length, bm25_scores, tokenize
 
 # (topic, note_body, [(exact_q, partial_q, mixed_q), ...]) — hand-written so
 # queries share *meaning* with the note, not just a planted unique token.
@@ -71,7 +71,7 @@ def rank_bm25(query: str, docs: dict[str, str]) -> list[str]:
         terms: dict[str, int] = {}
         for t in tokenize(text):
             terms[t] = terms.get(t, 0) + 1
-        doclens[sid] = sum(terms.values())
+        doclens[sid] = _doc_length(terms)
         for t, tf in terms.items():
             postings.setdefault(t, {})[sid] = tf
     avgdl = (sum(doclens.values()) / len(doclens)) if doclens else 1.0

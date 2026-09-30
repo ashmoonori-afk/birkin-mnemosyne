@@ -29,7 +29,7 @@ from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
                         Mnemosyne)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
-from .mnemosyne import fold_text as _fold_text
+from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
 
@@ -449,7 +449,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     """
     if isinstance(terms, str):
         terms = [terms]
-    low = _fold_text(text)
+    low, offsets = _normalize(text)
     hits: list[tuple[int, str]] = []              # (position, term)
     for term in {t for t in terms if t}:
         start = 0
@@ -478,5 +478,5 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     # extend (don't shift) the slice so the boundary hit that made this window
     # best isn't cut off the right edge
     start = max(0, best_start - width // 8)
-    end = max(best_start + width, best_end)
-    return text[start:end].replace("\n", " ").strip()
+    end = min(len(low), max(best_start + width, best_end))
+    return text[offsets[start]:offsets[end]].replace("\n", " ").strip()

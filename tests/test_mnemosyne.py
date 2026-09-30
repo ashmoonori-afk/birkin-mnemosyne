@@ -57,13 +57,53 @@ def test_tokenize_japanese_han_and_kana():
     assert {"豚", "骨", "豚骨", "骨ス", "スー", "ープ"} <= set(toks)
 
 
+def test_tokenize_cjk_iteration_mark_and_middle_dot():
+    assert "人々" in mnemosyne.tokenize("人々")
+    assert not any("・" in t for t in mnemosyne.tokenize("トム・クルーズ"))
+
+
+def test_single_language_japanese_query_is_plain_bm25():
+    postings = {"車検": {"a": 1}, "の期": {"a": 1, "b": 1}}
+    doclens = {"a": 2, "b": 2}
+    scores = mnemosyne.bm25_scores(["車検", "の期"], postings, doclens, 2.0, 2)
+    import math
+    idf1 = math.log(1 + (2 - 1 + 0.5) / 1.5)
+    idf2 = math.log(1 + (2 - 2 + 0.5) / 2.5)
+    assert scores["a"] == pytest.approx(idf1 + idf2)
+
+
+def test_digits_do_not_count_as_a_script():
+    postings = {"2024": {"a": 1}, "계획": {"a": 1}}
+    scores = mnemosyne.bm25_scores(["2024", "계획"], postings, {"a": 2}, 2.0, 1)
+    plain = mnemosyne.bm25_scores(["2024"], postings, {"a": 2}, 2.0, 1)["a"] + \
+        mnemosyne.bm25_scores(["계획"], postings, {"a": 2}, 2.0, 1)["a"]
+    assert scores["a"] == pytest.approx(plain)
+
+
+def test_tokenize_folds_vietnamese():
+    assert mnemosyne.tokenize("Tiếng Việt") == ["tieng", "viet"]
+
+
+def test_truncation_stem_joins_inflections():
+    note = set(mnemosyne.tokenize("Der Vertrag verlängert sich"))
+    query = set(mnemosyne.tokenize("Verlängerung"))
+    assert "verla~" in note & query
+    assert "vertr~" in note and "der" in note and "sich" in note
+    assert not any(t.endswith("~") for t in mnemosyne.tokenize("cat 2024 hello"))
+
+
+def test_tokenize_supplementary_han():
+    assert {"𠮷", "𠮷野", "野"} <= set(mnemosyne.tokenize("𠮷野家"))
+
+
 def test_tokenize_chinese_unigrams_and_bigrams():
     toks = mnemosyne.tokenize("搬家准备")
     assert {"搬", "家", "搬家", "家准", "准备"} <= set(toks)
 
 
 def test_tokenize_folds_latin_accents_and_case():
-    assert mnemosyne.tokenize("Azafrán FÜTTERN Straße") == ["azafran", "futtern", "strasse"]
+    assert mnemosyne.tokenize("Azafrán FÜTTERN Straße") == [
+        "azafran", "azafr~", "futtern", "futte~", "strasse", "stras~"]
 
 
 def test_tokenize_nfkc_fullwidth_and_halfwidth():
@@ -72,7 +112,7 @@ def test_tokenize_nfkc_fullwidth_and_halfwidth():
 
 
 def test_tokenize_folds_only_latin_letters():
-    assert mnemosyne.tokenize("Йогурт café") == ["йогурт", "cafe"]
+    assert mnemosyne.tokenize("Йогурт café") == ["йогурт", "йогур~", "cafe"]
 
 
 def test_bm25_rewards_matching_every_query_script():
@@ -101,8 +141,17 @@ def test_search_finds_japanese_and_chinese_notes(tmp_path):
 
 
 def test_index_from_older_tokenizer_is_rebuilt(tmp_path):
-    (tmp_path / "ja.md").write_text("---\ntitle: 車検\n---\n\n車検の期限", encoding="utf-8")
-    stale = {"version": mnemosyne.INDEX_VERSION - 1, "notes": {}}
+    note = tmp_path / "ja.md"
+    note.write_text("---\ntitle: 車検\n---\n\n車検の期限", encoding="utf-8")
+    st = note.stat()
+    # A v1 cache whose fingerprint matches the file: only the version check
+    # can force the re-parse that makes the Japanese text searchable.
+    stale = {"version": mnemosyne.INDEX_VERSION - 1, "notes": {"ja": {
+        "title": "車検", "rel": "ja.md", "zone": "", "type": "topic",
+        "tags": [], "links": [], "created": "", "updated": "",
+        "confidence": 0.5, "polarity": "positive", "expires_at": None,
+        "summary": "", "mtime": st.st_mtime, "size": st.st_size,
+        "doclen": 0, "terms": {}}}}
     (tmp_path / mnemosyne.INDEX_FILE).write_text(json.dumps(stale), encoding="utf-8")
     dex = mnemosyne.Mnemosyne(tmp_path)
     assert [h["slug"] for h in dex.search("車検")] == ["ja"]
