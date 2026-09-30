@@ -45,6 +45,11 @@ INLINE_AUTHOR = "claude-opus-5.5"
 AUTHOR_FILES = {"gpt-6.1-sol": "queries_gpt-6.1-sol.json",
                 "claude-fable-5.1": "queries_claude-fable-5.1.json"}
 AUTHORS = (INLINE_AUTHOR, *AUTHOR_FILES)
+# Dev-only additions written later by two of the authors from an export of the
+# dev notes alone (see dev_extra_queries). They are not part of queries() and
+# no reported table uses them.
+DEV_EXTRA_FILES = {"gpt-6.1-sol": "dev_extra_gpt-6.1-sol.json",
+                   "claude-opus-5.5": "dev_extra_claude-opus-5.5.json"}
 LANGS = ("en", "ko", "ja", "zh", "es", "de")
 
 # Function words ignored by the paraphrase-overlap check (not by any engine).
@@ -1215,3 +1220,27 @@ def corpus(n_total: int = 160, seed: int = 0) -> list[Note]:
     if n_total < len(gold):
         raise ValueError(f"n_total must be >= {len(gold)}")
     return gold + [_distractor(i, seed) for i in range(n_total - len(gold))]
+
+
+def dev_extra_queries() -> list[Query]:
+    """Dev-only queries outside the three-per-note grid, per author:
+
+    counter  for every en/ko/ja/zh dev note, a question in the note's own
+             language with exactly one foreign-script word that does not
+             occur in the note (the mirror image of ``mixed``, where the
+             foreign word is quoted from the note)
+    exact / para / mixed
+             one more triple for every zh and de dev note, the two thinnest
+             dev slices (15 queries per author without them)
+    """
+    gold = {g.slug: g for g in gold_notes()}
+    out: list[Query] = []
+    for author, name in DEV_EXTRA_FILES.items():
+        data = json.loads(Path(__file__).with_name(name).read_text(encoding="utf-8"))
+        rows = [(slug, "counter", text) for slug, text in data["counter"].items()]
+        rows += [(slug, kind, kinds[kind]) for slug, kinds in data["extra"].items()
+                 for kind in QUERY_KINDS]
+        out.extend(Query(text=text, gold=slug, kind=kind, lang=gold[slug].lang,
+                         split=gold[slug].split, siblings=gold[slug].siblings,
+                         author=author) for slug, kind, text in rows)
+    return out

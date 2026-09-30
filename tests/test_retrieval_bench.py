@@ -24,6 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "benchmarks" / "ret
 import bench_retrieval as br
 import retrieval_corpus as rc
 
+from birkin_mnemosyne import mnemosyne
+
 SPLITS = ("dev", "test")
 TEST_QUERY_DIGEST = "49bc8e6f84907cfea986f23619e750e8bacfac6755c4230ced4e045306854145"
 
@@ -156,6 +158,72 @@ def test_exact_queries_are_lexical_for_every_author(author):
         doc = rc.content_units(gold[slug].title + " " + gold[slug].body)
         assert q, (author, slug)
         assert len(q & doc) / len(q) >= 0.6, (author, slug)
+
+
+def test_dev_extra_queries_cover_their_dev_notes_and_nothing_else():
+    dev = [g for g in rc.gold_notes() if g.split == "dev"]
+    extra = rc.dev_extra_queries()
+    assert {q.split for q in extra} == {"dev"}
+    for author in rc.DEV_EXTRA_FILES:
+        mine = [q for q in extra if q.author == author]
+        assert sorted(q.gold for q in mine if q.kind == "counter") == sorted(
+            g.slug for g in dev if g.lang in ("en", "ko", "ja", "zh"))
+        for kind in rc.QUERY_KINDS:
+            assert sorted(q.gold for q in mine if q.kind == kind) == sorted(
+                g.slug for g in dev if g.lang in ("zh", "de"))
+    assert all(q.text.strip() for q in extra)
+
+
+def test_counter_queries_carry_one_foreign_word_that_is_not_in_the_note():
+    gold = {g.slug: g for g in rc.gold_notes()}
+    for q in rc.dev_extra_queries():
+        if q.kind != "counter":
+            continue
+        note = (gold[q.gold].title + " " + gold[q.gold].body).casefold()
+        foreign = re.findall(r"[\uac00-\ud7a3]+" if q.lang == "en" else r"[A-Za-z]+", q.text)
+        assert len(foreign) == 1, (q.author, q.gold, foreign)
+        assert foreign[0].casefold() not in note, (q.author, q.gold, foreign)
+        assert not re.search(r"\d", q.text), (q.author, q.gold)
+        if q.lang in ("ja", "zh"):
+            assert not re.search(r"[\uac00-\ud7a3]", q.text), (q.author, q.gold)
+
+
+def test_dev_extra_triples_follow_the_authoring_rules():
+    gold = {g.slug: g for g in rc.gold_notes()}
+    extra = {(q.author, q.gold, q.kind): q.text for q in rc.dev_extra_queries()
+             if q.kind != "counter"}
+    for (author, slug, kind), text in extra.items():
+        doc = rc.content_units(gold[slug].title + " " + gold[slug].body)
+        units = rc.content_units(text)
+        assert units, (author, slug, kind)
+        if kind == "exact":
+            assert len(units & doc) / len(units) >= 0.6, (author, slug)
+        elif kind == "para":
+            assert len(units & doc) / len(units) <= 0.3, (author, slug)
+        else:
+            assert mixed_rule_problem(gold[slug], text) is None, (author, slug)
+
+
+def _script_runs(text: str) -> Counter[str]:
+    runs: Counter[str] = Counter()
+    for han_kana, hangul, word in mnemosyne._RUN_RE.findall(text.casefold()):
+        if not (word and word.isdigit()):
+            runs["latin" if word else "hangul" if hangul else "cjk"] += 1
+    return runs
+
+
+def test_mixed_dev_queries_target_the_minority_script():
+    # The fact behind "Code-switched queries in the core" in RESULTS.md: the
+    # authoring rule for `mixed` makes the gold note the minority-script one.
+    script = {"en": "latin", "ko": "hangul", "ja": "cjk", "zh": "cjk"}
+    mixed = [q for q in rc.queries()
+             if q.split == "dev" and q.kind == "mixed" and q.lang in script]
+    two_scripts = [(q, _script_runs(q.text)) for q in mixed]
+    two_scripts = [(q, runs) for q, runs in two_scripts if len(runs) > 1]
+    assert (len(mixed), len(two_scripts)) == (117, 109)
+    for q, runs in two_scripts:
+        (least, n), (_, second) = sorted(runs.items(), key=lambda kv: kv[1])[:2]
+        assert n < second and least == script[q.lang], (q.author, q.gold, runs)
 
 
 def test_content_units_fold_scripts():
