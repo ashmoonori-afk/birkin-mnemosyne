@@ -299,6 +299,51 @@ def test_deleted_note_is_pruned_on_refresh():
     assert eng.note_meta("ghost") is None
 
 
+def test_search_scans_the_vault_at_most_once_per_ttl(monkeypatch):
+    m = _mem()
+    m.write_note("Alpha", "alpha body")
+    clock = [100.0]
+    monkeypatch.setattr(mnemosyne, "_clock", lambda: clock[0])
+    eng = _engine()                      # scanned at t=100
+    scans: list[float] = []
+    orig = eng._scan
+
+    def counting():
+        scans.append(clock[0])
+        return orig()
+
+    monkeypatch.setattr(eng, "_scan", counting)
+    assert eng.search("alpha", now=NOW)
+    clock[0] += mnemosyne.SCAN_TTL / 2
+    assert eng.search("alpha", now=NOW)
+    assert scans == []                   # inside the TTL: no stat pass
+    clock[0] += mnemosyne.SCAN_TTL / 2
+    assert eng.search("alpha", now=NOW)
+    assert scans == [100.0 + mnemosyne.SCAN_TTL]
+
+
+def test_outside_edit_shows_after_ttl_or_refresh_and_own_write_at_once(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(mnemosyne, "_clock", lambda: clock[0])
+    m = _mem()
+    m.write_note("Alpha", "alpha body")  # the write path scans at t=100
+    eng = m.dex
+    assert eng.search("alpha", now=NOW)
+
+    (_vault() / "outside.md").write_text("zeppelin hangar", encoding="utf-8")
+    assert eng.search("zeppelin", now=NOW) == []
+    clock[0] += mnemosyne.SCAN_TTL
+    assert [h["slug"] for h in eng.search("zeppelin", now=NOW)] == ["outside"]
+
+    (_vault() / "second.md").write_text("walrus tusk", encoding="utf-8")
+    assert eng.search("walrus", now=NOW) == []
+    eng.refresh()                        # the explicit scan does not wait
+    assert [h["slug"] for h in eng.search("walrus", now=NOW)] == ["second"]
+
+    m.write_note("Own", "quokka habitat")
+    assert [h["slug"] for h in eng.search("quokka", now=NOW)] == ["own"]
+
+
 # ---------------- search ----------------------------------------------------
 
 def test_search_relevance_dominates():
