@@ -631,7 +631,8 @@ The start-up budget for this mode was 1 s with the model prepared; the slowest
 of the 30 starts took 439 ms. The timing fields inside
 `semantic_test_run.json` are not the reference: that run was taken on a busy
 machine (1-minute load 7.6 to 10.7), and in a repeat at a load near 13 the
-start-up of the 10k vault reached 1.09 s. Search latency roughly doubles.
+start-up of the 10k vault reached 1.09 s. Search latency roughly doubles at
+1k and 10k notes (about 3x at 160 notes, still under 4 ms).
 
 Reading:
 

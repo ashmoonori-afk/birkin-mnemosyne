@@ -173,10 +173,10 @@ class SemanticIndex:
                 if json.loads(str(data["meta"])) != self._meta():
                     return
                 slugs = [str(s) for s in data["slugs"]]
-                counts = data["counts"].tolist()
-                fps = data["fps"].tolist()
+                counts = data["counts"].reshape(-1).tolist()
+                fps = data["fps"].reshape(-1, 2).tolist()
                 bits = data["bits"]
-        except (OSError, KeyError, ValueError, EOFError, zipfile.BadZipFile):
+        except (OSError, KeyError, ValueError, TypeError, EOFError, zipfile.BadZipFile):
             return   # missing, empty, truncated or foreign file: re-embed
         if (len(counts) != len(slugs) or len(fps) != len(slugs)
                 or sum(counts) != len(bits) or min(counts, default=1) < 1

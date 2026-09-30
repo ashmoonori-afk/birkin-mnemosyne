@@ -187,11 +187,18 @@ def test_corrupt_vector_sidecar_is_rebuilt(tmp_path, concept_model, junk):
 def test_inconsistent_vector_sidecar_is_rebuilt(tmp_path, concept_model):
     vault = _vault(tmp_path)
     meta = semantic.SemanticIndex(vault)._meta()
+    # Fingerprints are the real ones, so sync() would trust this cache; its
+    # counts claim five chunk rows where the file holds three.
+    entries = mnemosyne.Mnemosyne(vault, semantic=False).entries()
+    slugs = sorted(entries)
     np.savez(vault / semantic.VECTORS_FILE, meta=np.array(json.dumps(meta)),
-             slugs=np.array(["car"]), counts=np.array([3], dtype=np.int32),
-             fps=np.zeros((1, 2)), bits=np.zeros((1, semantic.DIM // 8), dtype=np.uint8))
+             slugs=np.array(slugs), counts=np.array([3, 1, 1], dtype=np.int32),
+             fps=np.array([(entries[s]["mtime"], entries[s]["size"]) for s in slugs]),
+             bits=np.zeros((3, semantic.DIM // 8), dtype=np.uint8))
     hits = mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
     assert hits[0]["slug"] == "car"
+    with np.load(vault / semantic.VECTORS_FILE) as data:
+        assert data["counts"].tolist() == [1, 1, 1]
 
 
 def test_packed_scoring_equals_the_sign_dot_product_of_the_best_chunk(tmp_path, concept_model):
