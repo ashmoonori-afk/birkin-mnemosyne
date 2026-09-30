@@ -41,6 +41,7 @@ import math
 import os
 import re
 import threading
+import time
 import unicodedata
 import zlib
 from datetime import date, datetime, timezone
@@ -73,6 +74,9 @@ RELATED_QUERY_TERMS = 12
 INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: zlib file
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
+SCAN_TTL = 2.0                        # search() stats the vault at most this often (s)
+
+_clock = time.monotonic               # module-level so tests can drive the TTL
 
 INDEX_FILE = ".mnemosyne-index.json.z"
 LEGACY_INDEX_FILE = ".mnemosyne-index.json"   # pre-v4 cache, removed on save
@@ -424,6 +428,7 @@ class Mnemosyne:
         self._dyn: dict[str, Any] | None = None
         self._postings: dict[str, dict[str, int]] = {}
         self._avgdl = 0.0
+        self._scanned_at: float | None = None   # _clock() of the last vault scan
 
     # -- persistence --------------------------------------------------------
 
@@ -536,14 +541,16 @@ class Mnemosyne:
 
     def refresh(self) -> None:
         """Bring the index up to date by stat fingerprints; re-parse only
-        changed files. A stat pass is milliseconds at personal-vault scale
-        and keeps externally edited notes (e.g. in Obsidian) visible
-        immediately — the M4 win is *no re-parsing*, not no statting."""
+        changed files. Always scans: call it to see a note edited outside
+        the library (e.g. in Obsidian) at once. ``search`` alone scans at
+        most once per ``SCAN_TTL`` seconds, because the stat pass is most of
+        a search at 10k notes (about 37 of 43 ms)."""
         with self._lock:
             if self._notes is None:
                 self._load()
             assert self._notes is not None
             scan = self._scan()
+            self._scanned_at = _clock()
             changed = False
             for s in [s for s in self._notes if s not in scan]:
                 self._drop_postings(s)
@@ -745,8 +752,15 @@ class Mnemosyne:
         (``SEM_WEIGHT_CJK`` for queries written mostly in Han/kana). Notes
         that contain every original unit of the query keep their lexical
         order ahead of everything else, so an exact keyword lookup returns
-        what the core returns."""
-        self.refresh()
+        what the core returns.
+
+        The vault is re-scanned for outside edits at most once per
+        ``SCAN_TTL`` seconds; notes written through the library are indexed
+        by ``note_written`` and never wait. ``refresh()`` forces a scan."""
+        with self._lock:
+            if (self._notes is None or self._scanned_at is None
+                    or _clock() - self._scanned_at >= SCAN_TTL):
+                self.refresh()
         now = now or datetime.now(timezone.utc)
         terms = tokenize(query)
         sem_ranked = self._semantic_ranking(query) if query.strip() else []
