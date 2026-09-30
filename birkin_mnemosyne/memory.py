@@ -30,6 +30,8 @@ from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
+from .mnemosyne import STEM_MIN as _STEM_MIN
+from .mnemosyne import _script
 from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
@@ -439,6 +441,23 @@ def _is_expired(meta: dict[str, Any]) -> bool:
         return False
 
 
+def _word_char(c: str) -> bool:
+    """A letter/digit of a non-CJK word, as tokenize() groups them."""
+    return c.isalnum() and _script(c) not in ("cjk", "hangul")
+
+
+def _stem_word_at(low: str, i: int) -> bool:
+    """True when a word starts at ``i`` that tokenize() would stem (alphabetic,
+    at least STEM_MIN letters)."""
+    if i and _word_char(low[i - 1]):
+        return False
+    j = i
+    while j < len(low) and _word_char(low[j]):
+        j += 1
+    word = low[i:j]
+    return word.isalpha() and len(word) >= _STEM_MIN
+
+
 def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     """Best multi-term window: the ``width``-char span containing the most
     DISTINCT query terms (earliest on ties); falls back to the head.
@@ -461,7 +480,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
             i = low.find(needle, start)
             if i < 0:
                 break
-            if not stem or i == 0 or not low[i - 1].isalnum():
+            if not stem or _stem_word_at(low, i):
                 hits.append((i, needle))
             start = i + 1
     if not hits:

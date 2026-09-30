@@ -267,3 +267,67 @@ used for any decision):
 Rejected on dev: suffix stemmers, Hangul unigrams, title weighting, k1/b
 changes, Korean particle stripping, Japanese script segmentation, a
 term-coverage bonus, per-script average document length.
+
+## Compressed index cache (core, zero dependencies)
+
+The index cache is now level-1 zlib over the same JSON layout
+(`.mnemosyne-index.json.z`, format v4; an old `.mnemosyne-index.json` is
+removed on the next save). It is lossless: measured back to back against main
+(`9678ef4`'s tree), every R@1/R@5/MRR/nDCG value on every language, query kind
+and author slice is identical at 160, 1k and 10k notes, and no query changed
+rank (compressed run at `6b326b3`; later commits touch tests, docs and
+snippets only). Stated tolerance for size-only changes was at most -0.02 MRR on any
+slice; the chosen change uses none of it.
+
+#### Footprint, main -> compressed cache (decimal MB; latency pooled over dev + test queries)
+
+| notes | index on disk | p50 | p95 | cold wall | peak RSS |
+|---|---|---|---|---|---|
+| 160 | 0.27 MB -> 0.07 MB | 0.6 -> 0.5 ms | 0.6 -> 0.7 ms | 37 -> 38 ms | 23 -> 23 MB |
+| 1000 | 1.57 MB -> 0.35 MB | 3.1 -> 3.7 ms | 3.7 -> 5.3 ms | 55 -> 63 ms | 31 -> 33 MB |
+| 10000 | 15.79 MB -> 3.27 MB | 38.2 -> 39.4 ms | 48.0 -> 46.6 ms | 322 -> 309 ms | 123 -> 138 MB |
+
+Cost of saving (median of 20 `note_written` calls, one edited note):
+
+| notes | main | compressed |
+|---|---|---|
+| 1000 | 10.0 ms | 19.5 ms |
+| 10000 | 108.7 ms | 184.3 ms |
+
+Reading: the cache is 74-79 % smaller (74 % at 160 notes, 79 % at 10k; 3.27 MB
+at 10k vs 9.6 MB for the original BM25 v1 index). Search never reads the
+cache file, and decompressing it costs ~1 ms per 0.35 MB; the p50 / p95 /
+cold-start differences in the table (largest: +1.6 ms p95 and +8 ms cold at
+1k) come from single runs and were not repeated to bound noise. Saving a note costs ~75 ms more at 10k
+notes because the whole cache is compressed on every save, and peak RSS during
+load is ~15 MB higher at 10k (compressed and decoded text are briefly held
+together). A vault shared by an older and a newer version keeps rebuilding:
+the old version writes `.mnemosyne-index.json`, the new one deletes it.
+
+Alternatives measured at 10k notes (same machine; encode / decode time of the
+cache alone):
+
+| cache format | size | encode | decode |
+|---|---|---|---|
+| plain JSON (main) | 15.79 MB | 98 ms | 132 ms |
+| delta + varint postings, shared vocabulary (no zlib) | 5.52 MB | 243 ms | 205 ms |
+| vocabulary + delta layout + zlib level 1 | 2.21 MB | 318 ms | 178 ms |
+| **main layout + zlib level 1 (chosen)** | **3.26 MB** (3.27 MB with the vault's own run) | **184 ms** | **168 ms** |
+| main layout + zlib level 6 | 2.60 MB | 388 ms | 128 ms |
+
+The hand-written varint codec was 70 % larger than zlib and slower on both
+paths (a first version of this PR used it: saves at 10k took 279 ms and cold
+start 369 ms); the vocabulary + zlib variant saves another 1 MB but adds
+~130 ms to every save and a second codec to port. Level 6 saves 0.7 MB for
+twice the encode time.
+
+Pruning, measured and rejected:
+
+- **Corpus-wide stopwords** (terms in more than `max(5 % of notes, 50)` notes
+  dropped from postings and queries; 4.39 MB with the varint codec): higher MRR for Korean (+0.04) and code-switched queries
+  (+0.05-0.07), but English lost rank per query (1k: 15 down / 4 up; 10k:
+  10 down / 5 up), queries made only of common words returned nothing, and the
+  stop list made a live index and a reloaded one rank differently. English
+  must not get worse (the lesson from omo PR #9209), so it was reverted.
+- **Ultra-rare terms** (df = 1): saves 0.2 MB of 5.5 MB but deletes the names
+  exact queries look for (dev exact MRR 0.996 -> 0.766).
