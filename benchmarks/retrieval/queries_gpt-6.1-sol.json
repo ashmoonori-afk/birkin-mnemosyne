@@ -212,7 +212,7 @@
  "g-ko03": {
   "exact": "나비가 연어 저알러지",
   "para": "반려묘의 묽은 변 때문에 먹이를 바꿀 때 적응에 며칠을 두지?",
-  "mixed": "How gradually should 나비 transition to the new hypoallergenic food?"
+  "mixed": "How gradually should the cat transition to the new hypoallergenic 사료?"
  },
  "g-ko04": {
   "exact": "6월까지 피싱 VPN",
@@ -222,7 +222,7 @@
  "g-ko05": {
   "exact": "요추 4번 5번 맥켄지",
   "para": "등 아래쪽 통증을 다스리는 몸 펴기는 매일 몇 차례 하지?",
-  "mixed": "How often should the prescribed 맥켄지 routine be performed?"
+  "mixed": "How often should the prescribed back-extension 운동 be performed?"
  },
  "g-ko06": {
   "exact": "애월 펜션에 3박 렌터카는",
@@ -237,7 +237,7 @@
  "g-ko08": {
   "exact": "하준이는 구민체육센터에서 수경과 앞주머니에",
   "para": "물속에서 쓰는 안경과 모자는 어디 넣어 뒀지?",
-  "mixed": "Where are 하준이's swimming goggles and cap stored?"
+  "mixed": "Where are the child's 수경 and 수모 stored?"
  },
  "g-ko09": {
   "exact": "98퍼센트에 logrotate 14일로",
@@ -272,12 +272,12 @@
  "g-ko15": {
   "exact": "보리는 7시와 8시에 30분씩",
   "para": "더운 계절에는 반려견을 데리고 밖에 언제 나서지?",
-  "mixed": "Why should 보리 go outside only after sunset in summer?"
+  "mixed": "Why should the dog go outside only after sunset in 여름?"
  },
  "g-ko16": {
   "exact": "10주년 한남동 르블랑을 14일",
   "para": "부부가 된 지 십 년을 축하하는 식사에는 어떤 좌석을 부탁했지?",
-  "mixed": "What seating preference was requested at 르블랑?"
+  "mixed": "Was a 창가 seat requested for the anniversary dinner?"
  },
  "g-ko17": {
   "exact": "레디스 320밀리초에서 45밀리초로",
@@ -287,7 +287,7 @@
  "g-ko18": {
   "exact": "서윤이는 체르니 30번 7번",
   "para": "여자아이가 건반 악기에서 익혀야 할 연습곡은 어느 번호지?",
-  "mixed": "Which 체르니 exercise is assigned to the daughter this month?"
+  "mixed": "Which numbered piano exercise is this month's 과제?"
  },
  "g-ko19": {
   "exact": "22일 한빛익스프레스로 전입신고와",
@@ -312,7 +312,7 @@
  "g-ko23": {
   "exact": "13일부터 가평 리조트에서 로드맵과",
   "para": "연말 무렵 떠나는 합숙 모임에서는 무엇을 논의하지?",
-  "mixed": "What topics will the 가평 retreat cover?"
+  "mixed": "What is the retreat's 주제 besides the product roadmap?"
  },
  "g-ko24": {
   "exact": "어금니 신경치료를 크라운을",
@@ -407,7 +407,7 @@
  "g-ja02": {
   "exact": "柴犬 コタロウ 狂犬病 さくら動物クリニック",
   "para": "飼っているわんこの注射の申し込みには、どんな連絡手段が使えますか？",
-  "mixed": "How do I book コタロウ for his vaccination?"
+  "mixed": "How do I book a 予防接種 for the dog?"
  },
  "g-ja03": {
   "exact": "四月一日 三週間 八階会議室",
@@ -432,7 +432,7 @@
  "g-ja07": {
   "exact": "水曜 夜七時 カナダ エミリー",
   "para": "外国語を教えてくれる人の故郷は、どこの国ですか？",
-  "mixed": "Where is エミリー originally from?"
+  "mixed": "Where is the 講師 originally from?"
  },
  "g-ja08": {
   "exact": "月五万円 外食 格安SIM",
@@ -442,7 +442,7 @@
  "g-ja09": {
   "exact": "十一月 嵐山 二泊 竹林",
   "para": "秋のお出かけでは、宿に何晩滞在するつもりですか？",
-  "mixed": "How many nights are booked in 嵐山?"
+  "mixed": "How many nights are booked at the 旅館?"
  },
  "g-ja10": {
   "exact": "二営業日 プルリクエスト 差し戻し nit",
@@ -477,7 +477,7 @@
  "g-ja16": {
   "exact": "健太 乾杯 大学時代 山登り",
   "para": "友だちの披露宴で話す内容は、どれほどの長さに収めますか？",
-  "mixed": "What is the time limit for 健太's wedding toast?"
+  "mixed": "What is the time limit for the 乾杯 speech?"
  },
  "g-ja17": {
   "exact": "十二月 PostgreSQL 読み取り専用 夜間バッチ",
@@ -487,7 +487,7 @@
  "g-ja18": {
   "exact": "さくら 金曜 ピアノ ブルグミュラー",
   "para": "女の子が鍵盤のおけいこで取り組む作品は、誰が作ったものですか？",
-  "mixed": "Which composer wrote さくら's assigned piece?"
+  "mixed": "Which composer wrote the assigned 練習曲?"
  },
  "g-ja19": {
   "exact": "三リットル 乾パン 懐中電灯 モバイルバッテリー",
@@ -507,7 +507,7 @@
  "g-zh02": {
   "exact": "橘猫 豆豆 三联疫苗 四小时",
   "para": "给这只毛色金黄的小家伙注射之前，须禁食多久？",
-  "mixed": "How long must 豆豆 fast before vaccination?"
+  "mixed": "How long must the 橘猫 fast before vaccination?"
  },
  "g-zh03": {
   "exact": "第三季度 三千二百万元 百分之一百零五 海外市场",
@@ -627,12 +627,12 @@
  "g-es06": {
   "exact": "Misi rabia noviembre Albaida",
   "para": "¿Cuánto tiempo necesita permanecer sin comer el felino previo a su inmunización?",
-  "mixed": "How long must Misi fast before the appointment?"
+  "mixed": "How long must the cat fast before the vacuna?"
  },
  "g-es07": {
   "exact": "discrecional 800 Iñaki Soler",
   "para": "¿Quién debe autorizar los desplazamientos profesionales que superan el límite monetario establecido?",
-  "mixed": "Who approves conference travel above 800 euros?"
+  "mixed": "Who must approve travel to congresos that exceeds the spending threshold?"
  },
  "g-es08": {
   "exact": "azotea pimientos goteo orgánico",
@@ -647,7 +647,7 @@
  "g-es10": {
   "exact": "Veridia 30 junio 2025",
   "para": "¿Dónde se archivan los comprobantes del trabajo lingüístico para presentarlos al fisco?",
-  "mixed": "Where are the Veridia invoices stored?"
+  "mixed": "Where are the facturas for translation work stored?"
  },
  "g-es11": {
   "exact": "Huila 18 38 27",
@@ -657,17 +657,17 @@
  "g-es12": {
   "exact": "Remedios Villanúa 90 12",
   "para": "¿Qué obsequio cartográfico se ha preparado para el aniversario de la anciana?",
-  "mixed": "What gift was ordered for Remedios?"
+  "mixed": "What gift was ordered for the abuela?"
  },
  "g-es13": {
   "exact": "300 2400 2,6 2,8",
   "para": "¿Cuánto aire requiere el neumático anterior de la bicicleta?",
-  "mixed": "What is the front tire pressure in bar?"
+  "mixed": "What is the recommended tire pressure delante?"
  },
  "g-es14": {
   "exact": "postmortem cronología raíz hábiles",
   "para": "¿Cuál es el plazo laboral para difundir el análisis posterior a un incidente?",
-  "mixed": "What is the publication deadline for a postmortem?"
+  "mixed": "How many días hábiles are allowed before publishing the incident report?"
  },
  "g-es15": {
   "exact": "Veinte metrónomo 80 fingerpicking",
@@ -677,12 +677,12 @@
  "g-es16": {
   "exact": "Nubalia enero 60 antelación",
   "para": "¿Con cuánta anticipación debe comunicarse la baja para evitar otra prórroga?",
-  "mixed": "What notice period prevents Nubalia from renewing automatically?"
+  "mixed": "What notice period for cancelación prevents automatic renewal?"
  },
  "g-es17": {
   "exact": "Teo anacardos pistachos autoinyector",
   "para": "¿Dónde se guarda el dispositivo de emergencia contra reacciones alimentarias?",
-  "mixed": "Where should Teo's emergency injection device stay?"
+  "mixed": "Where should the autoinyector always stay?"
  },
  "g-es18": {
   "exact": "395 kWh julio 8",
@@ -697,7 +697,7 @@
  "g-es20": {
   "exact": "Álvaro canoa 2012 Marisa",
   "para": "¿Qué anécdota náutica debería abrir la intervención del acompañante principal del novio?",
-  "mixed": "Which story should open Álvaro's wedding speech?"
+  "mixed": "Which story should open the padrino speech?"
  },
  "g-de01": {
   "exact": "15. November Köln Leipzig Bürgeramt",
@@ -707,7 +707,7 @@
  "g-de02": {
   "exact": "Dackel Fritz April Tollwutimpfung",
   "para": "Über welchen Kommunikationsweg lässt sich der Besuch zur Schutzspritze vereinbaren?",
-  "mixed": "How can I book Fritz for vaccination?"
+  "mixed": "How can I book the Tollwutimpfung for the dog?"
  },
  "g-de03": {
   "exact": "4,1 Millionen 106 22",
@@ -727,12 +727,12 @@
  "g-de06": {
   "exact": "Roggensauerteig Gustav Mehl Wasser",
   "para": "Wie lange braucht der Brotansatz nach einer Fütterung bis zum Höhepunkt seiner Aktivität?",
-  "mixed": "How long after feeding does Gustav peak?"
+  "mixed": "How long after feeding does the Roggensauerteig peak?"
  },
  "g-de07": {
   "exact": "Veridian 31. Juli 2025 Arbeitszimmer",
   "para": "Wo sind die Nachweise für die Sprachdienstleistungen zur Abgabe beim Finanzamt abgelegt?",
-  "mixed": "Where are the Veridian tax receipts stored?"
+  "mixed": "Where are the Belege for translation income stored?"
  },
  "g-de08": {
   "exact": "Gravelbike 300 2400 2,6",
@@ -752,7 +752,7 @@
  "g-de11": {
   "exact": "Jonas Kanugeschichte 2012 Lea",
   "para": "Welche Höchstdauer gilt für die Ansprache des Begleiters des Bräutigams?",
-  "mixed": "What is the time limit for Jonas's wedding speech?"
+  "mixed": "What is the time limit for the Trauzeugenrede?"
  },
  "g-de12": {
   "exact": "Juli 405 kWh neun",
@@ -777,12 +777,12 @@
  "g-de16": {
   "exact": "Wolkenwerk 1. Januar 60",
   "para": "Welche Vorlaufzeit braucht die Abbestellung, damit keine weitere Laufzeit beginnt?",
-  "mixed": "What cancellation notice does Wolkenwerk require?"
+  "mixed": "What notice period for Kündigung prevents automatic renewal?"
  },
  "g-de17": {
   "exact": "Theo Cashewkerne Pistazien Adrenalin-Pen",
   "para": "Wo wird das Notfallmedikament gegen lebensbedrohliche Nahrungsmittelreaktionen aufbewahrt?",
-  "mixed": "Where is Theo's emergency medication kept?"
+  "mixed": "Where is the emergency medication kept in the Rucksacktasche?"
  },
  "g-de18": {
   "exact": "2019 Zahnriemen 96.000 Kessler 105.000",
@@ -792,7 +792,7 @@
  "g-de19": {
   "exact": "p95-Latenz 180 640 Synonymerweiterung",
   "para": "Welche unkontrollierte Ausweitung bedeutungsähnlicher Begriffe verursachte die langsameren Ergebnisantworten?",
-  "mixed": "What caused the slowdown after the Ranking-Update?"
+  "mixed": "What caused the slowdown in the Suche after the ranking update?"
  },
  "g-de20": {
   "exact": "Hanse Ilse Varga Schlafforschung",

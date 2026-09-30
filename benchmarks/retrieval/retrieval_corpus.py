@@ -5,7 +5,7 @@ place and product names such as Kyoto or Postgres appear as common nouns);
 the corpus is public and safe to redistribute. It measures *semantic* retrieval next to
 BM25 across six languages - English, Korean, Japanese, Chinese, Spanish and
 German (160 gold notes: 40 en, 40 ko, 20 each ja/zh/es/de). Each gold note
-carries three queries:
+carries three queries per author (see AUTHORS):
 
   exact  keyword query copied from the note (lexical home turf)
   para   paraphrase in the note's language that shares almost no content

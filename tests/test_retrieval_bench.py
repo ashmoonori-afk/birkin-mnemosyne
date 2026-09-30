@@ -12,6 +12,7 @@ import hashlib
 import itertools
 import json
 import math
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -24,6 +25,7 @@ import bench_retrieval as br
 import retrieval_corpus as rc
 
 SPLITS = ("dev", "test")
+TEST_QUERY_DIGEST = "8cd2ec2b4d7000a8457310742002168c5416c1099b9deff3e9ee8cd346a0b951"
 
 
 def test_gold_corpus_shape():
@@ -78,6 +80,49 @@ def test_test_split_is_frozen():
     assert (len(test), digest) == (108, "f0ec29b013c5e55a286123a3e958a6e1cf01f75898a3417d07f3198187da7900")
 
 
+def test_test_queries_are_frozen():
+    # Freezes the query texts of the test split too, not just its notes.
+    rows = sorted((q.author, q.gold, q.kind, q.text) for q in rc.queries()
+                  if q.split == "test")
+    digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
+    assert (len(rows), digest) == (972, TEST_QUERY_DIGEST)
+
+
+_NATIVE_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7a3]+")
+_LATIN_WORD = re.compile(r"[A-Za-z\u00c0-\u024f]{3,}")
+_NUMBER = re.compile(r"(?<![A-Za-z0-9\-])\d{2,}(?![A-Za-z0-9])")
+
+
+def mixed_rule_problem(note: rc.Note, query: str) -> str | None:
+    """Why a code-switched query breaks the authoring rule, or None."""
+    lead = note.title + " " + note.body.split("\n\n")[0]
+    copied = set(_NUMBER.findall(query)) & set(_NUMBER.findall(lead))
+    if copied:
+        return f"restates numbers {sorted(copied)}"
+    if note.lang == "en":
+        latin = _LATIN_WORD.findall(query)
+        if not _NATIVE_RUN.search(query) or len(latin) > 1:
+            return f"needs Korean with at most one English word, has {latin}"
+    elif note.lang in ("ko", "ja", "zh"):
+        runs = _NATIVE_RUN.findall(query)
+        if not 1 <= len(runs) <= 2 or len(_LATIN_WORD.findall(query)) < 2:
+            return f"needs English plus 1-2 native words, has {runs}"
+    else:
+        doc = rc.content_units(note.title + " " + note.body)
+        shared = {u for u in rc.content_units(query) if not u.isdigit()} & doc
+        if not 1 <= len(shared) <= 3:
+            return f"needs 1-2 native words (+1 name), shares {sorted(shared)}"
+    return None
+
+
+@pytest.mark.parametrize("author", rc.AUTHORS)
+def test_mixed_queries_follow_the_code_switching_rule(author):
+    gold = {g.slug: g for g in rc.gold_notes()}
+    problems = {slug: mixed_rule_problem(gold[slug], kinds["mixed"])
+                for slug, kinds in rc.author_queries(author).items()}
+    assert {s: p for s, p in problems.items() if p} == {}
+
+
 @pytest.mark.parametrize("author", rc.AUTHORS)
 def test_author_sets_cover_every_gold_note(author):
     sets = rc.author_queries(author)
@@ -98,6 +143,7 @@ def test_external_author_paraphrases_share_little_vocabulary(author, lang):
             continue
         q = rc.content_units(kinds["para"])
         doc = rc.content_units(g.title + " " + g.body)
+        assert q, slug
         ratios.append(len(q & doc) / len(q))
     assert max(ratios) <= 0.3
     assert sum(ratios) / len(ratios) <= 0.06
@@ -109,14 +155,8 @@ def test_exact_queries_are_lexical_for_every_author(author):
     for slug, kinds in rc.author_queries(author).items():
         q = rc.content_units(kinds["exact"])
         doc = rc.content_units(gold[slug].title + " " + gold[slug].body)
+        assert q, (author, slug)
         assert len(q & doc) / len(q) >= 0.6, (author, slug)
-
-
-def test_exact_queries_are_lexical():
-    for g in rc.gold_notes():
-        q = rc.content_units(g.queries["exact"])
-        doc = rc.content_units(g.title + " " + g.body)
-        assert len(q & doc) / len(q) >= 0.6, g.slug
 
 
 def test_content_units_fold_scripts():
@@ -209,10 +249,13 @@ def test_main_end_to_end_writes_tables_and_json(tmp_path, capsys):
     out = tmp_path / "bench.json"
     br.main(["--sizes", "160", "--json", str(out)])
     printed = capsys.readouterr().out
-    for header in ("Quality by language", "Quality by query kind", "Footprint"):
+    for header in ("Quality by language", "Quality by query kind",
+                   "MRR by query author", "Footprint"):
         assert header in printed
     [row] = json.loads(out.read_text())["results"]
     assert row["size"] == 160 and row["index_bytes"] > 0
     assert row["cold_wall_ms"] >= row["cold_load_ms"] > 0
     assert row["peak_rss"] > 0
     assert set(row["by_lang"]) == {f"{s}/{lang}" for s in SPLITS for lang in rc.LANGS}
+    assert set(row["by_author_kind"]) == {f"{s}/{a}/{k}" for s in SPLITS
+                                          for a in rc.AUTHORS for k in rc.QUERY_KINDS}

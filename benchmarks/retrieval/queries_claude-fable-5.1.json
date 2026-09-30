@@ -7,7 +7,7 @@
  "g-en02": {
   "exact": "Halvard Labs Q3 Ines Borowczyk",
   "para": "Who has to approve pricey trips to events while the third-quarter money hold is on?",
-  "mixed": "Halvard에서 800달러 넘는 출장은 누구 승인이 필요해?"
+  "mixed": "Halvard에서 비싼 학회 출장은 누구 승인이 필요해?"
  },
  "g-en03": {
   "exact": "rye starter Gus one to one ratio",
@@ -182,7 +182,7 @@
  "g-en37": {
   "exact": "on-call Monday 10 am handoff note",
   "para": "What information does the departing responder pass along to the next person?",
-  "mixed": "on-call 교대는 무슨 요일 몇 시에 해?"
+  "mixed": "handoff 메모를 쓰는 당직 교대는 무슨 요일 몇 시야?"
  },
  "g-en38": {
   "exact": "nine volt batteries four smoke alarms March",
@@ -277,7 +277,7 @@
  "g-ko16": {
   "exact": "한남동 프렌치 르블랑 12월 14일",
   "para": "부부 십 년째 되는 날 밥 먹으러 잡아둔 식당 이름이 뭐고 어떤 좌석을 달라고 했어?",
-  "mixed": "What time is the anniversary dinner at 르블랑 on December 14?"
+  "mixed": "What time is the anniversary dinner at 르블랑?"
  },
  "g-ko17": {
   "exact": "상품 조회 API 레디스 320밀리초 45밀리초",
@@ -292,7 +292,7 @@
  "g-ko19": {
   "exact": "3월 22일 포장이사 한빛익스프레스 전입신고",
   "para": "새집으로 옮기는 날 짐 옮겨주는 회사 이름이 뭐고, 주소 변경이랑 통신 회선 옮기기는 며칠 앞서 해?",
-  "mixed": "Which moving company did we pick for the 이사 on March 22?"
+  "mixed": "Which moving company did we pick for the 이사?"
  },
  "g-ko20": {
   "exact": "운영 배포 오류율 2퍼센트 롤백",
@@ -487,7 +487,7 @@
  "g-ja18": {
   "exact": "さくら ピアノ教室 ブルグミュラー 十五番",
   "para": "子どもが鍵盤楽器を習いに行くのは何曜日の何時？",
-  "mixed": "daughter Sakura's piano lesson Friday, practicing ブルグミュラー No. 15"
+  "mixed": "daughter Sakura's ピアノ教室 on Friday, practicing Burgmuller No. 15"
  },
  "g-ja19": {
   "exact": "防災リュック 乾パン 懐中電灯 三リットル",
@@ -497,7 +497,7 @@
  "g-ja20": {
   "exact": "動画配信 音楽配信 クラウド 四千八百円",
   "para": "ストリーミングなどのサブスクの毎月の支払いは全部でいくら？",
-  "mixed": "monthly subscription total 四千八百円, cancel unused ones"
+  "mixed": "monthly subscription total 4800 yen, 解約 the unused ones"
  },
  "g-zh01": {
   "exact": "上海 杭州 顺风搬运",
@@ -512,7 +512,7 @@
  "g-zh03": {
   "exact": "三千二百万元 百分之一百零五 海外市场",
   "para": "这一季的营收是多少，国外业务占了几成？",
-  "mixed": "Q3 sales 三千二百万, overseas share 20 percent"
+  "mixed": "Q3 销售额 32 million, overseas share 20 percent"
  },
  "g-zh04": {
   "exact": "日志堆积 批处理服务器 百分之九十七 日志轮转",
@@ -552,7 +552,7 @@
  "g-zh11": {
   "exact": "错误率 百分之二 回滚 值班工程师",
   "para": "部署之后失败比例达到什么阈值要撤回，谁来拍板？",
-  "mixed": "deployment rollback threshold 百分之二 error rate, on-call engineer decides"
+  "mixed": "deployment 回滚 threshold 2 percent error rate, on-call engineer decides"
  },
  "g-zh12": {
   "exact": "生菜 小葱 液体肥料",
@@ -562,7 +562,7 @@
  "g-zh13": {
   "exact": "南京西路 英语口语小组 咖啡馆",
   "para": "外语会话聚会在哪条街举行，这次讨论什么主题？",
-  "mixed": "English speaking group Saturday morning at a cafe on 南京西路"
+  "mixed": "English 口语 group Saturday morning at a cafe on Nanjing West Road"
  },
  "g-zh14": {
   "exact": "笔记本电池 健康度 百分之七十 售后中心",
@@ -587,27 +587,27 @@
  "g-zh18": {
   "exact": "全血 十二月二日 献血证",
   "para": "我什么时候可以再去捐血，那张凭证收在哪儿？",
-  "mixed": "next blood donation date 十二月二日, donor card in the drawer"
+  "mixed": "next 献血 date December 2, donor card in the drawer"
  },
  "g-zh19": {
   "exact": "武功山 登山鞋 登山杖 头灯",
   "para": "徒步那座山的峰顶露营需要多早订位？",
-  "mixed": "hiking gear for 武功山, book summit tent one month ahead"
+  "mixed": "hiking gear for Wugong Mountain, book summit 帐篷 one month ahead"
  },
  "g-zh20": {
   "exact": "视频会员 音乐会员 云盘 一百二十元",
   "para": "各种订阅服务每个月总共花多少钱？",
-  "mixed": "subscriptions total 一百二十元 per month, cancel unused"
+  "mixed": "subscriptions total 120 yuan per month, 退订 the unused ones"
  },
  "g-es01": {
   "exact": "Lucía pasaporte Chamberí 14 de enero",
   "para": "¿Qué documentos y pago debo traer a la oficina policial cuando renueve mi identificación de viaje?",
-  "mixed": "Lucía passport renewal appointment at the comisaría, bring dos fotos"
+  "mixed": "Lucia passport renewal appointment at the comisaría, bring two photos"
  },
  "g-es02": {
   "exact": "arroz bomba azafrán garrofón",
   "para": "¿Qué ingredientes lleva el plato valenciano que preparamos el fin de semana y cómo se trata el líquido?",
-  "mixed": "Sunday paella recipe with arroz bomba and garrofón, do not stir"
+  "mixed": "Sunday paella recipe with garrofón and saffron, never stir the caldo"
  },
  "g-es03": {
   "exact": "servidor facturación nube 8 de junio",
@@ -622,17 +622,17 @@
  "g-es05": {
   "exact": "calle Olmo 31 de agosto casero",
   "para": "¿Qué aumento de renta pide el propietario del apartamento y cuánto le ofrecemos nosotros?",
-  "mixed": "flat lease on calle Olmo ends August 31, landlord wants 5 percent, contraoferta 2"
+  "mixed": "When does the lease on the calle Olmo flat end and what rent increase does the casero want?"
  },
  "g-es06": {
   "exact": "Misi rabia clínica veterinaria Albaida",
   "para": "¿Cuánto tiempo sin comer necesita la gata antes de su inyección en el centro de animales?",
-  "mixed": "cat Misi rabies vaccine at clínica Albaida, fasting cuatro horas"
+  "mixed": "cat Misi rabies vaccine at clínica Albaida, fasting four hours"
  },
  "g-es07": {
   "exact": "gasto discrecional tercer trimestre Iñaki Soler",
   "para": "¿Quién debe aprobar los desplazamientos a conferencias caros mientras dure la restricción presupuestaria?",
-  "mixed": "Q3 spending freeze, conference travel over 800 euros needs firma from Iñaki Soler"
+  "mixed": "Who has to sign off on expensive conference travel during the quarterly gasto freeze?"
  },
  "g-es08": {
   "exact": "huerto azotea riego por goteo abono orgánico",
@@ -647,62 +647,62 @@
  "g-es10": {
   "exact": "traducciones Veridia 30 de junio impuestos 2025",
   "para": "¿Cuál es la fecha límite para presentar a Hacienda lo cobrado por el trabajo lingüístico freelance?",
-  "mixed": "freelance translation income for Veridia, declare before 30 de junio"
+  "mixed": "By when must the freelance translation income for Veridia be declared, and which carpeta holds the invoices?"
  },
  "g-es11": {
   "exact": "café Huila 18 gramos 38 27 segundos",
   "para": "¿Qué receta de espresso usamos con los granos colombianos y qué ajuste hacemos si la extracción va demasiado veloz?",
-  "mixed": "espresso dial-in for Huila beans, 18 in 38 out, moler más fino if fast"
+  "mixed": "What espresso recipe do we use for the Huila beans, and how should I adjust the grind if the shot runs rápido?"
  },
  "g-es12": {
   "exact": "abuela Remedios Villanúa mapa enmarcado",
   "para": "¿Qué regalo pedimos para el noventa cumpleaños de la yaya y cuándo lo vamos a buscar?",
-  "mixed": "birthday gift for abuela Remedios, framed map of Villanúa, pickup día 12"
+  "mixed": "What gift did we order for abuela Remedios and when do we pick it up?"
  },
  "g-es13": {
   "exact": "cadena engrasada 300 kilómetros 2,6 bar 2,8",
   "para": "¿Cuánto aire llevan las ruedas de la bicicleta y con qué kilometraje lubricamos la transmisión?",
-  "mixed": "bike maintenance, chain lube every 300 km, tire pressure 2,6 bar delante"
+  "mixed": "How often does the bike chain get lubed and what tire presión do we run front and back?"
  },
  "g-es14": {
   "exact": "postmortem cronología causa raíz cinco días hábiles",
   "para": "¿Qué secciones debe tener el análisis de un incidente y en qué plazo hay que compartirlo?",
-  "mixed": "postmortem template, tres acciones with owners, publish within cinco días hábiles"
+  "mixed": "postmortem template, three action items with owners, publish within five días hábiles"
  },
  "g-es15": {
   "exact": "escalas metrónomo 80 arpegios fingerpicking",
   "para": "¿Cuánto tiempo dedico a los ejercicios técnicos de guitarra y a qué tempo?",
-  "mixed": "guitar practice routine, escalas at 80 bpm then fingerpicking, then a full canción"
+  "mixed": "How long are the escalas in my guitar routine and what comes after the fingerpicking?"
  },
  "g-es16": {
   "exact": "Nubalia 1 de enero 60 días",
   "para": "¿Con cuánto margen debo avisar al proveedor de alojamiento web para que no se prorrogue el acuerdo automáticamente?",
-  "mixed": "Nubalia hosting contract auto-renews 1 de enero, cancel 60 days before"
+  "mixed": "How far in advance must I cancel the Nubalia hosting contrato to stop the auto-renewal?"
  },
  "g-es17": {
   "exact": "Teo anacardos pistachos autoinyector",
   "para": "¿Qué frutos secos puede comer el niño sin problema y dónde guardamos la medicación de emergencia?",
-  "mixed": "Teo allergies, anacardos and pistachos, epi pen in the blue mochila pocket"
+  "mixed": "Teo allergies, anacardos and pistachios, epi pen in the blue mochila pocket"
  },
  "g-es18": {
   "exact": "placas 395 kWh julio 8 por ciento",
   "para": "¿Cuánta energía generaron los paneles fotovoltaicos este verano y qué mantenimiento mejoró el rendimiento?",
-  "mixed": "rooftop solar output 395 kWh in julio, down 8 percent, cleaning in primavera helps"
+  "mixed": "How much did the rooftop placas produce this summer compared to last year, and what helped recover the loss?"
  },
  "g-es19": {
   "exact": "utilitario 2019 correa de distribución Talleres Beltrán",
   "para": "¿En qué garaje repararon el motor de mi vehículo y cuándo debo llevarlo a la siguiente revisión de lubricante?",
-  "mixed": "car service history, timing belt at 96.000 km at Talleres Beltrán, next aceite change 105.000"
+  "mixed": "Which Talleres replaced the correa on the hatchback and when is the next oil change due?"
  },
  "g-es20": {
   "exact": "padrino Álvaro canoa 2012 Marisa",
   "para": "¿Con qué anécdota abro el brindis en la boda de mi amigo y cuánto debe durar?",
-  "mixed": "best man speech for Álvaro, canoe story from 2012, brindar por Marisa"
+  "mixed": "Which story opens the padrino speech for Álvaro and who do we brindar to at the end?"
  },
  "g-de01": {
   "exact": "Köln Leipzig Ummeldung Bürgeramt",
   "para": "Wie viel Zeit haben wir nach dem Wohnortwechsel, um die neue Adresse bei der Behörde zu registrieren?",
-  "mixed": "moving from Cologne to Leipzig on 15. November, Bürgeramt registration deadline"
+  "mixed": "When is the move to Leipzig and how soon after must the Ummeldung be done?"
  },
  "g-de02": {
   "exact": "Dackel Fritz Tollwutimpfung Tierarztpraxis",
@@ -712,12 +712,12 @@
  "g-de03": {
   "exact": "4,1 Millionen 106 Prozent Auslandsanteil",
   "para": "Wie hoch waren die Einnahmen im letzten Vierteljahr und welcher Teil kam aus dem Export?",
-  "mixed": "Q3 revenue 4,1 Millionen Euro, 106 percent of target, Auslandsanteil 22 percent"
+  "mixed": "How much Umsatz did we make last quarter and what share came from abroad?"
  },
  "g-de04": {
   "exact": "Orthopäde Bandscheibenvorfall L4 L5 McKenzie",
   "para": "Welche Gymnastik soll ich wie oft für meinen Rücken machen und was soll ich lassen?",
-  "mixed": "herniated disc L4 L5, McKenzie-Übungen three times daily, avoid long sitting"
+  "mixed": "Which Übungen did the Orthopäde prescribe for my back and how often?"
  },
  "g-de05": {
   "exact": "Zahlungsdienst 3. September Cache Speicherlimit",
@@ -732,12 +732,12 @@
  "g-de07": {
   "exact": "Übersetzungen Veridian 31. Juli Arbeitszimmer",
   "para": "Bis wann melde ich dem Finanzamt mein freiberufliches Honorar und wo finde ich die Rechnungen?",
-  "mixed": "freelance translation income for Veridian, declare by 31. Juli, deduct Arbeitszimmer"
+  "mixed": "By when must the Veridian translation income be declared and which Ordner holds the receipts?"
  },
  "g-de08": {
   "exact": "Gravelbike Bremsbeläge 2400 Kilometern 2,6 2,8 bar",
   "para": "Mit wie viel Luft fahre ich die Räder meines Fahrrads und nach welcher Strecke schmiere ich den Antrieb?",
-  "mixed": "gravel bike maintenance, chain oil every 300 km, Reifendruck 2,6 front 2,8 rear"
+  "mixed": "At what mileage do I oil the Kette and what Reifendruck do I run front and rear?"
  },
  "g-de09": {
   "exact": "Entwickler Laptop Patin Fix",
@@ -747,17 +747,17 @@
  "g-de10": {
   "exact": "Keller 12 und 14 Grad 65 Prozent Barolo 2016",
   "para": "Welche Temperatur und Feuchte braucht mein Weinlager, und wie lange soll der italienische Rotwein reifen?",
-  "mixed": "wine cellar climate 12-14 Grad, Barolo 2016 rest liegend until 2030"
+  "mixed": "What temperature and humidity should the Weinkeller have, and how long do the Barolo bottles stay liegend?"
  },
  "g-de11": {
   "exact": "Trauzeugenrede Jonas Kanugeschichte Lea",
   "para": "Mit welcher Anekdote eröffne ich meine Ansprache auf der Hochzeit meines Freundes und wie lang darf sie sein?",
-  "mixed": "best man speech for Jonas, start with the Kanu story from 2012, toast to Lea"
+  "mixed": "Which story opens the Trauzeugenrede for Jonas and who do we toast at the end?"
  },
  "g-de12": {
   "exact": "Dachanlage 405 kWh neun Prozent",
   "para": "Wie viel Strom lieferten die Solarmodule im Sommer und welche Pflege hat den Ertrag wieder gesteigert?",
-  "mixed": "rooftop solar 405 kWh in Juli, down nine percent, Reinigung in spring helps"
+  "mixed": "How much did the Dachanlage produce this summer compared to last year, and what fixed the drop?"
  },
  "g-de13": {
   "exact": "Rufbereitschaft Montag zehn Uhr Übergabenotiz",
@@ -772,12 +772,12 @@
  "g-de15": {
   "exact": "Tonleitern Metronom 80 Zupfmuster",
   "para": "Wie lange übe ich Skalen auf der Gitarre und in welchem Tempo?",
-  "mixed": "guitar practice, Tonleitern at 80 bpm, then fingerpicking, then a full Lied"
+  "mixed": "How long do I practice Tonleitern with the metronome and what comes after?"
  },
  "g-de16": {
   "exact": "Wolkenwerk 1. Januar 60 Tage Kündigung",
   "para": "Wie früh muss ich dem Hosting-Anbieter absagen, damit die Vereinbarung nicht von selbst weiterläuft?",
-  "mixed": "Wolkenwerk hosting contract auto-renews 1. Januar, cancel 60 days before"
+  "mixed": "How far in advance must I cancel the Wolkenwerk contract to prevent the automatic Verlängerung?"
  },
  "g-de17": {
   "exact": "Theo Cashewkerne Pistazien Adrenalin-Pen",
@@ -787,16 +787,16 @@
  "g-de18": {
   "exact": "Kleinwagen 2019 Zahnriemen Werkstatt Kessler",
   "para": "In welchem Betrieb wurde das Auto repariert und bei welcher Laufleistung steht der kommende Service an?",
-  "mixed": "car service history, Zahnriemen replaced at 96.000 km at Werkstatt Kessler, oil change at 105.000"
+  "mixed": "Which Werkstatt replaced the Zahnriemen on the small car and when is the next oil change due?"
  },
  "g-de19": {
   "exact": "p95-Latenz Ranking-Update 180 640 Millisekunden Synonymerweiterung",
   "para": "Warum wurden Abfragen plötzlich so langsam und wann haben wir die Änderung zurückgenommen?",
-  "mixed": "search latency regression 180 to 640 ms after ranking update, Rollback on 4. September"
+  "mixed": "Why did search Latenz jump after the ranking update and when did we roll back?"
  },
  "g-de20": {
   "exact": "Herbstlektüre Hanse Ilse Varga Schlafforschung",
   "para": "Welche Titel will ich in dieser Jahreszeit lesen und in welchem Rhythmus?",
-  "mixed": "autumn reading list, Hanseatic League history, Roman by Ilse Varga, one Buch per month"
+  "mixed": "Which books are on my autumn Leseliste and how many per month?"
  }
 }
