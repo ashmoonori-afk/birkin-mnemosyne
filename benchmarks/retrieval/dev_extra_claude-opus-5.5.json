@@ -1,0 +1,95 @@
+{
+ "counter": {
+  "g-en01": "Which traffic goes through the Orchard VPN after the 설정 change?",
+  "g-en02": "Who has to 승인 conference travel during the spending freeze?",
+  "g-en05": "What's the 일정 for the billing service move to Postgres?",
+  "g-en10": "What 높이 should the standing desk be set at?",
+  "g-en16": "How do we pay the ryokan on the Japan itinerary, is 카드 okay?",
+  "g-en19": "How much 전기 did the rooftop array make in July?",
+  "g-en22": "Where does the weekly encrypted laptop 백업 copy go?",
+  "g-en25": "What 항목 go into the postmortem template and how soon do we publish?",
+  "g-en29": "Espresso 레시피 for the Guji beans?",
+  "g-en31": "Who has the spare key to the house in an 비상 situation?",
+  "g-en34": "When does the Nimbusly hosting contract renew, and what's the 해지 deadline?",
+  "g-en37": "What goes in the on-call handoff note at 교대 time?",
+  "g-ko01": "김장 절임배추 order 얼마나 했더라?",
+  "g-ko04": "보안 교육 deadline 언제까지 이수해야 해?",
+  "g-ko05": "허리 디스크 운동 routine 하루에 몇 번 해야 하지?",
+  "g-ko10": "아버지 건강검진 전날 금식 schedule 어떻게 되지?",
+  "g-ko13": "주담대 고정금리로 갈아탈 때 중도상환수수료 issue 없어?",
+  "g-ko16": "결혼 기념일 저녁 restaurant 어디로 예약했지?",
+  "g-ko20": "배포 후 오류율 높으면 rollback 누가 판단해?",
+  "g-ko23": "하반기 워크숍 venue 어디고 주제는 뭐야?",
+  "g-ko27": "영어 회화 스터디 topic 뭐였지?",
+  "g-ko30": "수면 습관 개선하려고 정한 휴대폰 rule 뭐였지?",
+  "g-ko34": "지리산 종주 대피소 booking 언제 열려?",
+  "g-ko37": "어머니 칠순 잔치 guest 얼마나 오지?",
+  "g-ko40": "개발 블로그 이번 달 topic 뭐였지?",
+  "g-ja04": "豚骨ラーメンのrecipe、麺は何を使う？",
+  "g-ja05": "決済サーバーが停止した障害のcauseは何だった？",
+  "g-ja06": "健康診断の前日、fastingはいつから？",
+  "g-ja07": "英会話レッスンのteacherは誰だっけ？",
+  "g-ja09": "京都旅行の旅館はどこ？早朝のscheduleも知りたい",
+  "g-ja13": "今月の読書会のbookは何？",
+  "g-ja15": "寝る前のスマホとコーヒーのruleを教えて",
+  "g-ja17": "顧客データベースの移行中、accessはどうなるの？",
+  "g-ja19": "防災リュックの中身、checkはどのくらいの頻度？",
+  "g-zh06": "年会每个部门要准备什么show？",
+  "g-zh11": "上线后错误率太高要不要rollback，谁决定？",
+  "g-zh13": "英语口语小组这周的topic是什么？",
+  "g-zh16": "睡前看手机和喝咖啡有什么rule？",
+  "g-zh19": "武功山山顶的帐篷要怎么booking？"
+ },
+ "extra": {
+  "g-zh06": {
+   "exact": "公司年会 西湖 酒店 节目",
+   "para": "岁末全员联欢何时办、场地选在哪儿？",
+   "mixed": "Where is the 年会 being held and what does each team have to bring?"
+  },
+  "g-zh11": {
+   "exact": "上线 错误率 回滚 值班工程师",
+   "para": "新代码推出去了故障太多，什么情况下要恢复成原先的，谁来拍板？",
+   "mixed": "Who decides on a 回滚 when the 错误率 gets too high after a release?"
+  },
+  "g-zh13": {
+   "exact": "英语口语小组 南京西路 咖啡馆",
+   "para": "练外文交谈的聚会这次聊什么内容？",
+   "mixed": "What is this week's topic at the 口语 group in the 咖啡馆?"
+  },
+  "g-zh16": {
+   "exact": "睡眠习惯 上床 手机 咖啡",
+   "para": "夜里想休息得好，临入寝该戒掉哪些事？",
+   "mixed": "What are my 睡前 rules about the phone and 咖啡?"
+  },
+  "g-zh19": {
+   "exact": "武功山 登山鞋 登山杖 头灯 帐篷",
+   "para": "徒步爬高峰过夜的住处得多早定下来，还需拿哪些器材？",
+   "mixed": "What gear did I buy for 武功山 and how early must the 帐篷 be reserved?"
+  },
+  "g-de04": {
+   "exact": "Bandscheibenvorfall McKenzie-Übungen Orthopäde",
+   "para": "Was hat der Arzt wegen meines Kreuzleidens festgestellt und wie oft soll ich turnen?",
+   "mixed": "What did the doctor say about my Bandscheibenvorfall and how often should I exercise?"
+  },
+  "g-de05": {
+   "exact": "Ausfall Zahlungsdienst Cache Speicherlimit",
+   "para": "Warum ist die Bezahlplattform neulich abgestürzt und wie wurde das behoben?",
+   "mixed": "What caused the Zahlungsdienst Ausfall and how was it fixed?"
+  },
+  "g-de12": {
+   "exact": "Dachanlage Juli kWh Vorjahr Reinigung",
+   "para": "Wie viel Strom lieferten die Photovoltaikmodule im Hochsommer und was half gegen den Einbruch?",
+   "mixed": "How much power did the Dachanlage generate and did the Reinigung help?"
+  },
+  "g-de13": {
+   "exact": "Rufbereitschaft Montag Übergabenotiz Alarmen Deployments",
+   "para": "Wann tauscht das Team den Notfalldienst und was muss der scheidende Kollege hinterlassen?",
+   "mixed": "When does the Rufbereitschaft rotate and what belongs in the Übergabenotiz?"
+  },
+  "g-de16": {
+   "exact": "Vertrag Wolkenwerk Kündigung Hosting",
+   "para": "Bis wann muss ich beim Cloud-Anbieter aussteigen, damit die Laufzeit nicht von selbst weiterläuft?",
+   "mixed": "When does the Wolkenwerk agreement renew and how much notice for a Kündigung?"
+  }
+ }
+}
