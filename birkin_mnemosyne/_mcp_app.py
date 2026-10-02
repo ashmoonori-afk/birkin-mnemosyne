@@ -23,6 +23,7 @@ from .consolidation import Answer, Choice, Consolidation
 from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
+from .identity_reader import IdentityReader, IdentityReadError
 from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
 from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug, tokenize
 from .review_journal import ReviewError
@@ -131,12 +132,14 @@ def _outcome(out: CurationOutcome) -> dict[str, Any]:
             "effected": out.effected, "plan_ops": out.plan_ops}
 
 
-def create_server(vault: Path, *, evidence_required: bool = False) -> MCPServer:
+def create_server(vault: Path, *, evidence_required: bool = False,
+                  identity_root: Path | None = None) -> MCPServer:
     vault = Path(vault)
     mem = VaultMemory({"vault_path": str(vault),
                        "evidence_required": evidence_required})
     dex = mem.dex
     lock = VaultLock(vault)
+    identity = IdentityReader(identity_root or vault)
     server = MCPServer(name="birkin-mnemosyne", version=__version__,
                        instructions=INSTRUCTIONS)
 
@@ -490,6 +493,44 @@ def create_server(vault: Path, *, evidence_required: bool = False) -> MCPServer:
         except (ReviewError, OSError) as exc:
             raise ToolError(str(exc)) from exc
         return {"dry_run": False, **asdict(receipt)}
+
+    @server.tool(annotations=_READ)
+    def memory_identity_read(
+        path: str, mode: Literal["catalog", "search", "section", "full"] = "search",
+        query: str = "", anchor: str = "", revision: str = "",
+        limit: Annotated[int, Field(ge=1, le=10)] = 3,
+        force_refresh: bool = False, include_children: bool = False,
+    ) -> dict[str, Any]:
+        """Read SOUL/AGENTS files under the configured identity root.
+
+        catalog returns heading/anchor/line metadata, not full bodies. search
+        returns ranked complete sections with partial-context=true. section
+        requires anchor AND revision. full is required for comprehensive
+        instructions/global exceptions. force_refresh rereads bytes even if
+        file stat metadata was preserved. No-match search returns empty context.
+        """
+        try:
+            match mode:
+                case "catalog":
+                    result = identity.sections(path, force_refresh=force_refresh)
+                case "search":
+                    result = identity.search(path, query, limit=limit,
+                                             force_refresh=force_refresh)
+                case "section":
+                    result = identity.read_section(
+                        path, anchor, revision, include_children=include_children,
+                        force_refresh=force_refresh,
+                    )
+                case "full":
+                    result = identity.read_full(path, force_refresh=force_refresh)
+        except (IdentityReadError, OSError, UnicodeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return {
+            "path": result.path, "revision": result.revision,
+            "complete_file": result.complete_file, "context": result.context,
+            "sections": [{k: v for k, v in asdict(s).items() if k != "text"}
+                         for s in result.sections],
+        }
 
     @server.resource("mnemosyne://digest", name="digest",
                      mime_type="text/markdown",

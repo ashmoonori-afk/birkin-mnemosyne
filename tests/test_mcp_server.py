@@ -70,7 +70,8 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_search", "memory_get_note", "memory_list", "memory_remember",
         "memory_related", "memory_forget", "memory_restore",
         "memory_curation_catalog", "memory_curate",
-        "memory_review_questions", "memory_review_apply", "memory_review_undo"}
+        "memory_review_questions", "memory_review_apply", "memory_review_undo",
+        "memory_identity_read"}
     for name in ("memory_search", "memory_list", "memory_related",
                  "memory_curation_catalog"):
         assert tools[name].annotations.read_only_hint is True
@@ -103,6 +104,25 @@ def test_user_question_review_via_real_mcp_client(tmp_path):
         "transaction_id": receipt["transaction_id"], "confirm": True,
     })
     assert _files(tmp_path) == before
+
+
+def test_identity_reader_via_real_mcp_client(tmp_path):
+    path = tmp_path / "AGENTS.md"
+    path.write_text("# Agent\n## Voice\nLanguage: Korean\n## Old\nLanguage: English\n",
+                    encoding="utf-8")
+    result = ok(tmp_path, "memory_identity_read", {
+        "path": "AGENTS.md", "query": "Voice language", "limit": 1,
+    })
+    assert result["complete_file"] is False
+    assert result["sections"][0]["heading"] == "Voice"
+    assert "Language: Korean" in result["context"]
+    assert "text" not in result["sections"][0]
+    old = result["revision"]
+    path.write_text("# Agent\n## Voice\nLanguage: Japanese\n", encoding="utf-8")
+    assert "stale revision" in err(tmp_path, "memory_identity_read", {
+        "path": "AGENTS.md", "mode": "section",
+        "anchor": result["sections"][0]["anchor"], "revision": old,
+    })
 
 
 def test_remember_create_never_overwrites(tmp_path):

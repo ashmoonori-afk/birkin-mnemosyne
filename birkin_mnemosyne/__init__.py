@@ -36,6 +36,10 @@ from typing import Any
 __version__ = "0.4.0"
 
 _EXPORTS = {
+    "IdentityReader": "birkin_mnemosyne.identity_reader",
+    "IdentityReadError": "birkin_mnemosyne.identity_reader",
+    "ReadResult": "birkin_mnemosyne.identity_reader",
+    "Section": "birkin_mnemosyne.identity_reader",
     "Answer": "birkin_mnemosyne.consolidation",
     "Consolidation": "birkin_mnemosyne.consolidation",
     "Question": "birkin_mnemosyne.consolidation",
