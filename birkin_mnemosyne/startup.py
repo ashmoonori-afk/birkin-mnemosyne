@@ -40,7 +40,7 @@ class StartupBundle:
 def active_lines(text: str) -> Generator[str, None, None]:
     """Outside-fence lines for literal declarations, never for coverage filtering."""
     fence, width = "", 0
-    for line in text.splitlines():
+    for line in text.removeprefix("\ufeff").splitlines():
         marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if marker:
             run, rest = marker.groups()
@@ -53,11 +53,29 @@ def active_lines(text: str) -> Generator[str, None, None]:
             yield line
 
 
+def _json_object(members: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
+    value: dict[str, JsonValue] = {}
+    for name, member in members:
+        if name in value:
+            raise ValueError(f"duplicate JSON member: {name}")
+        value[name] = member
+    return value
+
+
+def _json_constant(value: str) -> JsonValue:
+    raise ValueError(f"non-JSON constant: {value}")
+
+
+_startup_json: Callable[[str], JsonValue] = json.JSONDecoder(
+    object_pairs_hook=_json_object, parse_constant=_json_constant,
+).decode
+
+
 def _references(path: str, text: str) -> tuple[str, ...]:
     if path.lower().endswith(".json"):
         try:
-            value = _json(text.lstrip("\ufeff"))
-        except json.JSONDecodeError as exc:
+            value = _startup_json(text.removeprefix("\ufeff"))
+        except ValueError as exc:
             raise StartupError(f"invalid JSON startup file: {path}") from exc
         match value:
             case dict():
@@ -89,19 +107,19 @@ def _blocks(path: str, data: bytes) -> list[BlockRecord]:
     for line in lines:
         offsets.append(offsets[-1] + len(line.encode("utf-8")))
     sections = parse_sections(text, startup_labels=True)
-    spans: list[tuple[int, int, str]] = []
+    spans: list[tuple[int, int, str, int]] = []
     cursor = 0
     for section in sections:
         begin, end = section.line_start - 1, section.line_end
         if begin > cursor:
-            spans.append((cursor, begin, "Source preamble"))
-        spans.append((begin, end, section.heading))
+            spans.append((cursor, begin, "Source preamble", 0))
+        spans.append((begin, end, section.heading, section.level))
         cursor = end
     if cursor < len(lines) or not spans:
-        spans.append((cursor, len(lines), "Source remainder"))
+        spans.append((cursor, len(lines), "Source remainder", 0))
     records: list[BlockRecord] = []
     revision = digest(data)
-    for begin, end, heading in spans:
+    for begin, end, heading, _ in spans:
         start_byte, end_byte = offsets[begin], offsets[end]
         raw = data[start_byte:end_byte]
         records.append({
@@ -112,33 +130,55 @@ def _blocks(path: str, data: bytes) -> list[BlockRecord]:
             "heading": heading, "state": "source", "must_read": True,
         })
     groups: list[list[BlockRecord]] = []
-    prefix: list[BlockRecord] = []
-    for record in records:
+    units: list[tuple[bool, list[BlockRecord]]] = []
+    note_level: int | None = None
+    for record, (_, _, _, level) in zip(records, spans):
         if record["heading"].upper().startswith("TOP NOTE"):
             groups.append([record])
-        elif groups:
+            units.append((True, groups[-1]))
+            note_level = level
+        elif note_level is not None and level > note_level:
             groups[-1].append(record)
         else:
-            prefix.append(record)
+            units.append((False, [record]))
+            note_level = None
     if not groups:
         return records
-    dates: list[str] = []
+    dates: list[datetime | None] = []
+    precisions: set[int] = set()
     for group in groups:
         stamp = re.search(
             r"(?<!\w)(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?Z)?)(?![\w:+-])",
             group[0]["heading"],
         )
         value = stamp.group(1) if stamp else ""
+        parsed = None
         if value:
             try:
-                _ = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
-                value = ""
-        dates.append(value)
-    if all(dates) and len(set(dates)) == len(dates) and \
-            len({"T" in value for value in dates}) == 1:
-        groups = [g for _, g in sorted(zip(dates, groups), key=lambda pair: pair[0],
-                                      reverse=True)]
+                pass
+            precisions.add(len(value))  # Date, UTC minute, or UTC second precision.
+        dates.append(parsed)
+    if all(date is not None for date in dates) and len(set(dates)) == len(dates) and \
+            len(precisions) == 1:
+        timestamps = {
+            group[0]["anchor"]: date for group, date in zip(groups, dates)
+            if date is not None
+        }
+        begin = 0
+        while begin < len(units):
+            if not units[begin][0]:
+                begin += 1
+                continue
+            end = begin + 1
+            while end < len(units) and units[end][0]:
+                end += 1
+            units[begin:end] = sorted(
+                units[begin:end], key=lambda unit: timestamps[unit[1][0]["anchor"]],
+                reverse=True,
+            )
+            begin = end
     superseded = {
         line.partition(":")[2].strip().casefold()
         for group in groups for record in group for line in active_lines(record["text"])
@@ -148,7 +188,7 @@ def _blocks(path: str, data: bytes) -> list[BlockRecord]:
         if group[0]["heading"].casefold() in superseded:
             for record in group:
                 record["state"] = "explicitly-superseded"
-    return prefix + [record for group in groups for record in group]
+    return [record for _, unit in units for record in unit]
 
 
 class StartupReader:
