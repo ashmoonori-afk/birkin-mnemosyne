@@ -69,7 +69,8 @@ def test_tool_surface_and_annotations(tmp_path):
     assert set(tools) == {
         "memory_search", "memory_get_note", "memory_list", "memory_remember",
         "memory_related", "memory_forget", "memory_restore",
-        "memory_curation_catalog", "memory_curate"}
+        "memory_curation_catalog", "memory_curate",
+        "memory_review_questions", "memory_review_apply", "memory_review_undo"}
     for name in ("memory_search", "memory_list", "memory_related",
                  "memory_curation_catalog"):
         assert tools[name].annotations.read_only_hint is True
@@ -81,6 +82,27 @@ def test_tool_surface_and_annotations(tmp_path):
     assert schema["properties"]["mode"]["default"] == "create"
     assert tools["memory_curate"].input_schema["properties"]["apply"][
         "default"] is False
+
+
+def test_user_question_review_via_real_mcp_client(tmp_path):
+    remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    remember(tmp_path, "Second rule", "Reviews precede release.", source="user:b")
+    before = _files(tmp_path)
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    preview = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "keep-first",
+    })
+    assert preview["dry_run"] is True
+    assert _files(tmp_path) == before
+    receipt = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "keep-first", "confirm": True,
+    })
+    assert receipt["state"] == "committed"
+    assert len(ok(tmp_path, "memory_search", {"query": "Reviews"})["results"]) == 1
+    ok(tmp_path, "memory_review_undo", {
+        "transaction_id": receipt["transaction_id"], "confirm": True,
+    })
+    assert _files(tmp_path) == before
 
 
 def test_remember_create_never_overwrites(tmp_path):

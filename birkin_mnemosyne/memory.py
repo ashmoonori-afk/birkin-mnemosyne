@@ -36,6 +36,7 @@ from .mnemosyne import _script
 from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
+from .vault_lock import VaultLock
 
 VALID_TYPES = {"person", "project", "preference", "fact", "topic", "session"}
 VALID_POLARITIES = {"positive", "negative"}
@@ -152,6 +153,10 @@ class VaultMemory:
         TTL notes are otherwise only *hidden* from search/render, so the vault
         grows without bound. Call this from the nightly maintenance routine — not
         on every read, since a read should not silently delete a user's files."""
+        with VaultLock(self.vault).hold():
+            return self._purge_expired()
+
+    def _purge_expired(self) -> int:
         removed = 0
         for f in self.vault.rglob("*.md"):
             try:
@@ -193,7 +198,7 @@ class VaultMemory:
         # and so the file is never half-written under a reader. Path resolution
         # happens INSIDE the lock: rezone() takes the same lock, so a move can't
         # slip between resolve and write (stale path -> duplicate note).
-        with _note_lock(_slug(title)):
+        with VaultLock(self.vault).hold(), _note_lock(_slug(title)):
             p = self._resolve_path(title, note_type, zone)
             created = date.today().isoformat()
             sources: list[str] = []
@@ -354,7 +359,7 @@ class VaultMemory:
 
     def rezone(self, title: str, zone: str) -> Path:
         """Move a note to another zone (Morpheus's placement instrument)."""
-        with _note_lock(_slug(title)):
+        with VaultLock(self.vault).hold(), _note_lock(_slug(title)):
             return self.dex.rezone(_slug(title), zone)
 
     def reindex(self) -> dict[str, int]:

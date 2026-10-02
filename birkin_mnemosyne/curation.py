@@ -18,6 +18,7 @@ from .curation_prompt import (
     mechanical_catalog,
 )
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne
+from .vault_lock import VaultLock
 
 
 def _snapshot(dex: Mnemosyne) -> dict[str, dict[str, Any]]:
@@ -46,7 +47,13 @@ def evaluate_plan(vault: Path, plan: dict[str, Any], *, apply: bool = False,
     snap = _snapshot(dex)
     gate = validate_clamp(plan, dex, snap, now=now)
     accepted = _dense_zone_links(gate.accepted, snap)
-    effected = apply_plan(accepted, vault, dex) if apply else []
+    with VaultLock(vault).hold():
+        if apply:
+            dex.refresh()
+            snap = _snapshot(dex)
+            gate = validate_clamp(plan, dex, snap, now=now)
+            accepted = _dense_zone_links(gate.accepted, snap)
+        effected = apply_plan(accepted, vault, dex) if apply else []
     ops = plan.get("ops", [])
     return CurationOutcome(
         provider=provider, model=model,

@@ -36,6 +36,11 @@ from typing import Any
 __version__ = "0.4.0"
 
 _EXPORTS = {
+    "Answer": "birkin_mnemosyne.consolidation",
+    "Consolidation": "birkin_mnemosyne.consolidation",
+    "Question": "birkin_mnemosyne.consolidation",
+    "ReviewError": "birkin_mnemosyne.review_journal",
+    "Receipt": "birkin_mnemosyne.review_journal",
     "ARCHIVE_CAP_FRACTION": "birkin_mnemosyne.curation_contract",
     "ARCHIVE_CAP_MIN": "birkin_mnemosyne.curation_contract",
     "ARCHIVE_ZONE": "birkin_mnemosyne.mnemosyne",

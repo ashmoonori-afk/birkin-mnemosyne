@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .atomic import atomic_write
+from .vault_lock import VaultLock
 
 PROFILE_DESCRIPTIONS = {
     "user": "User characteristics and stable personal context.",
@@ -138,7 +139,7 @@ class ProfileMemory:
         }
 
     def _bootstrap(self) -> None:
-        with _vault_lock(self._vault):
+        with VaultLock(self._vault).hold(), _vault_lock(self._vault):
             self._system.mkdir(parents=True, exist_ok=True)
             for name, description in PROFILE_DESCRIPTIONS.items():
                 path = self._profile_path(name)
@@ -161,7 +162,7 @@ class ProfileMemory:
         if self._save is not None:
             self._save(proposals)
             return
-        with _vault_lock(self._vault):
+        with VaultLock(self._vault).hold(), _vault_lock(self._vault):
             for proposal in proposals:
                 self._apply_file_proposal(proposal)
 
