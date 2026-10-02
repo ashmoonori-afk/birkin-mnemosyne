@@ -966,7 +966,9 @@ class Mnemosyne:
         if z and z != ARCHIVE_ZONE and not ZONE_RE.fullmatch(z):
             raise ValueError(f"invalid zone name {zone!r} "
                              "(want ^[a-z0-9][a-z0-9-]{{0,31}}$)")
-        with self._lock:
+        from .vault_lock import VaultLock
+
+        with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
             assert self._notes is not None
             e = self._notes.get(s)
