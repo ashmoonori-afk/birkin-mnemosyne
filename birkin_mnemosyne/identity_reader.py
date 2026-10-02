@@ -179,10 +179,13 @@ def _context(path: str, revision: str, sections: tuple[Section, ...]) -> str:
 
 
 def parse_sections(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
-    """Partition exact line spans, excluding frontmatter and fenced fake headings."""
+    """Partition exact spans; bare startup TOP NOTE labels act as level-2 headings."""
     lines = text.splitlines(keepends=True)
+    syntax_lines = list(lines)
+    if syntax_lines:
+        syntax_lines[0] = syntax_lines[0].removeprefix("\ufeff")
     start = 0
-    if lines and lines[0].lstrip("\ufeff").strip() == "---":
+    if syntax_lines and syntax_lines[0].strip() == "---":
         close = next((i for i in range(1, len(lines))
                       if lines[i].strip() == "---"), None)
         if close is not None:
@@ -192,7 +195,7 @@ def parse_sections(text: str, *, startup_labels: bool = False) -> tuple[Section,
     width = 0
     i = start
     while i < len(lines):
-        line = lines[i].rstrip("\r\n")
+        line = syntax_lines[i].rstrip("\r\n")
         marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if marker:
             run, rest = marker.groups()

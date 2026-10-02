@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -43,6 +44,23 @@ def test_frontmatter_fences_and_setext_have_exact_source_spans(tmp_path):
     for section in result.sections:
         assert section.text == "".join(lines[section.line_start - 1:section.line_end])
     assert reader.read_full("AGENTS.md").context == text
+
+
+@pytest.mark.parametrize(("text", "headings"), [
+    ("\ufeff# Root\nRule: live\n## Child\nBody\n", ["Root", "Child"]),
+    ("\ufeff```\n# Fake\n```\n# Real\nBody\n", ["Preamble", "Real"]),
+    ("\ufeffRoot\n====\nBody\n", ["Root"]),
+])
+def test_bom_syntax_keeps_raw_spans_and_revision(tmp_path, text, headings):
+    _, reader = fixture(tmp_path, text)
+    result = reader.read_full("AGENTS.md")
+    assert [section.heading for section in result.sections] == headings
+    assert result.context == text
+    assert result.revision == hashlib.sha256(text.encode()).hexdigest()
+    assert "".join(section.text for section in result.sections) == text
+    lines = text.splitlines(keepends=True)
+    for section in result.sections:
+        assert section.text == "".join(lines[section.line_start - 1:section.line_end])
 
 
 def test_global_preamble_is_included_but_no_match_stays_empty(tmp_path):
