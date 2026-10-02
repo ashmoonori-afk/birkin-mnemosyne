@@ -117,7 +117,7 @@ def _allowed(path: str) -> bool:
         not PureWindowsPath(path).drive and \
         not any(p in {".", ".."} or p.startswith(".") for p in parts) and \
         parts[0].casefold() not in {"system", "_archive"} and \
-        "\\" not in path and not re.search(r"[\x00-\x1f]", path)
+        "\\" not in path and not re.search(r"[\x00-\x1f\ud800-\udfff\ufffe\uffff]", path)
 
 
 def _excerpt(body: str, query: str) -> str:
@@ -149,7 +149,7 @@ class KibitzerAdapter:
                 fingerprints.append((path.relative_to(self.vault).as_posix(),
                                      stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size))
             signature = tuple(fingerprints)
-            day = datetime.now(timezone.utc).date()
+            day = datetime.now(timezone.utc).astimezone().date()
             if self._cache is not None and self._cache.fingerprint == signature and \
                     self._cache.day == day and not force_refresh:
                 return self._cache
@@ -250,7 +250,7 @@ def admit(
             reason = "already-surfaced-or-duplicate"
         elif not nudge.hint.strip() or utf16_length(nudge.hint) > 200 or \
                 "\n" in nudge.hint or "\r" in nudge.hint or \
-                re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]", nudge.hint):
+                re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]", nudge.hint):
             reason = "hint-shape"
         elif _addresses_agent(nudge.hint):
             reason = "addresses-agent"

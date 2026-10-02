@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import asdict
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
-from birkin_mnemosyne import VaultMemory
+from birkin_mnemosyne import VaultMemory, kibitzer, memory
 from birkin_mnemosyne.kibitzer import (
     KibitzerAdapter,
     RecallNudge,
@@ -46,6 +48,48 @@ def test_root_system_archive_and_expiry_are_excluded_not_nested_system(tmp_path)
     )
     documents = KibitzerAdapter(tmp_path).documents()
     assert [d.path for d in documents] == ["reference/system/live.md"]
+
+
+@pytest.mark.parametrize("offset", [9, -7], ids=["local-ahead-of-utc", "local-behind-utc"])
+def test_expiry_and_cached_selection_follow_local_midnight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, offset: int,
+) -> None:
+    clock = [datetime(2026, 10, 2, 23, 59, tzinfo=timezone(timedelta(hours=offset)))]
+
+    class LocalDate(date):
+        @classmethod
+        def today(cls) -> date:
+            return clock[0].date()
+
+    class ClockDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls.fromtimestamp(clock[0].timestamp(), tz=tz)
+
+        def astimezone(self, tz=None):
+            return super().astimezone(clock[0].tzinfo if tz is None else tz)
+
+    monkeypatch.setattr(kibitzer, "date", LocalDate)
+    monkeypatch.setattr(memory, "date", LocalDate)
+    # Control the former UTC clock too, so the regression is independent of the host timezone.
+    monkeypatch.setattr(kibitzer, "datetime", ClockDatetime, raising=False)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "deadline.md").write_text(
+        "---\nexpires_at: 2026-10-02\n---\nRelease deadline fact.\n", "utf-8",
+    )
+    adapter = KibitzerAdapter(vault)
+    assert not memory._is_expired({"expires_at": "2026-10-02"})
+    assert [c.path for c in adapter.select("deadline")] == ["deadline.md"]
+    utc_day = clock[0].astimezone(timezone.utc).date()
+
+    clock[0] += timedelta(minutes=2)
+
+    assert clock[0].astimezone(timezone.utc).date() == utc_day
+    assert memory._is_expired({"expires_at": "2026-10-02"})
+    assert adapter.select("deadline") == ()
+    assert adapter.documents() == ()
+    assert adapter.export(tmp_path / "export") == ()
 
 
 def test_exclusions_precede_cap_and_cache_sees_edits(tmp_path):
@@ -107,6 +151,38 @@ def test_even_offered_foreign_paths_are_not_admitted(path):
     assert admit([RecallNudge(path, fact)], offered=[path]).accepted == ()
 
 
+@pytest.mark.parametrize("codepoint", [
+    0x00, 0x08, 0x0B, 0x0C, 0x0E, 0x1F,
+    0xD800, 0xDBFF, 0xDC00, 0xDFFF, 0xFFFE, 0xFFFF,
+])
+@pytest.mark.parametrize("field", ["path", "hint"])
+def test_admission_rejects_xml_invalid_scalars(codepoint: int, field: str) -> None:
+    scalar = chr(codepoint)
+    path = f"note{scalar}.md" if field == "path" else "note.md"
+    hint = f"A stored fact{scalar}." if field == "hint" else "A stored fact."
+
+    result = admit([RecallNudge(path, hint)], offered=[path])
+
+    assert result.accepted == ()
+    assert result.rejected == ((path, "unoffered-or-protected" if field == "path"
+                                else "hint-shape"),)
+
+
+@pytest.mark.parametrize("scalar", [
+    "\x20", "\ud7ff", "\ue000", "\ufffd", "\U00010000", "\U0010ffff",
+])
+def test_admitted_xml_scalar_boundaries_render_as_utf8_data(scalar: str) -> None:
+    path = f"note{scalar}.md"
+    hint = f"A stored fact{scalar}."
+
+    accepted, = admit([RecallNudge(path, hint)], offered=[path]).accepted
+    parsed = ET.fromstring(render_recall(accepted).encode("utf-8"))
+
+    assert parsed.attrib["source"] == f"[[{path}]]"
+    assert parsed.text is not None
+    assert hint in parsed.text
+
+
 def test_candidate_and_hint_redaction_never_emits_secret_like_values(tmp_path):
     fake = "sk-" + "fixture" * 8
     memory = VaultMemory({"vault_path": str(tmp_path)})
@@ -127,4 +203,5 @@ def test_envelope_escapes_path_and_hint_as_data():
     parsed = ET.fromstring(block)
     assert parsed.tag == "recalled-memory"
     assert parsed.attrib["source"] == f"[[{path}]]"
+    assert parsed.text is not None
     assert hint in parsed.text
