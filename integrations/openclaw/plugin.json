@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "birkin-mnemosyne",
+  "version": "0.1.0",
+  "description": "Local Markdown memory over MCP, without a model or API key."
+}
