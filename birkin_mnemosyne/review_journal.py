@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 
 from .atomic import atomic_write_bytes
 from .mnemosyne import Mnemosyne
@@ -56,7 +56,55 @@ class Manifest(TypedDict):
     state: State
     changes: list[ImageRecord]
 
-_decode_manifest: Callable[[str], Manifest] = json.loads
+
+JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | \
+    dict[str, "JsonValue"]
+_load_json: Callable[[str], JsonValue] = json.loads
+
+
+def _decode_manifest(text: str) -> Manifest:
+    """Parse the versioned disk record before trusting its image fields."""
+    try:
+        raw = _load_json(text)
+    except ValueError as exc:
+        raise ReviewError("malformed journal") from exc
+    match raw:
+        case {
+            "version": version, "transaction_id": str() as transaction_id,
+            "question_id": str() as question_id, "choice": str() as choice,
+            "merged_body": str() as merged_body, "survivor": str() as survivor,
+            "state": ("prepared" | "committed" | "rolled-back" |
+                      "recovery-required" | "undone") as state,
+            "changes": records,
+        }:
+            if type(version) is not int or version != 1:
+                raise ReviewError("invalid journal version")
+            if not isinstance(records, list):
+                raise ReviewError("malformed journal changes")
+            changes: list[ImageRecord] = []
+            for record in records:
+                match record:
+                    case {
+                        "source": str() as source, "target": str() as target,
+                        "before": str() as before, "after": str() as after,
+                        "before_sha256": str() as before_hash,
+                        "after_sha256": str() as after_hash,
+                    }:
+                        changes.append({
+                            "source": source, "target": target,
+                            "before": before, "after": after,
+                            "before_sha256": before_hash, "after_sha256": after_hash,
+                        })
+                    case _:
+                        raise ReviewError("malformed journal image")
+            return {
+                "version": 1, "transaction_id": transaction_id,
+                "question_id": question_id, "choice": choice,
+                "merged_body": merged_body, "survivor": survivor,
+                "state": state, "changes": changes,
+            }
+        case _:
+            raise ReviewError("malformed journal")
 
 
 def _digest(data: bytes) -> str:
@@ -151,7 +199,10 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
     if not re.fullmatch(r"[a-f0-9]{32}", transaction_id):
         raise ReviewError("invalid transaction id")
     path = vault / ".mnemosyne-reviews" / f"{transaction_id}.json"
-    raw = _decode_manifest(path.read_text(encoding="utf-8"))
+    try:
+        raw = _decode_manifest(path.read_text(encoding="utf-8"))
+    except UnicodeError as exc:
+        raise ReviewError("malformed journal encoding") from exc
     if raw.get("version") != 1 or raw.get("transaction_id") != transaction_id:
         raise ReviewError("invalid journal identity")
     if raw.get("state") not in {"committed", "prepared", "recovery-required"}:
@@ -159,8 +210,11 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
     recovering = raw["state"] != "committed"
     changes: list[Change] = []
     for record in raw["changes"]:
-        before = base64.b64decode(record["before"], validate=True)
-        after = base64.b64decode(record["after"], validate=True)
+        try:
+            before = base64.b64decode(record["before"], validate=True)
+            after = base64.b64decode(record["after"], validate=True)
+        except ValueError as exc:
+            raise ReviewError("malformed journal image encoding") from exc
         if _digest(before) != record["before_sha256"] or \
                 _digest(after) != record["after_sha256"]:
             raise ReviewError("journal image hash mismatch")
@@ -172,17 +226,19 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
             source == target or source_data is None
         )
         before_image = source_data == before and (
-            source == target or target_data is None
+            source == target or target_data is None or target_data == after
         )
         if not post_image and not (recovering and before_image):
             raise ReviewError(f"post-image changed; refusing undo: {change.target}")
         changes.append(change)
+    # Persist recovery intent before the first restoration write. If either
+    # restoration or the terminal save fails, this phase remains retryable.
+    raw["state"] = "recovery-required"
+    _save(path, raw)
     try:
         _restore(vault, tuple(changes))
         raw["state"] = "undone"
         _save(path, raw)
     except (OSError, ValueError) as exc:
-        raw["state"] = "recovery-required"
-        _save(path, raw)
         raise ReviewError(f"recovery required: {path}") from exc
     return Receipt(transaction_id, "undone", path.relative_to(vault).as_posix())
