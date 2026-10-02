@@ -1,0 +1,10 @@
+{
+  "split": "practice",
+  "consolidation": [
+    {"titles": ["Workspace format", "Workspace formatting"], "bodies": ["Use spaces for indentation.", "Use spaces for indentation."]},
+    {"titles": ["Mail schedule", "New mail schedule"], "bodies": ["Mail schedule is weekly.", "Mail schedule is monthly."]},
+    {"titles": ["Baking", "Travel"], "bodies": ["Bread dough rests overnight.", "Reserve rail tickets early."]}
+  ],
+  "identity_document": "# Practice persona\n## Tone\nVoice: direct\n## Tools\nBuild tool: make\n## Retired\nBuild tool: rake\n",
+  "identity_queries": ["Tone voice", "Tools build tool", "Retired build tool"]
+}

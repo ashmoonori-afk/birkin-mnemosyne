@@ -24,6 +24,7 @@ from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
 from .identity_reader import IdentityReader, IdentityReadError
+from .kibitzer import KibitzerAdapter
 from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
 from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug, tokenize
 from .review_journal import ReviewError
@@ -146,6 +147,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     dex = mem.dex
     lock = VaultLock(vault)
     identity = IdentityReader(identity_root or vault)
+    kibitzer = KibitzerAdapter(vault)
     startup = StartupReader(identity_root or vault)
     server = MCPServer(name="birkin-mnemosyne", version=__version__,
                        instructions=INSTRUCTIONS)
@@ -539,6 +541,29 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                          for s in result.sections],
         }
 
+    @server.tool(annotations=_READ)
+    def memory_kibitzer_candidates(
+        query: str, limit: Annotated[int, Field(ge=1, le=50)] = 3,
+        surfaced: list[str] | None = None,
+        exclude_paths: list[str] | None = None,
+        force_refresh: bool = False,
+    ) -> dict[str, Any]:
+        """Kibitzer-shaped live candidates, not autonomous resident nudges.
+
+        Lower score is better, excerpt <=200 UTF-16 units. Description and body
+        are ranked; system/archive/expired and surfaced/excluded paths are
+        removed before the final cap. A host still judges relevance and submits
+        a factual nudge through its own offered-path/admission gate.
+        """
+        try:
+            candidates = kibitzer.select(
+                query, limit=limit, surfaced=surfaced or (),
+                exclude_paths=exclude_paths or (), force_refresh=force_refresh,
+            )
+        except (OSError, UnicodeError) as exc:
+            raise ToolError(str(exc)) from exc
+        return {"selector": "mnemosyne-bm25", "snapshot": "live",
+                "candidates": [asdict(candidate) for candidate in candidates]}
     @server.tool(annotations=_READ)
     def memory_startup_read(paths: Annotated[list[str], Field(min_length=1, max_length=64)]) -> dict[str, Any]:
         """Complete session-start MODE/handoff/profile/JSON reading, not excerpts.

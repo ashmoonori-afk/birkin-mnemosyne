@@ -1,0 +1,43 @@
+{
+  "author": "gpt-6.1-sol",
+  "split": "test",
+  "version": 1,
+  "authored_before_implementation": true,
+  "consolidation": [
+    {"id": "duplicate-whitespace", "titles": ["Build rule", "Build reminder"], "bodies": ["Run the unit tests before publishing.", " Run   the unit tests before publishing. "], "related": true},
+    {"id": "duplicate-korean", "titles": ["언어", "대화 언어"], "bodies": ["기본 답변 언어는 한국어다.", "기본 답변 언어는 한국어다."], "related": true},
+    {"id": "overlapping-deploy", "titles": ["Deploy procedure", "Deploy checklist"], "bodies": ["Deploy staging after tests pass and retain the rollback archive.", "Deploy staging after tests pass and retain the rollback archive. Check the health endpoint."], "related": true},
+    {"id": "changed-port", "titles": ["Atlas service port", "Atlas current port"], "bodies": ["Atlas service port is 8080.", "Atlas service port is 9090."], "related": true},
+    {"id": "changed-language", "titles": ["Response language", "Current response language"], "bodies": ["Default response language is English.", "Default response language is Korean."], "related": true},
+    {"id": "negation", "titles": ["Public uploads", "Public uploads policy"], "bodies": ["Public uploads are allowed for screenshots.", "Public uploads are not allowed for screenshots."], "related": true},
+    {"id": "shared-single-topic", "titles": ["Coffee", "Coffee equipment"], "bodies": ["Coffee should be served without sugar.", "Coffee grinder was replaced last winter."], "related": false},
+    {"id": "unrelated", "titles": ["Garden", "Database"], "bodies": ["Water the roses at dawn.", "Database backup retention is thirty days."], "related": false},
+    {"id": "empty", "titles": ["Empty draft", "Empty placeholder"], "bodies": ["", ""], "related": false},
+    {"id": "numeric-unrelated", "titles": ["Relay timeout", "Invoice amount"], "bodies": ["Relay timeout is 30 seconds.", "Invoice amount is 30 dollars."], "related": false},
+    {"id": "partial-cjk", "titles": ["백업 보관", "백업 정책"], "bodies": ["백업 파일은 삼십 일 보관한다. 삭제 전 확인한다.", "백업 파일은 삼십 일 보관한다."], "related": true},
+    {"id": "topic-different-facts", "titles": ["Atlas owner", "Atlas region"], "bodies": ["Atlas owner is Mara.", "Atlas deployment region is Seoul."], "related": false}
+  ],
+  "identity": {
+    "document": "---\ndescription: Synthetic agent identity evaluation fixture.\n---\n# Meridian\nOwner: Mara\n\n## Conversation\nPreferred language: Korean\nResponse style: concise\n\n## Build workflow\nTest command: python -m pytest -q\nBefore release: require approval\n\n## Deployment\nDeployment region: Seoul\nService port: 9090\n\n## Archive - obsolete guidance\nPreferred language: English\nTest command: python -m unittest\nService port: 8080\n\n## Safety\nSecret policy: never include credentials in public notes\n\n## Examples\n```markdown\n## False heading\nPreferred language: Esperanto\n```\n\n## 연락\n연락 방식: 비동기 메시지\n\n## Exceptions\nRelease exception: emergency patches still require approval\n",
+    "questions": [
+      {"id": "language", "query": "Conversation preferred language", "section": "Conversation", "field": "Preferred language", "answer": "Korean"},
+      {"id": "style", "query": "Conversation response style", "section": "Conversation", "field": "Response style", "answer": "concise"},
+      {"id": "test", "query": "Build workflow test command", "section": "Build workflow", "field": "Test command", "answer": "python -m pytest -q"},
+      {"id": "approval", "query": "Build workflow before release", "section": "Build workflow", "field": "Before release", "answer": "require approval"},
+      {"id": "region", "query": "Deployment region", "section": "Deployment", "field": "Deployment region", "answer": "Seoul"},
+      {"id": "port", "query": "Deployment service port", "section": "Deployment", "field": "Service port", "answer": "9090"},
+      {"id": "secret", "query": "Safety secret policy", "section": "Safety", "field": "Secret policy", "answer": "never include credentials in public notes"},
+      {"id": "korean", "query": "연락 방식", "section": "연락", "field": "연락 방식", "answer": "비동기 메시지"},
+      {"id": "exception", "query": "Exceptions release exception", "section": "Exceptions", "field": "Release exception", "answer": "emergency patches still require approval"},
+      {"id": "owner", "query": "Meridian owner", "section": "Meridian", "field": "Owner", "answer": "Mara"},
+      {"id": "absent", "query": "Deployment pager telephone", "section": "Deployment", "field": "Pager telephone", "answer": null},
+      {"id": "obsolete", "query": "Archive obsolete guidance service port", "section": "Archive - obsolete guidance", "field": "Service port", "answer": "8080"}
+    ]
+  },
+  "measurement_contract": {
+    "identity_accuracy": "A frozen section-aware extractive field reader answers each question from the supplied context. Exact answer equality scored, including abstention. This measures extractive task accuracy, not generative model compliance.",
+    "tokens": "Report UTF-8 bytes and explicitly labeled len(text)/4 estimated tokens; do not call estimates measured model tokens.",
+    "consolidation": "Pair detection precision/recall and explicit-answer apply/undo success; baseline no user-question detection.",
+    "independent_author": "NEED: independently authored Claude consolidation and identity questions; truncated user instruction cannot be reconstructed. Existing independent Claude retrieval sets are reused unchanged for recall."
+  }
+}
