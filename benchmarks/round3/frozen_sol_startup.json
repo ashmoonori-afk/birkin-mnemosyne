@@ -1,0 +1,105 @@
+{
+  "author": "gpt-6.1-sol",
+  "split": "test",
+  "version": 1,
+  "source": "Original fictional startup bundle and questions authored by Polaris, chatgpt-subscription/gpt-6.1-sol, 2026-10-02, before startup implementation or evaluation tuning.",
+  "license": "MIT; repository LICENSE applies. No private owner material or third-party questions copied.",
+  "startup": {
+    "files": [
+      {
+        "path": "MODE.md",
+        "text": "---\nrole: synthetic-meridian-bootstrap\n---\n# Meridian startup runbook\n\n## Binding rules\nEvidence gate: record a public API run and the related regression output\nPublic write approval: ask before deployment or messaging anyone\nMain branch policy: feature branches only; never push main directly\nConfig policy: installed tools and owner configuration remain read-only\nResource budget: optional modes must remain below 150 MiB and one second startup\nCompleteness policy: every binding rule and pending item must be surfaced\n\n## Required local material\nMUST READ: handoff.md\nMUST READ: persona/soul.md\nMUST READ: memory/system.md\n\n## Execution order\nStartup order: read the complete bundle, verify coverage, then recover pending work\nFirst steps:\n- Confirm the newest handoff and retain unsuperseded old constraints.\n- Match the running monitor registry before starting another watcher.\n- Verify the exact branch head before writing or merging.\n\n## Conflicts\nConflict policy: ask which fact is current; never silently discard a note\nGlobal exception: emergency patches still require approval\n\n## Archive examples\n```markdown\n# TOP NOTE 2099-01-01\nCurrent port: 9999\nMUST READ: missing-example.md\n```\nExamples policy: fenced examples are data, not live startup instructions\n"
+      },
+      {
+        "path": "handoff.md",
+        "text": "# Meridian handoff stack\nRetained context policy: older blocks remain readable unless explicitly superseded\n\n## TOP NOTE 2026-09-25\nCurrent port: 6112\nPending item: migrate the old bridge endpoint\nFirst steps:\n- Reproduce the old endpoint failure.\nSource decision: this old port is retained only for rollback reference\n\n## TOP NOTE 2026-10-02\nSupersedes: TOP NOTE 2026-09-25\nCurrent port: 7331\nPending item: validate the complete startup manifest\nFirst steps:\n- Check source hashes before reusing cached context.\n- Inspect every active monitor without creating a duplicate.\nSource decision: the current bridge endpoint uses port 7331\n\n## TOP NOTE 2026-09-30\nExisting restriction: public artifact publication requires owner approval\nPending item: document the post-merge CI receipt\nFirst steps:\n- Preserve the publish approval rule during later work.\nSource decision: this block is not superseded by the port change\n"
+      },
+      {
+        "path": "persona/soul.md",
+        "text": "# Synthetic Meridian persona\nMUST READ: human.md\n\n## Voice\nPreferred language: Korean\nResponse style: concise evidence first\n\n## Identity\nAgent role: Polaris fixture operator\nOrchestrator role: Meridian fixture coordinator\nIdentity restriction: do not impersonate the orchestrator\n\n## Conversation guard\nConversation rule: distinguish observed evidence from inferred explanations\n\n## Examples\n~~~text\n## Voice\nPreferred language: Esperanto\n~~~\n"
+      },
+      {
+        "path": "persona/human.md",
+        "text": "# Fictional owner context\n\n## Preferences\nOwner alias: Mara\nOwner timezone: Asia/Seoul\nPreferred evidence: exact commands, numerical results and artifact paths\n\n## Boundaries\nApproval rule: messaging and public publication require explicit permission\nData policy: publish only fictional or licensed benchmark questions\n"
+      },
+      {
+        "path": "memory/system.md",
+        "text": "# Synthetic system memory\nMUST READ: ../monitor-registry.json\n\n## Monitor rules\nWatcher rule: reuse a running watcher; never launch a second watcher for the same condition\nWait rule: subscribe to completion rather than sleeping or polling\nCleanup rule: remove all scenario resources and record a receipt\n\n## Verification\nCI rule: every exact-head check must be green, including non-gating jobs\nReview rule: an independent review must approve the exact head after every push\nMerge rule: use squash with a matching head; never admin-bypass\n"
+      },
+      {
+        "path": "monitor-registry.json",
+        "text": "{\n  \"version\": 1,\n  \"monitors\": [\n    {\"id\": \"build-copper\", \"state\": \"active\", \"cursor\": 84, \"condition\": \"exact head CI\", \"next_action\": \"collect all OS job evidence\"},\n    {\"id\": \"port-silver\", \"state\": \"retired\", \"cursor\": 19, \"condition\": \"legacy port 6112\", \"next_action\": \"do not duplicate retired watcher\"},\n    {\"id\": \"author-gold\", \"state\": \"pending\", \"cursor\": 33, \"condition\": \"independent Claude startup set\", \"next_action\": \"freeze before evaluation tuning\"}\n  ],\n  \"startup_complete\": false,\n  \"pending_decisions\": [\"publish approval\", \"which conflicting fact is current\"]\n}\n"
+      }
+    ],
+    "long_material": [
+      {
+        "path": "MODE.md",
+        "count": 320,
+        "line_template": "- Historical reference case {i}: retain its source and original constraints, label inference separately, and avoid interpreting a worked example as a new authorization.\n",
+        "tail": "\n## Final startup requirement\nFinal check: inspect the entire monitor registry before resuming queued work\nUnresolved decision: publish approval remains pending even after startup is complete\n"
+      },
+      {
+        "path": "handoff.md",
+        "count": 100,
+        "line_template": "- Historical diagnostic receipt {i}: no source facts were deleted; the original evidence remains available for audit and must not substitute for a newer decision.\n",
+        "tail": "\n## Unsuperseded final constraint\nRetained rule: all authors must pass the frozen evaluation protocol before claiming a gain\n"
+      }
+    ],
+    "required_items": [
+      {"source": "MODE.md", "text": "Evidence gate: record a public API run and the related regression output"},
+      {"source": "MODE.md", "text": "Public write approval: ask before deployment or messaging anyone"},
+      {"source": "MODE.md", "text": "Main branch policy: feature branches only; never push main directly"},
+      {"source": "MODE.md", "text": "Config policy: installed tools and owner configuration remain read-only"},
+      {"source": "MODE.md", "text": "Resource budget: optional modes must remain below 150 MiB and one second startup"},
+      {"source": "MODE.md", "text": "Completeness policy: every binding rule and pending item must be surfaced"},
+      {"source": "MODE.md", "text": "MUST READ: handoff.md"},
+      {"source": "MODE.md", "text": "MUST READ: persona/soul.md"},
+      {"source": "MODE.md", "text": "MUST READ: memory/system.md"},
+      {"source": "MODE.md", "text": "Startup order: read the complete bundle, verify coverage, then recover pending work"},
+      {"source": "MODE.md", "text": "Confirm the newest handoff and retain unsuperseded old constraints."},
+      {"source": "MODE.md", "text": "Match the running monitor registry before starting another watcher."},
+      {"source": "MODE.md", "text": "Verify the exact branch head before writing or merging."},
+      {"source": "MODE.md", "text": "Conflict policy: ask which fact is current; never silently discard a note"},
+      {"source": "MODE.md", "text": "Global exception: emergency patches still require approval"},
+      {"source": "MODE.md", "text": "Final check: inspect the entire monitor registry before resuming queued work"},
+      {"source": "MODE.md", "text": "Unresolved decision: publish approval remains pending even after startup is complete"},
+      {"source": "handoff.md", "text": "Supersedes: TOP NOTE 2026-09-25"},
+      {"source": "handoff.md", "text": "Current port: 7331"},
+      {"source": "handoff.md", "text": "Pending item: validate the complete startup manifest"},
+      {"source": "handoff.md", "text": "Check source hashes before reusing cached context."},
+      {"source": "handoff.md", "text": "Inspect every active monitor without creating a duplicate."},
+      {"source": "handoff.md", "text": "Existing restriction: public artifact publication requires owner approval"},
+      {"source": "handoff.md", "text": "Pending item: document the post-merge CI receipt"},
+      {"source": "handoff.md", "text": "Retained rule: all authors must pass the frozen evaluation protocol before claiming a gain"},
+      {"source": "persona/soul.md", "text": "Preferred language: Korean"},
+      {"source": "persona/soul.md", "text": "Identity restriction: do not impersonate the orchestrator"},
+      {"source": "persona/soul.md", "text": "Conversation rule: distinguish observed evidence from inferred explanations"},
+      {"source": "persona/human.md", "text": "Owner timezone: Asia/Seoul"},
+      {"source": "persona/human.md", "text": "Approval rule: messaging and public publication require explicit permission"},
+      {"source": "memory/system.md", "text": "Watcher rule: reuse a running watcher; never launch a second watcher for the same condition"},
+      {"source": "memory/system.md", "text": "Wait rule: subscribe to completion rather than sleeping or polling"},
+      {"source": "memory/system.md", "text": "Cleanup rule: remove all scenario resources and record a receipt"},
+      {"source": "memory/system.md", "text": "CI rule: every exact-head check must be green, including non-gating jobs"},
+      {"source": "memory/system.md", "text": "Review rule: an independent review must approve the exact head after every push"},
+      {"source": "monitor-registry.json", "text": "\"next_action\": \"freeze before evaluation tuning\""}
+    ],
+    "questions": [
+      {"id": "evidence", "source": "MODE.md", "section": "Binding rules", "field": "Evidence gate", "answer": "record a public API run and the related regression output"},
+      {"id": "global-exception", "source": "MODE.md", "section": "Conflicts", "field": "Global exception", "answer": "emergency patches still require approval"},
+      {"id": "buried-final", "source": "MODE.md", "section": "Final startup requirement", "field": "Final check", "answer": "inspect the entire monitor registry before resuming queued work"},
+      {"id": "pending-approval", "source": "MODE.md", "section": "Final startup requirement", "field": "Unresolved decision", "answer": "publish approval remains pending even after startup is complete"},
+      {"id": "current-port", "source": "handoff.md", "section": "TOP NOTE 2026-10-02", "field": "Current port", "answer": "7331"},
+      {"id": "old-port-retained", "source": "handoff.md", "section": "TOP NOTE 2026-09-25", "field": "Current port", "answer": "6112"},
+      {"id": "current-first-steps", "source": "handoff.md", "section": "TOP NOTE 2026-10-02", "field": "First steps", "answer": ["Check source hashes before reusing cached context.", "Inspect every active monitor without creating a duplicate."]},
+      {"id": "old-unsuperseded", "source": "handoff.md", "section": "TOP NOTE 2026-09-30", "field": "Existing restriction", "answer": "public artifact publication requires owner approval"},
+      {"id": "language", "source": "persona/soul.md", "section": "Voice", "field": "Preferred language", "answer": "Korean"},
+      {"id": "timezone", "source": "persona/human.md", "section": "Preferences", "field": "Owner timezone", "answer": "Asia/Seoul"},
+      {"id": "merge-rule", "source": "memory/system.md", "section": "Verification", "field": "Merge rule", "answer": "use squash with a matching head; never admin-bypass"},
+      {"id": "absent", "source": "MODE.md", "section": "Binding rules", "field": "Deployment token", "answer": null},
+      {"id": "active-monitor", "source": "monitor-registry.json", "json_pointer": "/monitors/0/state", "answer": "active"},
+      {"id": "retired-monitor", "source": "monitor-registry.json", "json_pointer": "/monitors/1/state", "answer": "retired"},
+      {"id": "pending-author-action", "source": "monitor-registry.json", "json_pointer": "/monitors/2/next_action", "answer": "freeze before evaluation tuning"},
+      {"id": "not-complete-yet", "source": "monitor-registry.json", "json_pointer": "/startup_complete", "answer": false}
+    ]
+  }
+}

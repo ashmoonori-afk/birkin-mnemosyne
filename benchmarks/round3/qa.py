@@ -18,6 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from birkin_mnemosyne import Answer, Consolidation, ReviewError, VaultMemory
+from birkin_mnemosyne.identity_reader import IdentityReader, IdentityReadError
+from birkin_mnemosyne.startup import StartupReader
 
 
 def consolidation() -> dict[str, str | int | float]:
@@ -63,10 +65,101 @@ def consolidation() -> dict[str, str | int | float]:
             "cleanup": f"temporary vault removed: {directory}"}
 
 
+def identity() -> dict[str, str | int | float]:
+    """PASS requires accurate partial context, revision refusal and fresh full read."""
+    with tempfile.TemporaryDirectory(prefix="mnemosyne-identity-") as directory:
+        root = Path(directory)
+        path = root / "AGENTS.md"
+        text = "# Agent\n## Conversation\nLanguage: Korean\n## Obsolete\nLanguage: English\n"
+        text += "".join(f"## Topic {i}\nFictional background {i}: " +
+                        "Unrelated reference details. " * 30 + "\n" for i in range(40))
+        path.write_bytes(text.encode("utf-8"))
+        reader = IdentityReader(root)
+        start = time.perf_counter()
+        result = reader.search("AGENTS.md", "Conversation language", limit=1)
+        cold_ms = (time.perf_counter() - start) * 1000
+        start = time.perf_counter()
+        warm = reader.search("AGENTS.md", "Conversation language", limit=1)
+        warm_ms = (time.perf_counter() - start) * 1000
+        assert warm.revision == result.revision
+        assert "Language: Korean" in result.context
+        assert "Language: English" not in result.context
+        assert not result.complete_file
+        path.write_bytes(text.replace("Korean", "Japanese").encode("utf-8"))
+        try:
+            reader.read_section("AGENTS.md", result.sections[0].anchor, result.revision)
+        except IdentityReadError:
+            pass
+        else:
+            raise AssertionError("stale anchor revision accepted")
+        current = reader.read_full("AGENTS.md", force_refresh=True)
+        assert "Japanese" in current.context and current.complete_file
+        assert reader.search("AGENTS.md", "unfindable-zebra").context == ""
+    assert not Path(directory).exists()
+    return {"feature": "identity-reader", "result": "PASS", "checks": 6,
+            "cold_ms": cold_ms, "warm_ms": warm_ms,
+            "full_chars": len(text), "excerpt_chars": len(result.context),
+            "full_tokens_estimated_chars_div_4": len(text) / 4,
+            "excerpt_tokens_estimated_chars_div_4": len(result.context) / 4,
+            "cleanup": f"temporary identity root removed: {directory}"}
+
+
+def startup() -> dict[str, str | int | float]:
+    """PASS requires all raw material, transitive closure, fresh hashes and mutation refusal."""
+    with tempfile.TemporaryDirectory(prefix="mnemosyne-startup-") as directory:
+        root = Path(directory)
+        (root / "profile").mkdir()
+        sources = {
+            "MODE.md": "# Boot\nMUST READ: handoff.md\nMUST READ: profile/soul.md\n" +
+                       "MUST READ: registry.json\n" +
+                       "".join(f"Rule {i}: retain original evidence for operation {i}.\n"
+                               for i in range(120)) + "Pending: final coverage check\n",
+            "handoff.md": "TOP NOTE 2026-09-01\nPort: 4100\n" +
+                          "TOP NOTE 2026-10-01\nSupersedes: TOP NOTE 2026-09-01\nPort: 4200\n",
+            "profile/soul.md": "# Soul\nMUST READ: human.md\nVoice: direct\n",
+            "profile/human.md": "# Human\nApproval: publication requires consent\n",
+            "registry.json": '{"jobs":[{"state":"active","pending":"capture CI receipt"}]}\n',
+        }
+        for path, text in sources.items():
+            (root / path).write_bytes(text.encode("utf-8"))
+        reader = StartupReader(root)
+        start = time.perf_counter()
+        result = reader.read(["MODE.md"])
+        cold_ms = (time.perf_counter() - start) * 1000
+        start = time.perf_counter()
+        warm = reader.read(["MODE.md"])
+        warm_ms = (time.perf_counter() - start) * 1000
+        assert warm.cache_hit and result.coverage.complete
+        assert result.coverage.files == 5
+        payload = json.loads(result.context)
+        for path, text in sources.items():
+            blocks = sorted((b for b in payload["blocks"] if b["path"] == path),
+                            key=lambda b: b["start_byte"])
+            assert "".join(b["text"] for b in blocks) == text
+        notes = [b for b in payload["blocks"] if b["heading"].startswith("TOP NOTE")]
+        assert notes[0]["heading"] == "TOP NOTE 2026-10-01"
+        payload["blocks"].pop()
+        assert not reader.verify(json.dumps(payload), ["MODE.md"]).complete
+        (root / "handoff.md").write_bytes(sources["handoff.md"].replace("4200", "4300").encode())
+        assert not reader.read(["MODE.md"]).cache_hit
+        assert not reader.verify(result.context, ["MODE.md"]).complete
+    assert not Path(directory).exists()
+    return {"feature": "complete-startup", "result": "PASS", "checks": 7,
+            "cold_ms": cold_ms, "warm_ms": warm_ms, "source_files": result.coverage.files,
+            "covered_lines": result.coverage.lines, "source_bytes": result.coverage.bytes,
+            "complete_payload_chars": len(result.context),
+            "cleanup": f"temporary startup root removed: {directory}"}
+
+
 def main() -> None:
-    if sys.argv[1:] not in ([], ["--feature", "consolidation"]):
-        raise SystemExit("usage: qa.py [--feature consolidation]")
-    print(json.dumps(consolidation(), ensure_ascii=True))
+    scenarios = {"consolidation": consolidation, "identity": identity, "startup": startup}
+    args = sys.argv[1:]
+    if args:
+        if len(args) != 2 or args[0] != "--feature" or args[1] not in scenarios:
+            raise SystemExit("usage: qa.py [--feature consolidation|identity|startup]")
+        scenarios = {args[1]: scenarios[args[1]]}
+    for scenario in scenarios.values():
+        print(json.dumps(scenario(), ensure_ascii=True))
 
 
 if __name__ == "__main__":

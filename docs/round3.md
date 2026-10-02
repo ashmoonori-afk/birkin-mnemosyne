@@ -46,3 +46,83 @@ profile, curation and MCP writers share a reentrant thread/interprocess vault
 lock. External editors do not participate: finish their edits before applying
 or undoing a review. Derived indexes are rebuilt, not rolled back over unrelated
 usage history.
+
+# Complete session-start reading (headline identity feature)
+
+```python
+from birkin_mnemosyne import StartupReader
+
+reader = StartupReader("workspace")
+bundle = reader.read(["MODE.md"])
+assert bundle.coverage.complete
+print(bundle.context)
+assert reader.verify(bundle.context, ["MODE.md"]).complete
+```
+
+Complete mode preserves every supplied UTF-8 source byte and line in lossless
+blocks: frontmatter, BOM, CRLF, blank lines, JSON and unterminated final lines.
+The returned payload carries source SHA256, original line/byte spans,
+revision-bound anchors, block hashes and must-read markers. Verification
+reconstructs the **returned context** against fresh independently read files;
+deleted, duplicated, altered, foreign or mislabelled blocks fail.
+
+Every startup call rereads/hashes source bytes before derived-cache reuse.
+Same-size edits with preserved file timestamps cannot silently reuse old
+material. Literal `MUST READ: relative/path.md` declarations outside fences
+follow transitive local references relative to the declaring file. JSON may
+declare a `must_read` array of paths. Cycles include each file once. Missing,
+invalid, unreadable, outside-root or over-budget material fails the entire
+complete claim, including after a previous successful cache fill.
+
+Recognized Markdown or bare TOP NOTE blocks are newest-first only for unique,
+valid, consistently precise ISO dates/UTC timestamps. Ambiguous dates retain
+source order. Age does not imply supersession; only an explicit
+`Supersedes: TOP NOTE ...` declaration marks an older block. Its full material
+is still returned. All blocks remain must-read, including old unsuperseded
+constraints, pending items, first steps and monitor-registry data.
+
+MCP `memory_startup_read(paths)` is the primary startup tool;
+`memory_startup_verify(paths, context)` checks against the fresh local closure.
+Both use `--identity-root` (default vault). Complete mode has a 64-file,
+one-MiB-per-file/two-MiB-total source budget and performs no filesystem writes.
+Coverage describes the supplied files and literal reference closure, not
+arbitrary natural-language references elsewhere in a workspace.
+
+Completeness is primary. A lossless indexed payload can use **more** tokens or
+take longer than a plain full read; benchmarks disclose that, rather than
+claiming a relevance excerpt proves complete startup or a universal gain.
+
+# Supplemental identity-file sections
+
+```python
+from birkin_mnemosyne import IdentityReader
+
+reader = IdentityReader("workspace")
+result = reader.search("AGENTS.md", "release approval", limit=2)
+print(result.context)  # Partial, ranked, whole-section context.
+section = reader.read_section("AGENTS.md", result.sections[0].anchor, result.revision)
+full = reader.read_full("AGENTS.md")  # Required for comprehensive instructions.
+```
+
+Sections preserve exact source text and one-based inclusive line spans.
+ATX/setext headings, backtick/tilde fences, ancestry and pre-heading global
+guidance are indexed; frontmatter is excluded from section ranking. Full reads
+retain frontmatter and examples. Catalog results expose headings, anchors and
+revision; the MCP catalog omits body text.
+
+Anchors are deterministic within a document revision, not permanent IDs:
+body edits preserve heading-derived anchors, while duplicate insertions or
+ancestor renames can change them. Anchor reads require the content SHA256 and
+reject stale revisions. Normal reads check nanosecond stat fingerprints;
+`force_refresh=True` unconditionally rereads bytes for preserved-metadata edits.
+No-match searches return empty context. Excerpts are partial and can omit a rule
+or exception elsewhere; use full access for complete instructions.
+
+The cache holds at most four files and one MiB of source in total; a single
+larger file is refused rather than silently truncated. No embeddings,
+dependencies, subprocesses or persistent index are added.
+
+MCP `memory_identity_read` supports `catalog`, `search`, `section` and `full`.
+The root defaults to the vault. To expose separate workspace identity files,
+start `mnemosyne-mcp --vault <vault> --identity-root <workspace>` (or
+`MNEMOSYNE_IDENTITY_ROOT`). Paths cannot escape that configured read-only root.

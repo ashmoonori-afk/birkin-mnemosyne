@@ -15,6 +15,7 @@ import pytest
 pytest.importorskip("mcp")
 
 from mcp import Client, StdioServerParameters
+from mcp.types import TextContent
 
 from birkin_mnemosyne import mnemosyne
 from birkin_mnemosyne._mcp_app import LOCK_FILE, create_server
@@ -33,7 +34,7 @@ def call(vault: Path, name: str, args: dict[str, Any] | None = None):
     return _session(vault, steps)
 
 
-def ok(vault: Path, name: str, args: dict[str, Any] | None = None) -> dict:
+def ok(vault: Path, name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     r = call(vault, name, args)
     assert not r.is_error, r.content
     return r.structured_content
@@ -45,7 +46,7 @@ def err(vault: Path, name: str, args: dict[str, Any] | None = None) -> str:
     return r.content[0].text
 
 
-def remember(vault: Path, title: str, body: str, **kw) -> dict:
+def remember(vault: Path, title: str, body: str, **kw) -> dict[str, Any]:
     return ok(vault, "memory_remember", {"title": title, "body": body, **kw})
 
 
@@ -70,7 +71,8 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_search", "memory_get_note", "memory_list", "memory_remember",
         "memory_related", "memory_forget", "memory_restore",
         "memory_curation_catalog", "memory_curate",
-        "memory_review_questions", "memory_review_apply", "memory_review_undo"}
+        "memory_review_questions", "memory_review_apply", "memory_review_undo",
+        "memory_identity_read", "memory_startup_read", "memory_startup_verify"}
     for name in ("memory_search", "memory_list", "memory_related",
                  "memory_curation_catalog"):
         assert tools[name].annotations.read_only_hint is True
@@ -103,6 +105,39 @@ def test_user_question_review_via_real_mcp_client(tmp_path):
         "transaction_id": receipt["transaction_id"], "confirm": True,
     })
     assert _files(tmp_path) == before
+
+
+def test_identity_reader_via_real_mcp_client(tmp_path):
+    path = tmp_path / "AGENTS.md"
+    path.write_text("# Agent\n## Voice\nLanguage: Korean\n## Old\nLanguage: English\n",
+                    encoding="utf-8")
+    result = ok(tmp_path, "memory_identity_read", {
+        "path": "AGENTS.md", "query": "Voice language", "limit": 1,
+    })
+    assert result["complete_file"] is False
+    assert result["sections"][0]["heading"] == "Voice"
+    assert "Language: Korean" in result["context"]
+    assert "text" not in result["sections"][0]
+    old = result["revision"]
+    path.write_text("# Agent\n## Voice\nLanguage: Japanese\n", encoding="utf-8")
+    assert "stale revision" in err(tmp_path, "memory_identity_read", {
+        "path": "AGENTS.md", "mode": "section",
+        "anchor": result["sections"][0]["anchor"], "revision": old,
+    })
+
+
+def test_complete_startup_via_real_mcp_client(tmp_path):
+    (tmp_path / "MODE.md").write_text("MUST READ: registry.json\n# Mode\nPending: work\n", "utf-8")
+    (tmp_path / "registry.json").write_text('{"jobs":[{"pending":true}]}', "utf-8")
+    result = ok(tmp_path, "memory_startup_read", {"paths": ["MODE.md"]})
+    assert result["complete"] is True
+    assert result["coverage"]["files"] == 2
+    payload = json.loads(result["context"])
+    payload["blocks"].pop()
+    verified = ok(tmp_path, "memory_startup_verify", {
+        "paths": ["MODE.md"], "context": json.dumps(payload),
+    })
+    assert verified["complete"] is False
 
 
 def test_remember_create_never_overwrites(tmp_path):
@@ -321,6 +356,7 @@ def test_vault_lock_excludes_other_processes(tmp_path):
           "cm = lock.hold(); cm.__enter__(); print('LOCKED', flush=True); "
           "sys.stdin.read(); cm.__exit__(None, None, None)")],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    assert holder.stdout is not None and holder.stdin is not None
     try:
         assert holder.stdout.readline().strip() == "LOCKED"
         with open(tmp_path / LOCK_FILE, "a+b") as fh:
@@ -349,6 +385,8 @@ def test_stdio_transport_end_to_end(tmp_path, mode):
     names, created, found = asyncio.run(run())
     assert "memory_curate" in names
     assert not created.is_error
-    assert json.loads(found.content[0].text)["results"][0]["slug"] == \
+    content = found.content[0]
+    assert isinstance(content, TextContent)
+    assert json.loads(content.text)["results"][0]["slug"] == \
         "stdio-note"
     assert (tmp_path / "knowledge" / "stdio-note.md").is_file()
