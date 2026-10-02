@@ -47,7 +47,52 @@ lock. External editors do not participate: finish their edits before applying
 or undoing a review. Derived indexes are rebuilt, not rolled back over unrelated
 usage history.
 
-# Identity-file reading
+# Complete session-start reading (headline identity feature)
+
+```python
+from birkin_mnemosyne import StartupReader
+
+reader = StartupReader("workspace")
+bundle = reader.read(["MODE.md"])
+assert bundle.coverage.complete
+print(bundle.context)
+assert reader.verify(bundle.context, ["MODE.md"]).complete
+```
+
+Complete mode preserves every supplied UTF-8 source byte and line in lossless
+blocks: frontmatter, BOM, CRLF, blank lines, JSON and unterminated final lines.
+The returned payload carries source SHA256, original line/byte spans,
+revision-bound anchors, block hashes and must-read markers. Verification
+reconstructs the **returned context** against fresh independently read files;
+deleted, duplicated, altered, foreign or mislabelled blocks fail.
+
+Every startup call rereads/hashes source bytes before derived-cache reuse.
+Same-size edits with preserved file timestamps cannot silently reuse old
+material. Literal `MUST READ: relative/path.md` declarations outside fences
+follow transitive local references relative to the declaring file. JSON may
+declare a `must_read` array of paths. Cycles include each file once. Missing,
+invalid, unreadable, outside-root or over-budget material fails the entire
+complete claim, including after a previous successful cache fill.
+
+Recognized Markdown or bare TOP NOTE blocks are newest-first only for unique,
+valid, consistently precise ISO dates/UTC timestamps. Ambiguous dates retain
+source order. Age does not imply supersession; only an explicit
+`Supersedes: TOP NOTE ...` declaration marks an older block. Its full material
+is still returned. All blocks remain must-read, including old unsuperseded
+constraints, pending items, first steps and monitor-registry data.
+
+MCP `memory_startup_read(paths)` is the primary startup tool;
+`memory_startup_verify(paths, context)` checks against the fresh local closure.
+Both use `--identity-root` (default vault). Complete mode has a 64-file,
+one-MiB-per-file/two-MiB-total source budget and performs no filesystem writes.
+Coverage describes the supplied files and literal reference closure, not
+arbitrary natural-language references elsewhere in a workspace.
+
+Completeness is primary. A lossless indexed payload can use **more** tokens or
+take longer than a plain full read; benchmarks disclose that, rather than
+claiming a relevance excerpt proves complete startup or a universal gain.
+
+# Supplemental identity-file sections
 
 ```python
 from birkin_mnemosyne import IdentityReader

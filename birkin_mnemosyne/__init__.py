@@ -36,6 +36,10 @@ from typing import Any
 __version__ = "0.4.0"
 
 _EXPORTS = {
+    "StartupReader": "birkin_mnemosyne.startup",
+    "StartupBundle": "birkin_mnemosyne.startup",
+    "StartupError": "birkin_mnemosyne.startup",
+    "Coverage": "birkin_mnemosyne.startup_coverage",
     "IdentityReader": "birkin_mnemosyne.identity_reader",
     "IdentityReadError": "birkin_mnemosyne.identity_reader",
     "ReadResult": "birkin_mnemosyne.identity_reader",

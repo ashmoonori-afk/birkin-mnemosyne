@@ -1,5 +1,9 @@
 # Independent Claude identity-reader evaluation
 
+Owner clarification: complete session-start bundle reading is now the headline.
+Use `spec_startup_claude.md` for the required new feature-2 set. This isolated
+section-reader set remains supplemental; it cannot prove startup completeness.
+
 Author source-blind held-out SOUL/AGENTS reading questions. Do not read source,
 Sol questions, practice questions, or results. Read only this specification.
 
