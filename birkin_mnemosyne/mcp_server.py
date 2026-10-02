@@ -35,6 +35,8 @@ def _parser() -> argparse.ArgumentParser:
         description="Serve a birkin-mnemosyne vault as an MCP server (stdio).")
     p.add_argument("--vault", help="vault directory (default: $MNEMOSYNE_VAULT "
                    f"or {DEFAULT_VAULT})")
+    p.add_argument("--identity-root", help="read-only SOUL/AGENTS root "
+                   "(default: vault; or $MNEMOSYNE_IDENTITY_ROOT)")
     p.add_argument("--evidence-required", action="store_true",
                    default=os.environ.get("MNEMOSYNE_EVIDENCE_REQUIRED", "")
                    .strip().lower() in _TRUTHY,
@@ -61,7 +63,10 @@ def main(argv: list[str] | None = None) -> int:
     vault = resolve_vault(args.vault)
     log.info("serving vault %s (evidence_required=%s)", vault,
              args.evidence_required)
-    create_server(vault, evidence_required=args.evidence_required).run("stdio")
+    identity_raw = args.identity_root or os.environ.get("MNEMOSYNE_IDENTITY_ROOT")
+    identity_root = Path(identity_raw).expanduser().resolve() if identity_raw else None
+    create_server(vault, evidence_required=args.evidence_required,
+                  identity_root=identity_root).run("stdio")
     return 0
 
 
