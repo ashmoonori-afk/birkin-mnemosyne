@@ -81,3 +81,60 @@ MCP `memory_identity_read` supports `catalog`, `search`, `section` and `full`.
 The root defaults to the vault. To expose separate workspace identity files,
 start `mnemosyne-mcp --vault <vault> --identity-root <workspace>` (or
 `MNEMOSYNE_IDENTITY_ROOT`). Paths cannot escape that configured read-only root.
+
+# Kibitzer adapter
+
+```python
+from birkin_mnemosyne import KibitzerAdapter, RecallNudge, admit, render_recall
+
+adapter = KibitzerAdapter("my_vault")
+candidates = adapter.select("release approval", surfaced={"already-seen.md"})
+# A host judges the candidates; the adapter does not invent a factual nudge.
+if candidates:
+    path = candidates[0].path
+    decision = admit(
+        [RecallNudge(path, "The note records that releases require approval.")],
+        offered={c.path for c in candidates}, surfaced=set(), max_items=1,
+    )
+    for nudge in decision.accepted:
+        print(render_recall(nudge))
+adapter.export("separate-memory-export")
+```
+
+Documents have `path`, `description`, `body`. Candidates have `path`,
+`description`, `excerpt`, `score`; lower score is better, and the excerpt is
+at most 200 UTF-16 code units, matching JavaScript's budget. Descriptions are
+preserved when present; legacy notes receive a deterministic title/body fallback.
+Selection uses the core's multilingual lexical BM25 over description and body.
+MCP `memory_kibitzer_candidates` exposes the same candidates.
+
+Root `system/`, `_archive/`, expired and hidden notes are excluded.
+`reference/system/` is ordinary topical memory, not a protected root profile.
+Surfaced/additional paths are excluded before the cap. Edited files invalidate
+the snapshot; `force_refresh=True` rereads preserved-metadata changes.
+
+`admit` checks offered paths, surfaced/duplicate paths, item cap, single-line
+200-UTF16-unit hints, upstream address/imperative/commentary restrictions,
+XML-invalid characters and conservative secret-like patterns. Rejected hints
+are not silently truncated or rewritten. Accepted paths and hints are escaped
+in recalled-memory envelopes. These lexical rules cannot prove truth,
+one-sentence semantics or complete absence of secrets. Candidate/export text
+uses conservative redaction, which can also mask benign examples.
+
+Export writes described Markdown plus `mnemosyne_source` to a separate explicit
+directory, with exclusive creation and no overwrites. The source vault is
+unchanged. Commit the exported files in the host memory repository if its
+provider reads committed HEAD; configure ingestion outside this adapter.
+
+This is live-vault Mnemosyne selection with Kibitzer-compatible shapes, not an
+implementation of upstream selector/provider parity or a resident advisor.
+Installed omo/configuration is untouched. Recall benchmark scores describe
+candidate selection, not model nudge judgement or parent-agent answer gains.
+Contracts studied:
+[installed persona upstream counterpart](https://github.com/code-yeongyu/oh-my-openagent/blob/61086739c3b00f0990cbcdcdfde9146791e243db/packages/memory-core/src/recall/assets/kibitzer-persona.md),
+[selection](https://github.com/code-yeongyu/oh-my-openagent/blob/61086739c3b00f0990cbcdcdfde9146791e243db/packages/memory-core/src/recall/select.ts),
+[admission](https://github.com/code-yeongyu/oh-my-openagent/blob/61086739c3b00f0990cbcdcdfde9146791e243db/packages/memory-core/src/recall/gate.ts).
+The upstream source uses the
+[Sustainable Use License](https://github.com/code-yeongyu/oh-my-openagent/blob/61086739c3b00f0990cbcdcdfde9146791e243db/LICENSE.md).
+No upstream implementation is vendored; this adapter independently implements
+the documented data shapes and conservative admission rules.

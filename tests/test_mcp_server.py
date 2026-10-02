@@ -71,7 +71,7 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_related", "memory_forget", "memory_restore",
         "memory_curation_catalog", "memory_curate",
         "memory_review_questions", "memory_review_apply", "memory_review_undo",
-        "memory_identity_read"}
+        "memory_identity_read", "memory_kibitzer_candidates"}
     for name in ("memory_search", "memory_list", "memory_related",
                  "memory_curation_catalog"):
         assert tools[name].annotations.read_only_hint is True
@@ -123,6 +123,18 @@ def test_identity_reader_via_real_mcp_client(tmp_path):
         "path": "AGENTS.md", "mode": "section",
         "anchor": result["sections"][0]["anchor"], "revision": old,
     })
+
+
+def test_kibitzer_candidates_via_real_mcp_client(tmp_path):
+    remember(tmp_path, "Publish guard", "Release requires approval.")
+    remember(tmp_path, "Release logs", "Release logs are retained.")
+    result = ok(tmp_path, "memory_kibitzer_candidates", {
+        "query": "release", "surfaced": ["knowledge/publish-guard.md"], "limit": 1,
+    })
+    assert result["snapshot"] == "live"
+    candidate, = result["candidates"]
+    assert candidate["path"] == "knowledge/release-logs.md"
+    assert set(candidate) == {"path", "description", "excerpt", "score"}
 
 
 def test_remember_create_never_overwrites(tmp_path):

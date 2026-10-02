@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from birkin_mnemosyne import Answer, Consolidation, ReviewError, VaultMemory
 from birkin_mnemosyne.identity_reader import IdentityReader, IdentityReadError
+from birkin_mnemosyne.kibitzer import KibitzerAdapter, RecallNudge, admit, render_recall
 
 
 def consolidation() -> dict[str, str | int | float]:
@@ -103,12 +104,46 @@ def identity() -> dict[str, str | int | float]:
             "cleanup": f"temporary identity root removed: {directory}"}
 
 
+def kibitzer() -> dict[str, str | int | float]:
+    """PASS requires described export, selection exclusions and admitted envelope."""
+    with tempfile.TemporaryDirectory(prefix="mnemosyne-kibitzer-") as directory:
+        root = Path(directory)
+        vault = root / "vault"
+        memory = VaultMemory({"vault_path": str(vault)})
+        memory.write_note("Release guard", "Releases require approval.", source="user:rule")
+        memory.write_note("Build logs", "Build logs retain diagnostic details.")
+        memory.write_note("System guidance", "Releases require approval.", zone="system")
+        adapter = KibitzerAdapter(vault)
+        start = time.perf_counter()
+        candidate, = adapter.select("release approval", limit=1)
+        select_ms = (time.perf_counter() - start) * 1000
+        assert candidate.path == "knowledge/release-guard.md"
+        assert set(candidate.__dataclass_fields__) == {"path", "description", "excerpt", "score"}
+        assert adapter.select("release approval", surfaced=[candidate.path]) == ()
+        paths = adapter.export(root / "export")
+        assert len(paths) == 2
+        exported = (root / "export" / candidate.path).read_text("utf-8")
+        assert exported.startswith("---\ndescription:")
+        hint = "The note records that releases require approval."
+        decision = admit([RecallNudge(candidate.path, hint)],
+                         offered=[candidate.path], max_items=1)
+        assert len(decision.accepted) == 1
+        block = render_recall(decision.accepted[0])
+        assert '<recalled-memory source="[[knowledge/release-guard.md]]">' in block
+        assert admit([RecallNudge("forged.md", hint)],
+                     offered=[candidate.path]).accepted == ()
+    assert not Path(directory).exists()
+    return {"feature": "kibitzer-adapter", "result": "PASS", "checks": 6,
+            "select_ms": select_ms, "exported_notes": len(paths),
+            "cleanup": f"temporary vault/export root removed: {directory}"}
+
+
 def main() -> None:
-    scenarios = {"consolidation": consolidation, "identity": identity}
+    scenarios = {"consolidation": consolidation, "identity": identity, "kibitzer": kibitzer}
     args = sys.argv[1:]
     if args:
         if len(args) != 2 or args[0] != "--feature" or args[1] not in scenarios:
-            raise SystemExit("usage: qa.py [--feature consolidation|identity]")
+            raise SystemExit("usage: qa.py [--feature consolidation|identity|kibitzer]")
         scenarios = {args[1]: scenarios[args[1]]}
     for scenario in scenarios.values():
         print(json.dumps(scenario(), ensure_ascii=True))
