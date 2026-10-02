@@ -14,17 +14,8 @@ from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 Json: TypeAlias = str | int | float | bool | None | list["Json"] | dict[str, "Json"]
 
 
-class ToolArguments(TypedDict, total=False):
-    title: Json
-    body: Json
-    query: Json
-    limit: Json
-
-
-class ToolSchema(TypedDict):
-    name: str
-    description: str
-    parameters: dict[str, Json]
+ToolArguments: TypeAlias = dict[str, Json]
+ToolSchema: TypeAlias = dict[str, Json]
 
 
 class ToolResponse(TypedDict, total=False):
