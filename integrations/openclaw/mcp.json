@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "birkin-mnemosyne": {
+      "command": "python",
+      "args": [
+        "-m",
+        "birkin_mnemosyne.mcp_server",
+        "--vault",
+        "${PLUGIN_DATA}/vault"
+      ],
+      "type": "stdio"
+    }
+  }
+}
