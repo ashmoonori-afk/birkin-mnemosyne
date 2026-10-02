@@ -36,6 +36,13 @@ from typing import Any
 __version__ = "0.4.0"
 
 _EXPORTS = {
+    "KibitzerAdapter": "birkin_mnemosyne.kibitzer",
+    "RecallDocument": "birkin_mnemosyne.kibitzer",
+    "RecallCandidate": "birkin_mnemosyne.kibitzer",
+    "RecallNudge": "birkin_mnemosyne.kibitzer",
+    "Admission": "birkin_mnemosyne.kibitzer",
+    "admit": "birkin_mnemosyne.kibitzer",
+    "render_recall": "birkin_mnemosyne.kibitzer",
     "StartupReader": "birkin_mnemosyne.startup",
     "StartupBundle": "birkin_mnemosyne.startup",
     "StartupError": "birkin_mnemosyne.startup",

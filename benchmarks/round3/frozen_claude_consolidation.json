@@ -1,0 +1,199 @@
+{
+  "author": "anthropic-subscription/claude-opus-5-5",
+  "split": "test",
+  "version": 1,
+  "source": "Authored by claude-opus-5-5 (anthropic-subscription) via omo/senpi agent session on 2026-10-02 from spec files only (CLAUDE_QUESTIONS.md, spec_*_claude.md); no implementation, Sol questions, practice cases or results were read.",
+  "license": "CC0-1.0 (model-authored fictional fixture data; publication permitted)",
+  "consolidation": [
+    {
+      "id": "c01-exact-duplicate-en",
+      "category": "exact_duplicate",
+      "titles": [
+        "Bike lock code",
+        "Bicycle lock combination"
+      ],
+      "bodies": [
+        "# Bike lock\n\nThe combination for the blue bike lock is 4-1-7-9.\n",
+        "# Bike lock\n\nThe combination for the blue bike lock is 4-1-7-9.\n"
+      ],
+      "related": true,
+      "user_choice": "Merge into one note.",
+      "expected_remaining_facts": [
+        "The combination for the blue bike lock is 4-1-7-9."
+      ]
+    },
+    {
+      "id": "c02-exact-duplicate-ko",
+      "category": "exact_duplicate",
+      "titles": [
+        "와이파이 비밀번호",
+        "집 Wi-Fi"
+      ],
+      "bodies": [
+        "## 집 와이파이\n\n- 네트워크 이름: 해바라기5G\n- 비밀번호: sunflower-2291\n",
+        "## 집 와이파이\n\n- 네트워크 이름: 해바라기5G\n- 비밀번호: sunflower-2291\n"
+      ],
+      "related": true,
+      "user_choice": "하나로 합친다.",
+      "expected_remaining_facts": [
+        "네트워크 이름: 해바라기5G",
+        "비밀번호: sunflower-2291"
+      ]
+    },
+    {
+      "id": "c03-partial-overlap",
+      "category": "partial_overlap",
+      "titles": [
+        "Grandma visit plan",
+        "Busan trip packing"
+      ],
+      "bodies": [
+        "# Grandma visit\n\n- Train to Busan departs Seoul Station at 08:30 on 2026-11-14.\n- Bring the photo album for Grandma.\n",
+        "# Packing for Busan\n\n- Train to Busan departs Seoul Station at 08:30 on 2026-11-14.\n- Pack the grey rain jacket.\n- Charge the power bank the night before.\n"
+      ],
+      "related": true,
+      "user_choice": "Keep both notes; keep the train time only in 'Grandma visit plan'.",
+      "expected_remaining_facts": [
+        "Train to Busan departs Seoul Station at 08:30 on 2026-11-14.",
+        "Bring the photo album for Grandma.",
+        "Pack the grey rain jacket.",
+        "Charge the power bank the night before."
+      ]
+    },
+    {
+      "id": "c04-changed-numeric",
+      "category": "changed_numeric_fact",
+      "titles": [
+        "Monthly rent (2025 lease)",
+        "Rent after renewal"
+      ],
+      "bodies": [
+        "# Rent\n\nMonthly rent: 1,150,000 KRW, paid on the 25th.\n",
+        "# Rent\n\nMonthly rent: 1,210,000 KRW, paid on the 25th. New amount applies from the 2026-09 payment.\n"
+      ],
+      "related": true,
+      "user_choice": "The renewal amount is current; keep the old amount as history.",
+      "expected_remaining_facts": [
+        "Monthly rent: 1,210,000 KRW, paid on the 25th, from the 2026-09 payment.",
+        "Previously 1,150,000 KRW under the 2025 lease (superseded)."
+      ]
+    },
+    {
+      "id": "c05-changed-current-fact",
+      "category": "changed_current_fact",
+      "titles": [
+        "Where Jun works",
+        "Jun job update"
+      ],
+      "bodies": [
+        "Jun works at Pinewood Analytics as a data engineer.\n",
+        "As of September 2026 Jun moved to Harbor Freight Labs; he is now a platform lead there.\n"
+      ],
+      "related": true,
+      "user_choice": "Jun's current employer is Harbor Freight Labs; drop the old employer.",
+      "expected_remaining_facts": [
+        "As of September 2026 Jun works at Harbor Freight Labs as a platform lead."
+      ]
+    },
+    {
+      "id": "c06-negation",
+      "category": "negation",
+      "titles": [
+        "Mira allergies",
+        "Mira snack notes"
+      ],
+      "bodies": [
+        "# Mira\n\nMira is allergic to peanuts; carry her antihistamine on outings.\n",
+        "# Mira snacks\n\nMira is not allergic to peanuts (retested at the clinic in August 2026); peanut butter crackers are fine.\n"
+      ],
+      "related": true,
+      "user_choice": "The August 2026 retest is correct; Mira is not allergic to peanuts.",
+      "expected_remaining_facts": [
+        "Mira is not allergic to peanuts (retested at the clinic in August 2026).",
+        "Peanut butter crackers are fine."
+      ]
+    },
+    {
+      "id": "c07-unrelated-same-topic-en",
+      "category": "unrelated_same_topic",
+      "titles": [
+        "Coffee roast preference",
+        "Coffee grinder settings"
+      ],
+      "bodies": [
+        "# Coffee\n\nI prefer a medium roast from Ethiopia for pour-over.\n",
+        "# Coffee\n\nThe burr grinder is set to 18 clicks for the AeroPress and 24 for pour-over.\n"
+      ],
+      "related": false
+    },
+    {
+      "id": "c08-unrelated-same-topic-ko",
+      "category": "unrelated_same_topic",
+      "titles": [
+        "수영 강습",
+        "등산화 사이즈"
+      ],
+      "bodies": [
+        "## 운동\n\n수영 강습은 화요일과 목요일 오전 7시에 있다.\n",
+        "## 운동\n\n등산화는 270mm가 맞고, 두꺼운 양말을 신으면 275mm를 산다.\n"
+      ],
+      "related": false
+    },
+    {
+      "id": "c09-empty-vs-content",
+      "category": "empty_note",
+      "titles": [
+        "Untitled draft",
+        "Library card"
+      ],
+      "bodies": [
+        "",
+        "# Library card\n\nThe city library card number ends in 3308 and expires 2027-03-31.\n"
+      ],
+      "related": false
+    },
+    {
+      "id": "c10-both-empty",
+      "category": "empty_note",
+      "titles": [
+        "Scratch A",
+        "Scratch B"
+      ],
+      "bodies": [
+        "# \n",
+        "\n\n"
+      ],
+      "related": false
+    },
+    {
+      "id": "c11-crosslingual-duplicate",
+      "category": "korean_english_duplicate",
+      "titles": [
+        "Car insurance renewal",
+        "자동차 보험 갱신"
+      ],
+      "bodies": [
+        "# Car insurance\n\nThe car insurance renews on 2026-12-03; the broker is Daon Insurance.\n",
+        "# 자동차 보험\n\n자동차 보험은 2026-12-03에 갱신된다. 담당 보험사는 다온보험이다.\n"
+      ],
+      "related": true,
+      "user_choice": "Keep the English note and add the Korean name 다온보험 to it.",
+      "expected_remaining_facts": [
+        "The car insurance renews on 2026-12-03; the broker is Daon Insurance (다온보험)."
+      ]
+    },
+    {
+      "id": "c12-lexical-overlap-unrelated",
+      "category": "unrelated_lexical_overlap",
+      "titles": [
+        "Project Atlas deadline",
+        "Atlas vet appointment"
+      ],
+      "bodies": [
+        "# Atlas\n\nProject Atlas (the warehouse dashboard at work) is due on 2026-10-20.\n",
+        "# Atlas\n\nAtlas the dog has a vaccination appointment at Greenleaf Vet on 2026-10-20.\n"
+      ],
+      "related": false
+    }
+  ]
+}

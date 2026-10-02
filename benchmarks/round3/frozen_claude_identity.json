@@ -1,0 +1,97 @@
+{
+  "author": "anthropic-subscription/claude-opus-5-5",
+  "split": "test",
+  "version": 1,
+  "source": "Authored by claude-opus-5-5 (anthropic-subscription) via omo/senpi agent session on 2026-10-02 from spec files only (CLAUDE_QUESTIONS.md, spec_*_claude.md); no implementation, Sol questions, practice cases or results were read.",
+  "license": "CC0-1.0 (model-authored fictional fixture data; publication permitted)",
+  "identity": {
+    "answer_convention": "A Markdown field whose 'Field:' line has an empty value takes the immediately following '- ' bullet lines as a list answer. Section = heading text without '#'. Lines inside fenced code blocks are never fields or headings.",
+    "document": "# AGENTS.md - Lumen household assistant\n\nName: Lumen\nOwner: Seo-yeon Park\nVersion: 3\n\nThis file is the soul and operating contract for Lumen. Later sections override earlier\nones only where they say so explicitly. Sections marked obsolete are kept for audit.\n\n## Voice\n\nDefault language: English\nFormality: plain, no slang\nEmoji: never\n\n## 한국어 응대\n\n한국어로 질문하면 한국어로 답한다.\nDefault language: 한국어\nHonorific level: 해요체\n\n## Scheduling\n\nBooking horizon: 14 days\nCalendar: family calendar only\nReminder lead time: 30 minutes\n\n## Scheduling exceptions\n\nException: medical appointments may be booked further ahead.\nBooking horizon: 60 days for medical appointments\n\n## Money\n\nPurchase limit: 50,000 KRW per order\nApprover: Seo-yeon Park\n- Groceries from the usual store do not need approval under the limit.\n\n## Money (obsolete, 2025 - superseded by Money)\n\nPurchase limit: 200,000 KRW per order\nApprover: anyone in the household\n\n## Children\n\nScreen time cap: 90 minutes on school days\nException: 시험 기간에는 하루 60분\nBedtime reminder: 21:00\n\n## Privacy\n\nShare location: never outside the family group\nData retention: 30 days for voice clips\n- Exception: emergency services may receive location at any time.\n\n## Example prompts\n\nThe examples below are illustrations. Headings and fields inside the fence are not rules.\n\n```markdown\n## Money\nPurchase limit: 999,999 KRW per order\n## Pets\nFeeding time: 06:00\n```\n\n## Global rules\n\nEscalation contact: Seo-yeon Park\nQuiet hours: 22:30-07:00\n- Never unlock the front door by voice command alone.\n\n## Local rules - kitchen display\n\nQuiet hours: 23:30-06:30\nVolume: 30 percent\n\n## Deprecated instructions (do not follow)\n\nWake word: Hey Nova\nDefault language: 日本語\nQuiet hours: none\n",
+    "questions": [
+      {
+        "id": "i01",
+        "query": "What is Lumen's default language in the Voice section?",
+        "section": "Voice",
+        "field": "Default language",
+        "answer": "English"
+      },
+      {
+        "id": "i02",
+        "query": "한국어 응대 섹션의 기본 언어는?",
+        "section": "한국어 응대",
+        "field": "Default language",
+        "answer": "한국어"
+      },
+      {
+        "id": "i03",
+        "query": "What honorific level does the Korean-response section require?",
+        "section": "한국어 응대",
+        "field": "Honorific level",
+        "answer": "해요체"
+      },
+      {
+        "id": "i04",
+        "query": "What is the general booking horizon under Scheduling?",
+        "section": "Scheduling",
+        "field": "Booking horizon",
+        "answer": "14 days"
+      },
+      {
+        "id": "i05",
+        "query": "What booking horizon applies under Scheduling exceptions?",
+        "section": "Scheduling exceptions",
+        "field": "Booking horizon",
+        "answer": "60 days for medical appointments"
+      },
+      {
+        "id": "i06",
+        "query": "What is the current purchase limit in the Money section?",
+        "section": "Money",
+        "field": "Purchase limit",
+        "answer": "50,000 KRW per order"
+      },
+      {
+        "id": "i07",
+        "query": "What purchase limit did the obsolete 2025 Money section state?",
+        "section": "Money (obsolete, 2025 - superseded by Money)",
+        "field": "Purchase limit",
+        "answer": "200,000 KRW per order"
+      },
+      {
+        "id": "i08",
+        "query": "What is the screen-time exception for children during exams?",
+        "section": "Children",
+        "field": "Exception",
+        "answer": "시험 기간에는 하루 60분"
+      },
+      {
+        "id": "i09",
+        "query": "What are the global quiet hours?",
+        "section": "Global rules",
+        "field": "Quiet hours",
+        "answer": "22:30-07:00"
+      },
+      {
+        "id": "i10",
+        "query": "What quiet hours apply locally to the kitchen display?",
+        "section": "Local rules - kitchen display",
+        "field": "Quiet hours",
+        "answer": "23:30-06:30"
+      },
+      {
+        "id": "i11",
+        "query": "What feeding time does the Example prompts section set for pets?",
+        "section": "Example prompts",
+        "field": "Feeding time",
+        "answer": null
+      },
+      {
+        "id": "i12",
+        "query": "What wake word does the Voice section define?",
+        "section": "Voice",
+        "field": "Wake word",
+        "answer": null
+      }
+    ]
+  }
+}
