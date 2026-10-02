@@ -86,7 +86,7 @@ class IdentityReader:
             if len(data) > 1_048_576:
                 raise IdentityReadError("identity file exceeds the one MiB read budget")
             text = data.decode("utf-8")
-            sections = _sections(text)
+            sections = parse_sections(text)
             postings: dict[str, dict[str, int]] = {}
             lengths: dict[str, int] = {}
             for section in sections:
@@ -178,7 +178,7 @@ def _context(path: str, revision: str, sections: tuple[Section, ...]) -> str:
     return "".join(chunks)
 
 
-def _sections(text: str) -> tuple[Section, ...]:
+def parse_sections(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
     """Partition exact line spans, excluding frontmatter and fenced fake headings."""
     lines = text.splitlines(keepends=True)
     start = 0
@@ -209,6 +209,8 @@ def _sections(text: str) -> tuple[Section, ...]:
         if atx:
             title = re.sub(r"[ \t]+#+[ \t]*$", "", atx.group(2) or "")
             headings.append((i, len(atx.group(1)), title))
+        elif startup_labels and re.match(r"^ {0,3}TOP NOTE\b", line, re.IGNORECASE):
+            headings.append((i, 2, line.strip()))
         elif i + 1 < len(lines) and line.strip():
             underline = re.fullmatch(r" {0,3}(=+|-+)[ \t]*", lines[i + 1].rstrip("\r\n"))
             if underline:
