@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 import statistics
 import subprocess
 import sys
@@ -134,8 +135,8 @@ def startup(data):
 
         full, full_ms = timed(full_read)
         reader = StartupReader(root)
-        result, cold_ms = timed(lambda: reader.read(["MODE.md"]))
-        warm, warm_ms = timed(lambda: reader.read(["MODE.md"]))
+        result, cold_ms = timed(lambda: reader.read(list(files)))
+        warm, warm_ms = timed(lambda: reader.read(list(files)))
         supplied = documents(result.context)
         assert result.coverage.complete and warm.cache_hit
         assert supplied == files
@@ -146,7 +147,7 @@ def startup(data):
         missing = [item for item in fixture["required_items"]
                    if item["text"] not in supplied.get(item["source"], "")]
         fresh = {}
-        for mode, paths in (("startup", ["MODE.md"]), ("full", list(files))):
+        for mode, paths in (("startup", list(files)), ("full", list(files))):
             process, wall_ms = timed(lambda mode=mode, paths=paths: subprocess.run(
                 [sys.executable, str(HERE / "_probe.py"), mode, str(root), *paths],
                 check=True, capture_output=True, text=True))
@@ -185,18 +186,25 @@ def kibitzer():
             after_slugs = [Path(hit.path).stem for hit in after]
             key = (query.author, query.split, query.kind)
             bucket = groups.setdefault(key, {"before": [], "after": [],
-                                             "before_ms": [], "after_ms": []})
+                                             "before_ms": [], "after_ms": [],
+                                             "before_raw": [], "after_raw": []})
             bucket["before"].append(gold_rank(before_slugs, query.gold, query.siblings))
             bucket["after"].append(gold_rank(after_slugs, query.gold, query.siblings))
+            bucket["before_raw"].append(bool(before_slugs) and before_slugs[0] == query.gold)
+            bucket["after_raw"].append(bool(after_slugs) and after_slugs[0] == query.gold)
             bucket["before_ms"].append(before_ms)
             bucket["after_ms"].append(after_ms)
     assert not root.exists()
     return [{"author": author, "split": split, "kind": kind,
              "before": rank_metrics(values["before"]),
              "after": rank_metrics(values["after"]),
+             "before_raw_precision_at_1": sum(values["before_raw"]) / len(values["before_raw"]),
+             "after_raw_precision_at_1": sum(values["after_raw"]) / len(values["after_raw"]),
              "before_p95_ms": percentile(values["before_ms"], 95),
              "after_p95_ms": percentile(values["after_ms"], 95),
-             "scope": "Historical frozen retrieval; top-1 precision equals hit@1"}
+             "scope": "Historical ranks remove declared siblings before top-10 cutoff; "
+                      "raw precision@1 equals exact-gold hit@1 over all queries, with misses zero; "
+                      "not resident nudge quality"}
             for (author, split, kind), values in sorted(groups.items())]
 
 
@@ -209,30 +217,47 @@ def main():
     excerpts = []
     complete = []
     missing: list[str] = []
-    for name in ("frozen_sol.json", "frozen_claude.json",
-                 "frozen_sol_startup.json", "frozen_claude_startup.json"):
+    required_sets = {"frozen_sol.json": ("consolidation", "identity"),
+                     "frozen_claude_consolidation.json": ("consolidation",),
+                     "frozen_sol_startup.json": ("startup",),
+                     "frozen_claude_startup.json": ("startup",)}
+    for name in (*required_sets, "frozen_claude_identity.json"):
         path = HERE / name
         if not path.exists():
-            missing.append(name)
+            if name in required_sets:
+                missing.append(name)
             continue
         raw = path.read_bytes()
         hashes[name] = hashlib.sha256(raw).hexdigest()
         data = json.loads(raw)
+        author = data.get("author")
+        if not isinstance(author, str) or not author.strip():
+            raise ValueError(f"{name}: actual author model ID is required")
+        if name.startswith("frozen_claude") and "claude" not in author.casefold():
+            raise ValueError(f"{name}: required independent Claude author is absent")
+        expected = required_sets.get(name, ("identity",))
+        if any(not data.get(feature) for feature in expected):
+            raise ValueError(f"{name}: missing required feature slice: {expected}")
         if "consolidation" in data:
             pairs.append(consolidation(data))
         if "identity" in data:
             excerpts.append(identity(data))
         if "startup" in data:
             complete.append(startup(data))
-    for path in [HERE / "answerer.py", HERE / "startup_answerer.py",
+    for path in [HERE / "run.py", HERE / "_probe.py", HERE / "answerer.py",
+                 HERE / "startup_answerer.py",
+                 HERE.parent / "retrieval" / "bench_retrieval.py",
+                 HERE.parent / "retrieval" / "_probe.py",
                  HERE.parent / "retrieval" / "retrieval_corpus.py",
                  *(HERE.parent / "retrieval" / name for name in corpus.AUTHOR_FILES.values())]:
-        hashes[str(path.relative_to(HERE.parent))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        hashes[path.relative_to(HERE.parents[1]).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     result = {"evaluation_hashes": hashes, "consolidation": pairs, "identity": excerpts,
               "startup": complete, "missing_author_sets": missing, "kibitzer": kibitzer(),
               "accuracy_scope": "Fixed context-only extraction, not generative compliance",
               "token_scope": "Measured o200k_base BPE over whole contexts; not GPT6.1/Claude billing claims",
               "both_new_authors_verified": not missing,
+              "runtime": {"python": sys.version, "platform": platform.platform(),
+                          "tokenizer_version": tiktoken.__version__, "encoding": "o200k_base"},
               "cleanup": "All per-case temporary directories removed and absence asserted"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", "utf-8")

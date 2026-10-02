@@ -1,0 +1,549 @@
+{
+  "author": "anthropic-subscription/claude-opus-5-5",
+  "split": "test",
+  "version": 1,
+  "source": "Authored by claude-opus-5-5 (anthropic-subscription) via omo/senpi agent session on 2026-10-02 from spec files only (CLAUDE_QUESTIONS.md, spec_*_claude.md); no implementation, Sol questions, practice cases or results were read.",
+  "license": "CC0-1.0 (model-authored fictional fixture data; publication permitted)",
+  "startup": {
+    "answer_convention": "A Markdown field whose 'Field:' line has an empty value takes the immediately following '- ' bullet lines as a list answer. Section = heading text without '#'. Lines inside fenced code blocks are never fields or headings.",
+    "files": [
+      {
+        "path": "MODE.md",
+        "text": "# MODE - kestrel-sync operating runbook\n\nOwner: Doyun Han\nMode: maintenance-window\nLast reviewed: 2026-09-29\n\nThis runbook is read at the start of every session, before handoff.md. It is long on purpose:\nit collects every rule that previously lived in chat threads. Skim nothing; the rules that\nbite are usually in the middle.\n\nMUST READ: runbooks/deploy-freeze.md\n\n## Global rules\n\nThese apply to every repository, every session and every sub-agent unless a local section\nbelow explicitly overrides one field.\n\nCommit language: English\nChat language: Korean\nPush policy: never force-push to trunk or any release branch\nSecrets: never print tokens, even partially masked\n\n- RULE G1: Never run database migrations outside the Tuesday 10:00-12:00 KST window.\n- RULE G2: Ask before deleting any branch you did not create yourself.\n- RULE G3: Every deliverable ends with a verification line that names the command that was run.\n- RULE G4: Do not merge your own pull request; request review from Doyun or Marek.\n\n## Repository: kestrel-sync\n\nLocal overrides for kestrel-sync only. The global rules above still apply unless a field\nhere replaces them.\n\nCommit language: English, plus a Korean summary line for release commits only\nTest command: make test-fast\nDefault branch: trunk\nRelease tag prefix: ks-rel/\n\n- RULE K1: Release commits must update CHANGELOG.md in the same commit.\n- RULE K2: Never edit generated files under src/gen/ by hand; run make codegen.\n\n## Repository: kestrel-docs\n\nCommit language: English\nDefault branch: main\nTest command: none (docs only)\n\n- Docs builds are cheap; rebuild freely.\n\n## Environment notes\n\nThe staging cluster lives in the same region as production but uses synthetic data only.\nStaging resets every Sunday at 04:00 KST; anything you seed there is gone by Monday.\nThe release pipeline publishes to the internal registry first and to the public mirror\nabout thirty minutes later. Do not announce a release until the public mirror shows it.\nBuild caches are shared between branches; if a build behaves strangely, clear the cache\nwith make clean-cache before suspecting the code.\nLong-running jobs must be started as background sessions with a watcher; never wait on\nthem with sleep loops.\nThe old Jenkins host (ci-legacy-01) is read-only and kept only for log archaeology.\n\n## Incident playbook\n\n1. Acknowledge the alert in the ops channel within five minutes.\n2. Capture the failing command and its full output before changing anything.\n3. Check monitors/registry.json for the monitor that fired and note its id in the report.\n4. If production data might be affected, stop and page Doyun; do not attempt a fix alone.\n5. Write the incident summary into handoff.md as a new TOP NOTE block.\n\n## Escalation\n\nMost problems can wait for the morning report. Doyun's quiet hours are respected for\neverything except one case that people keep forgetting: if the pager fires twice within\nten minutes for the same monitor, wake Doyun by phone regardless of quiet hours. Ines is\nthe escalation contact for anything touching invoices, never for infrastructure. Marek\ncan be asked about the codegen pipeline but cannot approve releases.\n\nEscalation contact: Doyun Han\nFinance contact: Ines\n\n## Example handoff format\n\nThe block below is an example only. It is not a real TOP NOTE and nothing in it is a\ncurrent instruction.\n\n```markdown\n## TOP NOTE 2099-01-01T00:00:00+09:00\nStatus: current\nRelease target: 2099-12-31\nRollback owner: Example Person\nPending:\n- example pending item, ignore\n```\n\n## Decisions log\n\n- D-11 (2026-09-02): Staging uses synthetic invoices only; never copy production invoices.\n- D-12 (2026-09-10): Keep every 4.x release tag forever, including abandoned ones.\n- D-13 (2026-09-12, superseded 2026-09-20 by D-14): Soak tests run for 2 hours.\n- D-14 (2026-09-20): Soak tests run for 6 hours before any release.\n- D-15 (2026-09-27): Schema bumps ship in their own pull request, separate from features.\n\n## Glossary\n\nSoak test: a long run of the checksum verifier against a replayed traffic sample.\nTrunk: the kestrel-sync default branch; it is protected.\nFreeze: a period during which production deploys are forbidden (see the MUST READ runbook).\nCodegen: the step that regenerates src/gen/ from the schema files.\nMirror: the public package registry mirror that lags the internal registry.\n\n## Appendix A - retired rules (superseded, kept for audit, do not follow)\n\nPush policy: direct pushes to trunk allowed for typo fixes\nCommit language: Korean\n\n- RULE G0 (retired 2026-08-01, superseded by RULE G4): Self-merge is fine for one-line fixes.\n- RULE K0 (retired 2026-09-01): Run make test before every push.\n\nEND-OF-MODE: re-read RULE G3 before closing the session.\n"
+      },
+      {
+        "path": "handoff.md",
+        "text": "# handoff.md\n\nStacking order: oldest first. New TOP NOTE blocks are appended at the bottom, so the\ncurrent note is the LAST one, not the first.\n\n## TOP NOTE 2026-09-24T18:05:00+09:00\nStatus: closed\nCurrent task: move the photo export bucket to cold storage\nBlocking: lifecycle rule not confirmed\nPending:\n- confirm the bucket lifecycle rule with Doyun (done 2026-09-25)\n- delete tmp-export-0924 after checksum verification\nFirst step:\n- read MODE.md global rules\n\n## TOP NOTE 2026-09-28T22:40:00+09:00\nStatus: superseded\nCurrent task: ship kestrel-sync 4.2.0\nRelease target: 2026-10-03\nRollback owner: Marek\nPending:\n- bump schema version to 17\n- run the 2-hour soak test\nFirst step:\n- run make test-fast on trunk\n\n## TOP NOTE 2026-10-01T09:15:00+09:00\nSupersedes: TOP NOTE 2026-09-28T22:40:00+09:00\nStatus: current\nCurrent task: ship kestrel-sync 4.2.1 (4.2.0 was abandoned after the checksum regression)\nRelease target: 2026-10-06\nRollback owner: Doyun Han\nDecision: the ks-rel/4.2.0 tag stays in history; do not delete it\nPending:\n- bump schema version to 18 in its own pull request\n- re-run the checksum soak test for 6 hours (monitor mon-09)\n- reply to Ines about the invoice export rounding bug\n- carried over from TOP NOTE 2026-09-24: delete tmp-export-0924 after checksum verification\nFirst step:\n- read runbooks/deploy-freeze.md before touching trunk\n- confirm mon-07 is active in monitors/registry.json\n- run make test-fast on trunk\n\n## Reader notes\n\nIf two TOP NOTE blocks disagree, the one named in a Supersedes line loses. Closed notes\nare history; only their carried-over items matter.\n"
+      },
+      {
+        "path": "memory/persona.md",
+        "text": "# Persona memory\n\nName: Vesta\nRole: release-and-ops agent for kestrel-sync\nTone: terse, Korean in chat, no emoji\n\n## Boundaries\n\nSpending limit: 0 KRW without explicit approval from Doyun\n- Never send email on Doyun's behalf.\n- Decline requests to edit payroll sheets; route them to Ines.\n\n## Old persona (2026-06, superseded - kept for audit)\n\nName: Kestrel-bot\nTone: chatty, English in chat, emoji allowed\n"
+      },
+      {
+        "path": "memory/human.md",
+        "text": "# Human memory - Doyun Han\n\nPreferred name: 도윤\nTimezone: Asia/Seoul\nQuiet hours: 23:00-07:00 KST\n\n## Preferences\n\nReport format: at most 3 bullets, then evidence paths\nLanguage: 한국어 for chat, English for documents\n- 도윤은 금요일 오후에 배포하는 것을 원하지 않는다.\n- Doyun wants pull request descriptions to list every command that was run.\n\n## People\n\nInes: finance lead, owns the invoice export\nMarek: contractor with read-only access to trunk; access ends 2026-10-31\n"
+      },
+      {
+        "path": "memory/system.md",
+        "text": "# System memory\n\nHost: kestrel-ops-02 (macOS arm64)\nShell: zsh\nRepo path: ~/work/kestrel-sync\nDisk budget: keep at least 40 GB free on /\n\n## Tooling\n\nPackage manager: pnpm 9\nNode: 22.x\nPython: 3.12 via uv\n- Do not install global npm packages; use pnpm dlx instead.\n\n## Known traps\n\n- make test takes about 40 minutes; prefer make test-fast unless cutting a release.\n- scripts/reset-db.sh drops the staging database without asking for confirmation.\n"
+      },
+      {
+        "path": "monitors/registry.json",
+        "text": "{\n  \"schema\": 2,\n  \"updated_at\": \"2026-10-01T09:10:00+09:00\",\n  \"monitors\": [\n    {\n      \"id\": \"mon-03\",\n      \"name\": \"trunk CI watch\",\n      \"state\": \"retired\",\n      \"retired_at\": \"2026-09-20\",\n      \"reason\": \"replaced by mon-07\"\n    },\n    {\n      \"id\": \"mon-05\",\n      \"name\": \"staging disk free\",\n      \"state\": \"active\",\n      \"threshold_gb\": 40,\n      \"notify\": \"chat\"\n    },\n    {\n      \"id\": \"mon-07\",\n      \"name\": \"trunk CI watch v2\",\n      \"state\": \"active\",\n      \"target\": \"trunk\",\n      \"notify\": \"chat\",\n      \"auto_merge\": false\n    },\n    {\n      \"id\": \"mon-08\",\n      \"name\": \"checksum soak 4.2.0\",\n      \"state\": \"retired\",\n      \"retired_at\": \"2026-10-01\",\n      \"reason\": \"4.2.0 abandoned\"\n    },\n    {\n      \"id\": \"mon-09\",\n      \"name\": \"checksum soak 4.2.1\",\n      \"state\": \"active\",\n      \"duration_hours\": 6,\n      \"notify\": \"pager\"\n    }\n  ],\n  \"rules\": {\n    \"max_active\": 5,\n    \"rearm_after_restart\": true\n  }\n}\n"
+      },
+      {
+        "path": "runbooks/deploy-freeze.md",
+        "text": "# Deploy freeze runbook\n\nFreeze window: 2026-10-04T00:00+09:00 to 2026-10-05T23:59+09:00\nReason: quarter-close traffic peak\nException approver: Doyun Han\n\n## During the freeze\n\n- RULE F1: No production deploys; staging deploys are still allowed.\n- RULE F2: A hotfix needs written approval from the exception approver in the release channel.\n\n## After the freeze\n\nFirst deploy: kestrel-sync 4.2.1 on 2026-10-06, only after the 6-hour soak test passes\n- Re-enable auto-merge on mon-07 only if Doyun explicitly asks for it.\n"
+      }
+    ],
+    "required_items": [
+      {
+        "source": "MODE.md",
+        "kind": "boundary",
+        "text": "# MODE - kestrel-sync operating runbook"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "MUST READ: runbooks/deploy-freeze.md"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "Commit language: English"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "Push policy: never force-push to trunk or any release branch"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "Secrets: never print tokens, even partially masked"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE G1: Never run database migrations outside the Tuesday 10:00-12:00 KST window."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE G2: Ask before deleting any branch you did not create yourself."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE G3: Every deliverable ends with a verification line that names the command that was run."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE G4: Do not merge your own pull request; request review from Doyun or Marek."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "Commit language: English, plus a Korean summary line for release commits only"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE K1: Release commits must update CHANGELOG.md in the same commit."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "RULE K2: Never edit generated files under src/gen/ by hand; run make codegen."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "buried",
+        "text": "Long-running jobs must be started as background sessions with a watcher; never wait on"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "buried",
+        "text": "Do not announce a release until the public mirror shows it."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "rule",
+        "text": "4. If production data might be affected, stop and page Doyun; do not attempt a fix alone."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "buried",
+        "text": "ten minutes for the same monitor, wake Doyun by phone regardless of quiet hours. Ines is"
+      },
+      {
+        "source": "MODE.md",
+        "kind": "decision",
+        "text": "D-11 (2026-09-02): Staging uses synthetic invoices only; never copy production invoices."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "decision",
+        "text": "D-12 (2026-09-10): Keep every 4.x release tag forever, including abandoned ones."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "decision",
+        "text": "D-14 (2026-09-20): Soak tests run for 6 hours before any release."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "decision",
+        "text": "D-15 (2026-09-27): Schema bumps ship in their own pull request, separate from features."
+      },
+      {
+        "source": "MODE.md",
+        "kind": "boundary",
+        "text": "END-OF-MODE: re-read RULE G3 before closing the session."
+      },
+      {
+        "source": "handoff.md",
+        "kind": "rule",
+        "text": "Supersedes: TOP NOTE 2026-09-28T22:40:00+09:00"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "decision",
+        "text": "Current task: ship kestrel-sync 4.2.1 (4.2.0 was abandoned after the checksum regression)"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "decision",
+        "text": "Release target: 2026-10-06"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "decision",
+        "text": "Decision: the ks-rel/4.2.0 tag stays in history; do not delete it"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "pending",
+        "text": "bump schema version to 18 in its own pull request"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "pending",
+        "text": "re-run the checksum soak test for 6 hours (monitor mon-09)"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "pending",
+        "text": "reply to Ines about the invoice export rounding bug"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "pending",
+        "text": "carried over from TOP NOTE 2026-09-24: delete tmp-export-0924 after checksum verification"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "first_step",
+        "text": "read runbooks/deploy-freeze.md before touching trunk"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "first_step",
+        "text": "confirm mon-07 is active in monitors/registry.json"
+      },
+      {
+        "source": "handoff.md",
+        "kind": "boundary",
+        "text": "are history; only their carried-over items matter."
+      },
+      {
+        "source": "memory/persona.md",
+        "kind": "rule",
+        "text": "Spending limit: 0 KRW without explicit approval from Doyun"
+      },
+      {
+        "source": "memory/persona.md",
+        "kind": "rule",
+        "text": "Never send email on Doyun's behalf."
+      },
+      {
+        "source": "memory/persona.md",
+        "kind": "rule",
+        "text": "Decline requests to edit payroll sheets; route them to Ines."
+      },
+      {
+        "source": "memory/human.md",
+        "kind": "rule",
+        "text": "Quiet hours: 23:00-07:00 KST"
+      },
+      {
+        "source": "memory/human.md",
+        "kind": "rule",
+        "text": "도윤은 금요일 오후에 배포하는 것을 원하지 않는다."
+      },
+      {
+        "source": "memory/human.md",
+        "kind": "rule",
+        "text": "Doyun wants pull request descriptions to list every command that was run."
+      },
+      {
+        "source": "memory/system.md",
+        "kind": "rule",
+        "text": "Disk budget: keep at least 40 GB free on /"
+      },
+      {
+        "source": "memory/system.md",
+        "kind": "rule",
+        "text": "Do not install global npm packages; use pnpm dlx instead."
+      },
+      {
+        "source": "memory/system.md",
+        "kind": "buried",
+        "text": "scripts/reset-db.sh drops the staging database without asking for confirmation."
+      },
+      {
+        "source": "monitors/registry.json",
+        "kind": "pending",
+        "text": "\"name\": \"checksum soak 4.2.1\""
+      },
+      {
+        "source": "monitors/registry.json",
+        "kind": "rule",
+        "text": "\"rearm_after_restart\": true"
+      },
+      {
+        "source": "runbooks/deploy-freeze.md",
+        "kind": "rule",
+        "text": "Freeze window: 2026-10-04T00:00+09:00 to 2026-10-05T23:59+09:00"
+      },
+      {
+        "source": "runbooks/deploy-freeze.md",
+        "kind": "rule",
+        "text": "RULE F1: No production deploys; staging deploys are still allowed."
+      },
+      {
+        "source": "runbooks/deploy-freeze.md",
+        "kind": "rule",
+        "text": "RULE F2: A hotfix needs written approval from the exception approver in the release channel."
+      },
+      {
+        "source": "runbooks/deploy-freeze.md",
+        "kind": "first_step",
+        "text": "First deploy: kestrel-sync 4.2.1 on 2026-10-06, only after the 6-hour soak test passes"
+      },
+      {
+        "source": "runbooks/deploy-freeze.md",
+        "kind": "boundary",
+        "text": "Re-enable auto-merge on mon-07 only if Doyun explicitly asks for it."
+      }
+    ],
+    "questions": [
+      {
+        "id": "s01",
+        "tags": [
+          "global"
+        ],
+        "source": "MODE.md",
+        "section": "Global rules",
+        "field": "Commit language",
+        "answer": "English"
+      },
+      {
+        "id": "s02",
+        "tags": [
+          "local_override"
+        ],
+        "source": "MODE.md",
+        "section": "Repository: kestrel-sync",
+        "field": "Commit language",
+        "answer": "English, plus a Korean summary line for release commits only"
+      },
+      {
+        "id": "s03",
+        "tags": [
+          "old_superseded"
+        ],
+        "source": "MODE.md",
+        "section": "Appendix A - retired rules (superseded, kept for audit, do not follow)",
+        "field": "Push policy",
+        "answer": "direct pushes to trunk allowed for typo fixes"
+      },
+      {
+        "id": "s04",
+        "tags": [
+          "current"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-10-01T09:15:00+09:00",
+        "field": "Release target",
+        "answer": "2026-10-06"
+      },
+      {
+        "id": "s05",
+        "tags": [
+          "old_superseded"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-09-28T22:40:00+09:00",
+        "field": "Release target",
+        "answer": "2026-10-03"
+      },
+      {
+        "id": "s06",
+        "tags": [
+          "current",
+          "list",
+          "pending"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-10-01T09:15:00+09:00",
+        "field": "Pending",
+        "answer": [
+          "bump schema version to 18 in its own pull request",
+          "re-run the checksum soak test for 6 hours (monitor mon-09)",
+          "reply to Ines about the invoice export rounding bug",
+          "carried over from TOP NOTE 2026-09-24: delete tmp-export-0924 after checksum verification"
+        ]
+      },
+      {
+        "id": "s07",
+        "tags": [
+          "current",
+          "list",
+          "first_step"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-10-01T09:15:00+09:00",
+        "field": "First step",
+        "answer": [
+          "read runbooks/deploy-freeze.md before touching trunk",
+          "confirm mon-07 is active in monitors/registry.json",
+          "run make test-fast on trunk"
+        ]
+      },
+      {
+        "id": "s08",
+        "tags": [
+          "abstention",
+          "current"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-10-01T09:15:00+09:00",
+        "field": "Blocking",
+        "answer": null
+      },
+      {
+        "id": "s09",
+        "tags": [
+          "current"
+        ],
+        "source": "handoff.md",
+        "section": "TOP NOTE 2026-10-01T09:15:00+09:00",
+        "field": "Rollback owner",
+        "answer": "Doyun Han"
+      },
+      {
+        "id": "s10",
+        "tags": [
+          "abstention",
+          "fenced_trap"
+        ],
+        "source": "MODE.md",
+        "section": "Example handoff format",
+        "field": "Release target",
+        "answer": null
+      },
+      {
+        "id": "s11",
+        "tags": [
+          "buried"
+        ],
+        "source": "MODE.md",
+        "section": "Escalation",
+        "field": "Finance contact",
+        "answer": "Ines"
+      },
+      {
+        "id": "s12",
+        "tags": [
+          "abstention"
+        ],
+        "source": "memory/persona.md",
+        "section": "Boundaries",
+        "field": "Tone",
+        "answer": null
+      },
+      {
+        "id": "s13",
+        "tags": [
+          "old_superseded"
+        ],
+        "source": "memory/persona.md",
+        "section": "Old persona (2026-06, superseded - kept for audit)",
+        "field": "Name",
+        "answer": "Kestrel-bot"
+      },
+      {
+        "id": "s14",
+        "tags": [
+          "korean"
+        ],
+        "source": "memory/human.md",
+        "section": "Human memory - Doyun Han",
+        "field": "Preferred name",
+        "answer": "도윤"
+      },
+      {
+        "id": "s15",
+        "tags": [
+          "local"
+        ],
+        "source": "memory/human.md",
+        "section": "People",
+        "field": "Marek",
+        "answer": "contractor with read-only access to trunk; access ends 2026-10-31"
+      },
+      {
+        "id": "s16",
+        "tags": [
+          "must_read"
+        ],
+        "source": "runbooks/deploy-freeze.md",
+        "section": "Deploy freeze runbook",
+        "field": "Exception approver",
+        "answer": "Doyun Han"
+      },
+      {
+        "id": "s17",
+        "tags": [
+          "first_step"
+        ],
+        "source": "runbooks/deploy-freeze.md",
+        "section": "After the freeze",
+        "field": "First deploy",
+        "answer": "kestrel-sync 4.2.1 on 2026-10-06, only after the 6-hour soak test passes"
+      },
+      {
+        "id": "s18",
+        "tags": [
+          "duplicated_distinct"
+        ],
+        "source": "memory/system.md",
+        "section": "System memory",
+        "field": "Disk budget",
+        "answer": "keep at least 40 GB free on /"
+      },
+      {
+        "id": "s19",
+        "tags": [
+          "json",
+          "active"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/2/state",
+        "answer": "active"
+      },
+      {
+        "id": "s20",
+        "tags": [
+          "json",
+          "retired"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/0/state",
+        "answer": "retired"
+      },
+      {
+        "id": "s21",
+        "tags": [
+          "json",
+          "number"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/1/threshold_gb",
+        "answer": 40
+      },
+      {
+        "id": "s22",
+        "tags": [
+          "json",
+          "boolean"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/2/auto_merge",
+        "answer": false
+      },
+      {
+        "id": "s23",
+        "tags": [
+          "json",
+          "boolean"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/rules/rearm_after_restart",
+        "answer": true
+      },
+      {
+        "id": "s24",
+        "tags": [
+          "json",
+          "abstention"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/1/auto_merge",
+        "answer": null
+      },
+      {
+        "id": "s25",
+        "tags": [
+          "json",
+          "retired"
+        ],
+        "source": "monitors/registry.json",
+        "json_pointer": "/monitors/3/reason",
+        "answer": "4.2.0 abandoned"
+      }
+    ]
+  }
+}

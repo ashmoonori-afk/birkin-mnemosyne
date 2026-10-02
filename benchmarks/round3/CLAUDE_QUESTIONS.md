@@ -4,7 +4,18 @@ NEED_CLAUDE_QUESTIONS: author a new independent held-out test set. Do not read
 `frozen_sol.json`, production source, practice cases, results or implementation.
 The available Claude CLI is not logged in; the omo Anthropic provider has no key.
 
-Return JSON at `benchmarks/round3/frozen_claude.json`:
+The per-feature specifications are authoritative. Deliver independently
+authored data at these paths:
+
+- Required consolidation: `frozen_claude_consolidation.json`, following
+  `spec_consolidation_claude.md`.
+- Required complete startup: `frozen_claude_startup.json`, following
+  `spec_startup_claude.md`.
+- Optional supplemental excerpts: `frozen_claude_identity.json`, following
+  `spec_identity_claude.md`.
+
+The former combined `frozen_claude.json` destination is superseded. The
+consolidation and supplemental schemas below describe separate files:
 
 - `author`: exact actual Claude model ID, not a claimed proxy identity.
 - `split`: `test`; `version`: `1`.
