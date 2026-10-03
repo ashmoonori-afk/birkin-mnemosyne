@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+import os
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from typing import TypedDict
 
 import pytest
 
 from birkin_mnemosyne import startup_compact
-from birkin_mnemosyne.identity_reader import Section, parse_sections
-from birkin_mnemosyne.startup import StartupReader
+from birkin_mnemosyne._startup_syntax import Span, parse_spans
+from birkin_mnemosyne.identity_reader import parse_sections
+from birkin_mnemosyne.startup import StartupBundle, StartupError, StartupReader
 from birkin_mnemosyne.startup_compact import (
     CompactPayload,
     OrderEntry,
@@ -115,11 +119,11 @@ def test_effects_parse_note_sections_once(monkeypatch: pytest.MonkeyPatch) -> No
     newer = len(text[:text.index("## TOP NOTE 2026-10-01")].encode())
     calls: list[str] = []
 
-    def counted(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
+    def counted(text: str, *, startup_labels: bool = False) -> tuple[Span, ...]:
         calls.append(text)
-        return parse_sections(text, startup_labels=startup_labels)
+        return parse_spans(text, startup_labels=startup_labels)
 
-    monkeypatch.setattr(startup_compact, "parse_sections", counted)
+    monkeypatch.setattr(startup_compact, "parse_spans", counted)
     # When effects are derived through the real parser.
     effects = compact_effects(text)
     # Then one parse supplies both effects without changing their byte offsets.
@@ -141,11 +145,11 @@ def test_verifier_parses_each_supplied_source_once(
         payload["order"][0]["superseded"] = []
     calls: list[str] = []
 
-    def counted(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
+    def counted(text: str, *, startup_labels: bool = False) -> tuple[Span, ...]:
         calls.append(text)
-        return parse_sections(text, startup_labels=startup_labels)
+        return parse_spans(text, startup_labels=startup_labels)
 
-    monkeypatch.setattr(startup_compact, "parse_sections", counted)
+    monkeypatch.setattr(startup_compact, "parse_spans", counted)
     # When independently verifying against the supplied source snapshot.
     coverage = verify_context(json.dumps(payload), sources)
     # Then each source is parsed once and corruption still fails closed.
@@ -556,3 +560,189 @@ def test_affected_order_follows_actual_reader_source_closure(tmp_path: Path) -> 
     assert [json_record(entry)["path"] for entry in order] == ["MODE.md", "notes.md"]
     order.reverse()
     assert not verify_context(json.dumps(payload), sources).complete
+
+
+@pytest.mark.parametrize("raw", [
+    b"", b"\xef\xbb\xbf", b"# Rules\r\nKeep\r\n\r\nTail",
+    SUPERSESSION_SOURCES[0].encode(),
+])
+def test_reader_actual_formats_preserve_bytes_and_presentation(tmp_path: Path, raw: bytes) -> None:
+    _ = (tmp_path / "notes.md").write_bytes(raw)
+    reader = StartupReader(tmp_path)
+    legacy = reader.read(["notes.md"])
+    compact = reader.read(["notes.md"], compact=True)
+    assert legacy.coverage == compact.coverage
+    assert reader.verify(legacy.context, ["notes.md"]).complete
+    assert reader.verify(compact.context, ["notes.md"]).complete
+    v1 = decode_legacy(legacy.context)
+    v2 = decode_compact(compact.context)
+    assert v1["version"] == 1 and v2["version"] == 2
+    assert v2["files"][0]["text"].encode() == raw
+    entry = v2["order"][0] if v2["order"] else OrderEntry(path="notes.md")
+    assert apply_order(raw.decode(), entry) == "".join(block["text"] for block in v1["blocks"])
+    assert entry.get("superseded", []) == [
+        block["start_byte"] for block in sorted(v1["blocks"], key=lambda block: block["start_byte"])
+        if block["heading"].upper().startswith("TOP NOTE")
+        and block["state"] == "explicitly-superseded"
+    ]
+
+
+def test_reader_closure_follows_literal_refs_and_deduplicates(tmp_path: Path) -> None:
+    _ = (tmp_path / "nested").mkdir()
+    sources = {
+        "MODE.md": b"\xef\xbb\xbf~~~\nMUST READ: missing.md\n~~~\nMUST READ: nested/registry.json\n",
+        "nested/registry.json": b'{"must_read":["notes.md","../MODE.md","notes.md"]}',
+        "nested/notes.md": b"MUST READ: ../empty.md\n",
+        "empty.md": b"",
+    }
+    for path, raw in sources.items():
+        _ = (tmp_path / path).write_bytes(raw)
+    reader = StartupReader(tmp_path)
+    result = reader.read(["MODE.md", "./MODE.md"], compact=True)
+    assert result.context == compact_payload(sources)
+    assert result.coverage.files == 4
+    assert reader.verify(result.context, ["MODE.md"]).complete
+    assert reader.read(["MODE.md"], compact=True).cache_hit
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_reader_same_stat_dependency_changes_and_deletion(tmp_path: Path, compact: bool) -> None:
+    _ = (tmp_path / "MODE.md").write_bytes(b"MUST READ: dependency.md\n")
+    dependency = tmp_path / "dependency.md"
+    _ = dependency.write_bytes(b"# Root\nValue: alpha\n")
+    reader = StartupReader(tmp_path)
+    before = reader.read(["MODE.md"], compact=compact)
+    stat = dependency.stat()
+    _ = dependency.write_bytes(b"# Root\nValue: omega\n")
+    os.utime(dependency, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    after = reader.read(["MODE.md"], compact=compact)
+    assert not after.cache_hit
+    assert "omega" in after.context and "alpha" not in after.context
+    assert not reader.verify(before.context, ["MODE.md"]).complete
+    _ = (tmp_path / "MODE.md").write_bytes(b"# Detached\n")
+    detached = reader.read(["MODE.md"], compact=compact)
+    assert detached.coverage.files == 1 and not detached.cache_hit
+    assert not reader.verify(after.context, ["MODE.md"]).complete
+    _ = (tmp_path / "MODE.md").write_bytes(b"MUST READ: dependency.md\n")
+    dependency.unlink()
+    with pytest.raises(FileNotFoundError):
+        _ = reader.read(["MODE.md"], compact=compact)
+    with pytest.raises(FileNotFoundError):
+        _ = reader.verify(after.context, ["MODE.md"])
+
+
+def test_reader_cache_is_exact_ordered_bytes_and_format_isolated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from birkin_mnemosyne import startup
+
+    _ = (tmp_path / "a.md").write_bytes(b"# A\n")
+    _ = (tmp_path / "b.md").write_bytes(b"# B\n")
+    reader = StartupReader(tmp_path)
+    paths = ["a.md", "b.md"]
+    assert not reader.read(paths).cache_hit
+    assert not reader.read(paths, compact=True).cache_hit
+    assert reader.read(paths).cache_hit
+    assert reader.read(paths, compact=True).cache_hit
+    assert not reader.read(paths[::-1], compact=True).cache_hit
+    assert not reader.read(paths[::-1]).cache_hit
+    assert not reader.verify(reader.read(paths).context, paths[::-1]).complete
+    # A digest collision must not cause an exact-byte cache hit.
+    def collision(_data: bytes) -> str:
+        return "constant"
+
+    monkeypatch.setattr(startup, "digest", collision)
+    _ = (tmp_path / "a.md").write_bytes(b"# Z\n")
+    assert not reader.read(paths[::-1], compact=True).cache_hit
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_verify_takes_one_snapshot_and_never_calls_read(
+    tmp_path: Path, compact: bool, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "notes.md"
+    _ = path.write_bytes(b"# Original\n")
+    context = StartupReader(tmp_path).read(["notes.md"], compact=compact).context
+
+    snapshots: list[dict[str, bytes]] = []
+
+    class SnapshotReader(StartupReader):
+        def snapshot(self, paths: Sequence[str]) -> dict[str, bytes]:
+            sources = super()._sources(paths)
+            snapshots.append(sources)
+            _ = path.write_bytes(b"# Changed\n")
+            return sources
+
+    def forbidden(paths: Sequence[str], *, compact: bool = False) -> StartupBundle:
+        raise AssertionError(f"verify must not call read: {paths}, compact={compact}")
+
+    reader = SnapshotReader(tmp_path)
+    monkeypatch.setattr(reader, "_sources", reader.snapshot)
+    monkeypatch.setattr(reader, "read", forbidden)
+    assert reader.verify(context, ["notes.md"]).complete
+    assert len(snapshots) == 1
+    assert not reader.verify(context, ["notes.md"]).complete
+    assert len(snapshots) == 2
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("mutation", ["bytes", "order", "state"])
+def test_reader_verify_rejects_actual_payload_corruption(
+    tmp_path: Path, compact: bool, mutation: str,
+) -> None:
+    _ = (tmp_path / "notes.md").write_bytes(SUPERSESSION_SOURCES[0].encode())
+    reader = StartupReader(tmp_path)
+    payload = decode_json(reader.read(["notes.md"], compact=compact).context)
+    if compact:
+        if mutation == "bytes":
+            json_record(json_list(payload["files"])[0])["text"] = "wrong"
+        else:
+            entry = json_record(json_list(payload["order"])[0])
+            entry["reorder" if mutation == "order" else "superseded"] = []
+    else:
+        blocks = json_list(payload["blocks"])
+        if mutation == "order":
+            blocks.reverse()
+        else:
+            json_record(blocks[0])["text" if mutation == "bytes" else "state"] = "wrong"
+    assert not reader.verify(json.dumps(payload), ["notes.md"]).complete
+
+
+@pytest.mark.parametrize("kind", ["file", "bundle", "count", "escape"])
+def test_compact_reader_preserves_safety_budgets(tmp_path: Path, kind: str) -> None:
+    paths = ["a.md"]
+    if kind == "file":
+        _ = (tmp_path / "a.md").write_bytes(b"x" * 1_048_577)
+    elif kind == "bundle":
+        paths = ["a.md", "b.md", "c.md"]
+        for name in paths:
+            _ = (tmp_path / name).write_bytes(b"x" * 1_048_576)
+    elif kind == "count":
+        paths = [f"{i}.md" for i in range(65)]
+        for name in paths:
+            _ = (tmp_path / name).write_bytes(b"")
+    else:
+        paths = ["../escape.md"]
+    with pytest.raises(StartupError, match="budget|outside"):
+        _ = StartupReader(tmp_path).read(paths, compact=True)
+
+
+def test_concurrent_reader_formats_are_serialized_and_independent(tmp_path: Path) -> None:
+    _ = (tmp_path / "notes.md").write_bytes(SUPERSESSION_SOURCES[0].encode())
+    reader = StartupReader(tmp_path)
+    barrier = Barrier(4, timeout=5)
+
+    def run(compact: bool) -> StartupBundle:
+        _ = barrier.wait()
+        result = reader.read(["notes.md"], compact=compact)
+        assert reader.verify(result.context, ["notes.md"]).complete
+        return result
+
+    modes = [False, True, False, True]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(run, compact) for compact in modes]
+        results = [future.result(timeout=10) for future in futures]
+    for compact in (False, True):
+        matching = [result for mode, result in zip(modes, results) if mode == compact]
+        assert matching[0].context == matching[1].context
+        assert sorted(result.cache_hit for result in matching) == [False, True]

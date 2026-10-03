@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TypeAlias, TypedDict
 
+from ._startup_root_order import root_payload_errors
 from .startup_compact import compact_effects
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
@@ -194,6 +195,10 @@ def verify_context(context: str, sources: Mapping[str, bytes]) -> Coverage:
     nbytes = sum(len(raw) for raw in sources.values())
     try:
         probe = _strict_decode(context)
+        if isinstance(probe, dict) and "version" not in probe:
+            errors.extend(root_payload_errors(probe, sources))
+            return Coverage(not errors and bool(sources), len(sources), nlines,
+                            nbytes, tuple(errors))
         if isinstance(probe, dict) and _int(probe.get("version")) and probe["version"] == 2:
             errors.extend(_verify_compact(probe, sources))
             return Coverage(not errors and bool(sources), len(sources), nlines,

@@ -22,10 +22,9 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from datetime import datetime
 from typing import TypedDict
 
-from .identity_reader import parse_sections
+from ._startup_syntax import parse_spans
 
 NORMAL_STATE = "source"
 SUPERSEDED_STATE = "explicitly-superseded"
@@ -60,7 +59,7 @@ class _Unit(TypedDict):
     heading: str
 
 
-def _spans(text: str) -> list[tuple[int, int, str, int]]:
+def byte_spans(text: str) -> list[tuple[int, int, str, int]]:
     """Byte spans for every preamble/heading span, in source order."""
     offsets = [0]
     for line in text.splitlines(keepends=True):
@@ -68,11 +67,10 @@ def _spans(text: str) -> list[tuple[int, int, str, int]]:
     lines = text.splitlines(keepends=True)
     spans: list[tuple[int, int, str, int]] = []
     cursor = 0
-    for section in parse_sections(text, startup_labels=True):
-        begin, end = section.line_start - 1, section.line_end
+    for begin, end, heading, level in parse_spans(text, startup_labels=True):
         if begin > cursor:
             spans.append((cursor, begin, "Source preamble", 0))
-        spans.append((begin, end, section.heading, section.level))
+        spans.append((begin, end, heading, level))
         cursor = end
     if cursor < len(lines) or not spans:
         spans.append((cursor, len(lines), "Source remainder", 0))
@@ -80,7 +78,7 @@ def _spans(text: str) -> list[tuple[int, int, str, int]]:
             for begin, end, heading, level in spans]
 
 
-def _units(spans: list[tuple[int, int, str, int]]) -> list[_Unit]:
+def note_units(spans: list[tuple[int, int, str, int]]) -> list[_Unit]:
     """Byte partition: note groups (root + descendants) and plain spans."""
     units: list[_Unit] = []
     active: int | None = None
@@ -100,15 +98,27 @@ def _units(spans: list[tuple[int, int, str, int]]) -> list[_Unit]:
     return units
 
 
-def _stamp(heading: str) -> tuple[datetime | None, int]:
+def _stamp(heading: str) -> tuple[str | None, int]:
     match = re.search(_STAMP, heading)
     value = match.group(1) if match else ""
     if not value:
         return None, 0
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")), len(value)
-    except ValueError:
+    if not value.isascii():
         return None, len(value)
+    year, month, day = (int(part) for part in value[:10].split("-"))
+    if year == 0 or not 1 <= month <= 12:
+        return None, len(value)
+    days = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[month - 1]
+    if month == 2 and year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):
+        days += 1
+    if not 1 <= day <= days:
+        return None, len(value)
+    if len(value) > 10:
+        time = [int(part) for part in value[11:-1].split(":")]
+        if time[0] > 23 or any(part > 59 for part in time[1:]):
+            return None, len(value)
+    # Valid fixed-width ISO stamps of one precision sort exactly like datetimes.
+    return value, len(value)
 
 
 def _supersession_targets(text: str) -> set[str]:
@@ -131,8 +141,15 @@ def _supersession_targets(text: str) -> set[str]:
 
 def compact_effects(text: str) -> tuple[list[list[int]], list[int]]:
     """Presentation effects for one file: changed note runs and superseded roots."""
-    spans = _spans(text)
-    units = _units(spans)
+    spans = byte_spans(text)
+    units = note_units(spans)
+    return presentation_effects(text, spans, units)
+
+
+def presentation_effects(
+    text: str, spans: list[tuple[int, int, str, int]], units: list[_Unit],
+) -> tuple[list[list[int]], list[int]]:
+    """Derive both effects from one already-acquired primitive partition."""
     notes = [unit for unit in units if unit["note"]]
     if not notes:
         return [], []
@@ -200,7 +217,7 @@ def compact_payload(sources: Mapping[str, bytes]) -> str:
 
 def apply_order(text: str, entry: OrderEntry) -> str:
     """Assemble one file: relocate whole note groups into the declared order."""
-    units = _units(_spans(text))
+    units = note_units(byte_spans(text))
     raw = text.encode("utf-8")
     text_of = {unit["root"]: raw[unit["start"]:unit["end"]].decode("utf-8")
                for unit in units if unit["note"]}
