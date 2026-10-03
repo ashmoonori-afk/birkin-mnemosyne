@@ -1,0 +1,3808 @@
+{
+  "schema_version": 1,
+  "split": "practice",
+  "license": "CC0-1.0",
+  "note": "Round 4 practice protocol. Author rows below are preserved verbatim from the delivered source-blind practice files; no row text, label, rationale or author identity was altered. Tuning and validation topic groups are disjoint per author.",
+  "authors": [
+    {
+      "author": "chatgpt-subscription/gpt-6.1-sol",
+      "authoring": "main Sol self-authored practice before implementation (knows the proposed algorithm; practice, NOT held-out)",
+      "source_blind": "Original practice authored by the main Sol before implementation, without reading frozen question or gold rows. The author knows public requirements and the proposed algorithm; this is practice, not an independent held-out set.",
+      "source_path": ".omo/drafts/round4-sol-practice.json",
+      "source_sha256": "61d59faf31580c402ab2181ead830bb7b90913a05dc44b609cf9505e03fbc508",
+      "topic_groups": [
+        {
+          "id": "t-lantern-cleaning",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-ceramic-glaze",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-hive-water",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-costume-permission",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-origami-translation",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-puppet-translation",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-fiddle-paraphrase",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-rose-current-date",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-mosaic-translation",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-dye-translation",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-stencil-current",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-bonsai-partial",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-clay-different-attribute",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-bell-different-subject",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-spindle-scope",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-lace-translation-negative",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-ink-historical-scope",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-shell-different-project",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-quilt-compatible-actions",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-brush-topic-only",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-mask-unrelated",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-pottery-unit-negative",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-violin-conditional-scope",
+          "partition": "tuning"
+        },
+        {
+          "id": "t-basket-cross-language-negative",
+          "partition": "tuning"
+        },
+        {
+          "id": "v-observatory-shutter",
+          "partition": "validation"
+        },
+        {
+          "id": "v-herb-label",
+          "partition": "validation"
+        },
+        {
+          "id": "v-glass-temperature",
+          "partition": "validation"
+        },
+        {
+          "id": "v-capsule-opening",
+          "partition": "validation"
+        },
+        {
+          "id": "v-terrarium-translation",
+          "partition": "validation"
+        },
+        {
+          "id": "v-bookbinding-translation",
+          "partition": "validation"
+        },
+        {
+          "id": "v-marionette-paraphrase",
+          "partition": "validation"
+        },
+        {
+          "id": "v-fern-current-date",
+          "partition": "validation"
+        },
+        {
+          "id": "v-drum-translation",
+          "partition": "validation"
+        },
+        {
+          "id": "v-resin-translation",
+          "partition": "validation"
+        },
+        {
+          "id": "v-papercut-current",
+          "partition": "validation"
+        },
+        {
+          "id": "v-aquarium-partial",
+          "partition": "validation"
+        },
+        {
+          "id": "v-enamel-different-attribute",
+          "partition": "validation"
+        },
+        {
+          "id": "v-weight-different-subject",
+          "partition": "validation"
+        },
+        {
+          "id": "v-polishing-scope",
+          "partition": "validation"
+        },
+        {
+          "id": "v-banner-translation-negative",
+          "partition": "validation"
+        },
+        {
+          "id": "v-wood-historical-scope",
+          "partition": "validation"
+        },
+        {
+          "id": "v-stone-different-project",
+          "partition": "validation"
+        },
+        {
+          "id": "v-kite-compatible-actions",
+          "partition": "validation"
+        },
+        {
+          "id": "v-chisel-topic-only",
+          "partition": "validation"
+        },
+        {
+          "id": "v-wax-unrelated",
+          "partition": "validation"
+        },
+        {
+          "id": "v-frame-unit-negative",
+          "partition": "validation"
+        },
+        {
+          "id": "v-sundial-conditional-scope",
+          "partition": "validation"
+        },
+        {
+          "id": "v-tray-cross-language-negative",
+          "partition": "validation"
+        }
+      ],
+      "pairs": [
+        {
+          "id": "t01",
+          "topic_group": "t-lantern-cleaning",
+          "partition": "tuning",
+          "category": "exact",
+          "notes": [
+            {
+              "title": "Lantern care A",
+              "body": "Clean the Cobalt Club lantern lenses with a dry cotton cloth."
+            },
+            {
+              "title": "Lantern care B",
+              "body": "Clean the Cobalt Club lantern lenses with a dry cotton cloth."
+            }
+          ],
+          "related": true,
+          "rationale": "The same applicable instruction is repeated."
+        },
+        {
+          "id": "t02",
+          "topic_group": "t-ceramic-glaze",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Glaze rules",
+              "body": "Label each Juniper workshop glaze jar before storage. Keep the label above the fill line."
+            },
+            {
+              "title": "Storage checklist",
+              "body": "Label each Juniper workshop glaze jar before storage. Close the cupboard after the last class."
+            }
+          ],
+          "related": true,
+          "rationale": "One complete binding instruction overlaps, while other details differ."
+        },
+        {
+          "id": "t03",
+          "topic_group": "t-hive-water",
+          "partition": "tuning",
+          "category": "numeric-current",
+          "notes": [
+            {
+              "title": "Hive water old",
+              "body": "The Amber hive water tray holds 250 milliliters."
+            },
+            {
+              "title": "Hive water new",
+              "body": "The Amber hive water tray holds 400 milliliters."
+            }
+          ],
+          "related": true,
+          "rationale": "Different values for the same tray capacity require review."
+        },
+        {
+          "id": "t04",
+          "topic_group": "t-costume-permission",
+          "partition": "tuning",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "Costume display",
+              "body": "Visitors may touch the displayed Indigo costume."
+            },
+            {
+              "title": "Costume protection",
+              "body": "Visitors may not touch the displayed Indigo costume."
+            }
+          ],
+          "related": true,
+          "rationale": "The same permission is explicitly negated."
+        },
+        {
+          "id": "t05",
+          "topic_group": "t-origami-translation",
+          "partition": "tuning",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Paper size",
+              "body": "The origami club uses square paper for every crane."
+            },
+            {
+              "title": "종이 규칙",
+              "body": "종이접기 모임에서는 모든 학을 접을 때 정사각형 종이를 사용한다."
+            }
+          ],
+          "related": true,
+          "rationale": "The Korean note translates the same paper-shape rule."
+        },
+        {
+          "id": "t06",
+          "topic_group": "t-puppet-translation",
+          "partition": "tuning",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "人形の保管",
+              "body": "布の人形は直射日光を避けて保管する。"
+            },
+            {
+              "title": "Puppet storage",
+              "body": "Store cloth puppets away from direct sunlight."
+            }
+          ],
+          "related": true,
+          "rationale": "The Japanese and English statements give the same storage instruction."
+        },
+        {
+          "id": "t07",
+          "topic_group": "t-fiddle-paraphrase",
+          "partition": "tuning",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "Fiddle bow care",
+              "body": "After rehearsal, loosen the hair of the Willow quartet's bow."
+            },
+            {
+              "title": "End of rehearsal",
+              "body": "The Willow players should release the tension on their bow hair when practice finishes."
+            }
+          ],
+          "related": true,
+          "rationale": "Different wording expresses the same post-rehearsal action."
+        },
+        {
+          "id": "t08",
+          "topic_group": "t-rose-current-date",
+          "partition": "tuning",
+          "category": "numeric-current",
+          "notes": [
+            {
+              "title": "Rose show notice",
+              "body": "The Meadow rose exhibition opens on 2027-05-14."
+            },
+            {
+              "title": "Updated rose notice",
+              "body": "The Meadow rose exhibition opens on 2027-05-21."
+            }
+          ],
+          "related": true,
+          "rationale": "The opening date differs for one exhibition."
+        },
+        {
+          "id": "t09",
+          "topic_group": "t-mosaic-translation",
+          "partition": "tuning",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Mosaikfugen",
+              "body": "Die Fugen des Wandmosaiks sollen hellgrau sein."
+            },
+            {
+              "title": "Mosaic grout",
+              "body": "The wall mosaic should use light gray grout."
+            }
+          ],
+          "related": true,
+          "rationale": "The German and English notes specify the same grout color."
+        },
+        {
+          "id": "t10",
+          "topic_group": "t-dye-translation",
+          "partition": "tuning",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Teñido",
+              "body": "Usa guantes al manipular el tinte violeta."
+            },
+            {
+              "title": "染料操作",
+              "body": "处理紫色染料时要戴手套。"
+            }
+          ],
+          "related": true,
+          "rationale": "Both notes require gloves for handling violet dye."
+        },
+        {
+          "id": "t11",
+          "topic_group": "t-stencil-current",
+          "partition": "tuning",
+          "category": "changed-value",
+          "notes": [
+            {
+              "title": "Stencil material",
+              "body": "The Harbor workshop stencil material is brass."
+            },
+            {
+              "title": "Stencil revision",
+              "body": "The Harbor workshop stencil material is acetate."
+            }
+          ],
+          "related": true,
+          "rationale": "A material selection changes for the same workshop stencil."
+        },
+        {
+          "id": "t12",
+          "topic_group": "t-bonsai-partial",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "盆栽手入れ",
+              "body": "この盆栽は朝に水をやる。冬は肥料を与えない。"
+            },
+            {
+              "title": "盆栽予定",
+              "body": "この盆栽は朝に水をやる。日曜日に枝を点検する。"
+            }
+          ],
+          "related": true,
+          "rationale": "The same watering instruction overlaps, with unrelated additional tasks."
+        },
+        {
+          "id": "t13",
+          "topic_group": "t-clay-different-attribute",
+          "partition": "tuning",
+          "category": "same-topic-negative",
+          "notes": [
+            {
+              "title": "Clay color",
+              "body": "The Saffron studio clay is red."
+            },
+            {
+              "title": "Clay storage",
+              "body": "The Saffron studio clay is kept in a sealed bucket."
+            }
+          ],
+          "related": false,
+          "rationale": "Color and storage are independent compatible attributes."
+        },
+        {
+          "id": "t14",
+          "topic_group": "t-bell-different-subject",
+          "partition": "tuning",
+          "category": "same-number-negative",
+          "notes": [
+            {
+              "title": "Tower bell",
+              "body": "The North tower bell weighs 18 kilograms."
+            },
+            {
+              "title": "Courtyard bell",
+              "body": "The South courtyard bell weighs 18 kilograms."
+            }
+          ],
+          "related": false,
+          "rationale": "Equal weights belong to different bells."
+        },
+        {
+          "id": "t15",
+          "topic_group": "t-spindle-scope",
+          "partition": "tuning",
+          "category": "different-scope-negative",
+          "notes": [
+            {
+              "title": "Beginner spindle",
+              "body": "In the beginner course, the spindle speed is 600 revolutions per minute."
+            },
+            {
+              "title": "Advanced spindle",
+              "body": "In the advanced course, the spindle speed is 900 revolutions per minute."
+            }
+          ],
+          "related": false,
+          "rationale": "Different course scopes permit different speeds."
+        },
+        {
+          "id": "t16",
+          "topic_group": "t-lace-translation-negative",
+          "partition": "tuning",
+          "category": "translation-negative",
+          "notes": [
+            {
+              "title": "Lace washing",
+              "body": "Wash the lace curtains by hand."
+            },
+            {
+              "title": "레이스 보관",
+              "body": "레이스 커튼은 평평하게 접어 보관한다."
+            }
+          ],
+          "related": false,
+          "rationale": "Washing and storage are separate instructions, not translated duplicates."
+        },
+        {
+          "id": "t17",
+          "topic_group": "t-ink-historical-scope",
+          "partition": "tuning",
+          "category": "historical-negative",
+          "notes": [
+            {
+              "title": "Archived ink test",
+              "body": "During the abandoned 2025 trial, the ink blend was green."
+            },
+            {
+              "title": "Current ink blend",
+              "body": "For the active 2027 edition, the ink blend is blue."
+            }
+          ],
+          "related": false,
+          "rationale": "Explicitly different trials and dates describe different applicable scopes."
+        },
+        {
+          "id": "t18",
+          "topic_group": "t-shell-different-project",
+          "partition": "tuning",
+          "category": "shared-title-negative",
+          "notes": [
+            {
+              "title": "Shell catalog A",
+              "body": "The Cedar museum shell catalog lists 80 species."
+            },
+            {
+              "title": "Shell catalog B",
+              "body": "The Maple school shell catalog lists 80 species."
+            }
+          ],
+          "related": false,
+          "rationale": "Two independent catalogs happen to have equal counts."
+        },
+        {
+          "id": "t19",
+          "topic_group": "t-quilt-compatible-actions",
+          "partition": "tuning",
+          "category": "same-subject-negative",
+          "notes": [
+            {
+              "title": "Quilt corner",
+              "body": "Attach a hanging loop to the upper corner of the teal quilt."
+            },
+            {
+              "title": "Quilt label",
+              "body": "Attach a maker label to the lower corner of the teal quilt."
+            }
+          ],
+          "related": false,
+          "rationale": "Different attachments and corners are compatible tasks."
+        },
+        {
+          "id": "t20",
+          "topic_group": "t-brush-topic-only",
+          "partition": "tuning",
+          "category": "topic-only-negative",
+          "notes": [
+            {
+              "title": "Brush purchase",
+              "body": "Buy a soft brush for the model landscape."
+            },
+            {
+              "title": "Brush history",
+              "body": "The exhibition describes how brush making developed in the region."
+            }
+          ],
+          "related": false,
+          "rationale": "A purchase instruction and historical description merely share a topic."
+        },
+        {
+          "id": "t21",
+          "topic_group": "t-mask-unrelated",
+          "partition": "tuning",
+          "category": "unrelated-negative",
+          "notes": [
+            {
+              "title": "Mask lining",
+              "body": "The festival mask has a felt lining."
+            },
+            {
+              "title": "Seed exchange",
+              "body": "Bring three envelopes to the seed exchange."
+            }
+          ],
+          "related": false,
+          "rationale": "The notes concern unrelated activities."
+        },
+        {
+          "id": "t22",
+          "topic_group": "t-pottery-unit-negative",
+          "partition": "tuning",
+          "category": "different-attribute-negative",
+          "notes": [
+            {
+              "title": "Pot diameter",
+              "body": "The practice pot diameter is 12 centimeters."
+            },
+            {
+              "title": "Pot height",
+              "body": "The practice pot height is 12 centimeters."
+            }
+          ],
+          "related": false,
+          "rationale": "Equal values describe distinct dimensions."
+        },
+        {
+          "id": "t23",
+          "topic_group": "t-violin-conditional-scope",
+          "partition": "tuning",
+          "category": "conditional-negative",
+          "notes": [
+            {
+              "title": "Violin indoor case",
+              "body": "When indoors, leave the rehearsal violin case open."
+            },
+            {
+              "title": "Violin outdoor case",
+              "body": "When outdoors, keep the rehearsal violin case closed."
+            }
+          ],
+          "related": false,
+          "rationale": "Different explicit conditions permit opposite case states."
+        },
+        {
+          "id": "t24",
+          "topic_group": "t-basket-cross-language-negative",
+          "partition": "tuning",
+          "category": "translation-negative",
+          "notes": [
+            {
+              "title": "Cesta de mimbre",
+              "body": "La cesta de mimbre lleva un asa de cuero."
+            },
+            {
+              "title": "竹篮",
+              "body": "竹篮有一个木制提手。"
+            }
+          ],
+          "related": false,
+          "rationale": "Different basket materials and handles are different objects, not a conflict."
+        },
+        {
+          "id": "v01",
+          "topic_group": "v-observatory-shutter",
+          "partition": "validation",
+          "category": "exact",
+          "notes": [
+            {
+              "title": "Shutter rule A",
+              "body": "Close the small observatory shutter before cleaning the mirror."
+            },
+            {
+              "title": "Shutter rule B",
+              "body": "Close the small observatory shutter before cleaning the mirror."
+            }
+          ],
+          "related": true,
+          "rationale": "The same applicable instruction is repeated."
+        },
+        {
+          "id": "v02",
+          "topic_group": "v-herb-label",
+          "partition": "validation",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Herb planting",
+              "body": "Write the sowing date on each Basil Lane herb label. Use waterproof ink."
+            },
+            {
+              "title": "Herb inventory",
+              "body": "Write the sowing date on each Basil Lane herb label. Count spare pots afterward."
+            }
+          ],
+          "related": true,
+          "rationale": "The same labeling assertion overlaps amid different additional tasks."
+        },
+        {
+          "id": "v03",
+          "topic_group": "v-glass-temperature",
+          "partition": "validation",
+          "category": "numeric-current",
+          "notes": [
+            {
+              "title": "Glass annealing",
+              "body": "The Pearl glass annealing temperature is 510 degrees Celsius."
+            },
+            {
+              "title": "Glass revision",
+              "body": "The Pearl glass annealing temperature is 525 degrees Celsius."
+            }
+          ],
+          "related": true,
+          "rationale": "The same process temperature has two values."
+        },
+        {
+          "id": "v04",
+          "topic_group": "v-capsule-opening",
+          "partition": "validation",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "Capsule opening",
+              "body": "Open the public time capsule during the ceremony."
+            },
+            {
+              "title": "Capsule preservation",
+              "body": "Do not open the public time capsule during the ceremony."
+            }
+          ],
+          "related": true,
+          "rationale": "One ceremonial instruction explicitly contradicts the other."
+        },
+        {
+          "id": "v05",
+          "topic_group": "v-terrarium-translation",
+          "partition": "validation",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Terrarium lid",
+              "body": "Leave a small gap in the terrarium lid for ventilation."
+            },
+            {
+              "title": "테라리움 뚜껑",
+              "body": "환기를 위해 테라리움 뚜껑에 작은 틈을 남겨 둔다."
+            }
+          ],
+          "related": true,
+          "rationale": "The Korean and English notes express the same ventilation rule."
+        },
+        {
+          "id": "v06",
+          "topic_group": "v-bookbinding-translation",
+          "partition": "validation",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "製本の乾燥",
+              "body": "製本した本は平らな場所で一晩乾かす。"
+            },
+            {
+              "title": "Binding drying",
+              "body": "Let the newly bound book dry overnight on a flat surface."
+            }
+          ],
+          "related": true,
+          "rationale": "The Japanese and English notes give the same drying instruction."
+        },
+        {
+          "id": "v07",
+          "topic_group": "v-marionette-paraphrase",
+          "partition": "validation",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "Marionette strings",
+              "body": "Untangle the Copper theater marionette strings after every show."
+            },
+            {
+              "title": "Show closing tasks",
+              "body": "Each Copper performance should end with the puppet's control cords straightened and free of knots."
+            }
+          ],
+          "related": true,
+          "rationale": "Different words specify the same post-performance untangling task."
+        },
+        {
+          "id": "v08",
+          "topic_group": "v-fern-current-date",
+          "partition": "validation",
+          "category": "numeric-current",
+          "notes": [
+            {
+              "title": "Fern sale",
+              "body": "The Brook fern sale begins on 2027-09-03."
+            },
+            {
+              "title": "Fern sale revision",
+              "body": "The Brook fern sale begins on 2027-09-10."
+            }
+          ],
+          "related": true,
+          "rationale": "The same sale has conflicting start dates."
+        },
+        {
+          "id": "v09",
+          "topic_group": "v-drum-translation",
+          "partition": "validation",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Trommelfell",
+              "body": "Das Fell der kleinen Trommel soll aus Ziegenhaut sein."
+            },
+            {
+              "title": "Drum skin",
+              "body": "The small drum should have a goatskin head."
+            }
+          ],
+          "related": true,
+          "rationale": "The German and English material selections agree."
+        },
+        {
+          "id": "v10",
+          "topic_group": "v-resin-translation",
+          "partition": "validation",
+          "category": "translation",
+          "notes": [
+            {
+              "title": "Resina",
+              "body": "Ventila la sala mientras mezclas la resina transparente."
+            },
+            {
+              "title": "树脂操作",
+              "body": "混合透明树脂时要给房间通风。"
+            }
+          ],
+          "related": true,
+          "rationale": "Both notes require ventilation while mixing clear resin."
+        },
+        {
+          "id": "v11",
+          "topic_group": "v-papercut-current",
+          "partition": "validation",
+          "category": "changed-value",
+          "notes": [
+            {
+              "title": "Papercut backing",
+              "body": "The Orchard display backing is cream cardstock."
+            },
+            {
+              "title": "Papercut revision",
+              "body": "The Orchard display backing is black cardstock."
+            }
+          ],
+          "related": true,
+          "rationale": "One display backing has a changed color selection."
+        },
+        {
+          "id": "v12",
+          "topic_group": "v-aquarium-partial",
+          "partition": "validation",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "水族箱日程",
+              "body": "每天早上检查这个水族箱的过滤器。周末清理玻璃。"
+            },
+            {
+              "title": "水族箱提醒",
+              "body": "每天早上检查这个水族箱的过滤器。每周记录水温。"
+            }
+          ],
+          "related": true,
+          "rationale": "The complete daily filter-check assertion overlaps."
+        },
+        {
+          "id": "v13",
+          "topic_group": "v-enamel-different-attribute",
+          "partition": "validation",
+          "category": "same-topic-negative",
+          "notes": [
+            {
+              "title": "Enamel color",
+              "body": "The Pebble studio enamel is yellow."
+            },
+            {
+              "title": "Enamel storage",
+              "body": "The Pebble studio enamel is kept in a lidded tray."
+            }
+          ],
+          "related": false,
+          "rationale": "Color and storage are independent compatible attributes."
+        },
+        {
+          "id": "v14",
+          "topic_group": "v-weight-different-subject",
+          "partition": "validation",
+          "category": "same-number-negative",
+          "notes": [
+            {
+              "title": "Counterweight",
+              "body": "The East stage counterweight weighs 24 kilograms."
+            },
+            {
+              "title": "Anchor block",
+              "body": "The West garden anchor block weighs 24 kilograms."
+            }
+          ],
+          "related": false,
+          "rationale": "Equal weights refer to different objects and places."
+        },
+        {
+          "id": "v15",
+          "topic_group": "v-polishing-scope",
+          "partition": "validation",
+          "category": "different-scope-negative",
+          "notes": [
+            {
+              "title": "Soft stone",
+              "body": "For soft stone, the polishing wheel speed is 800 revolutions per minute."
+            },
+            {
+              "title": "Hard stone",
+              "body": "For hard stone, the polishing wheel speed is 1200 revolutions per minute."
+            }
+          ],
+          "related": false,
+          "rationale": "Different materials have independently applicable speeds."
+        },
+        {
+          "id": "v16",
+          "topic_group": "v-banner-translation-negative",
+          "partition": "validation",
+          "category": "translation-negative",
+          "notes": [
+            {
+              "title": "Banner washing",
+              "body": "Wash the fabric banner in cold water."
+            },
+            {
+              "title": "현수막 보관",
+              "body": "천으로 만든 현수막은 말아서 보관한다."
+            }
+          ],
+          "related": false,
+          "rationale": "Washing and storage do not repeat the same assertion."
+        },
+        {
+          "id": "v17",
+          "topic_group": "v-wood-historical-scope",
+          "partition": "validation",
+          "category": "historical-negative",
+          "notes": [
+            {
+              "title": "Former wood sample",
+              "body": "In the retired 2024 prototype, the carving wood was birch."
+            },
+            {
+              "title": "Current wood sample",
+              "body": "In the commissioned 2028 sculpture, the carving wood is walnut."
+            }
+          ],
+          "related": false,
+          "rationale": "Different explicitly identified artifacts have different materials."
+        },
+        {
+          "id": "v18",
+          "topic_group": "v-stone-different-project",
+          "partition": "validation",
+          "category": "shared-title-negative",
+          "notes": [
+            {
+              "title": "Stone inventory A",
+              "body": "The Elm geology club inventory lists 55 specimens."
+            },
+            {
+              "title": "Stone inventory B",
+              "body": "The Ash art school inventory lists 55 specimens."
+            }
+          ],
+          "related": false,
+          "rationale": "Independent inventories happen to have equal counts."
+        },
+        {
+          "id": "v19",
+          "topic_group": "v-kite-compatible-actions",
+          "partition": "validation",
+          "category": "same-subject-negative",
+          "notes": [
+            {
+              "title": "Kite spine",
+              "body": "Attach a bamboo spine to the blue kite."
+            },
+            {
+              "title": "Kite tail",
+              "body": "Attach a ribbon tail to the blue kite."
+            }
+          ],
+          "related": false,
+          "rationale": "A spine and tail are compatible separate components."
+        },
+        {
+          "id": "v20",
+          "topic_group": "v-chisel-topic-only",
+          "partition": "validation",
+          "category": "topic-only-negative",
+          "notes": [
+            {
+              "title": "Chisel purchase",
+              "body": "Buy a narrow chisel for the relief carving."
+            },
+            {
+              "title": "Chisel history",
+              "body": "The lecture explains the historical development of chisels."
+            }
+          ],
+          "related": false,
+          "rationale": "A tool purchase and historical lecture share only a topic."
+        },
+        {
+          "id": "v21",
+          "topic_group": "v-wax-unrelated",
+          "partition": "validation",
+          "category": "unrelated-negative",
+          "notes": [
+            {
+              "title": "Wax seal",
+              "body": "The ceremonial wax seal is oval."
+            },
+            {
+              "title": "Community orchard",
+              "body": "Bring two baskets to the community harvest."
+            }
+          ],
+          "related": false,
+          "rationale": "The activities and objects are unrelated."
+        },
+        {
+          "id": "v22",
+          "topic_group": "v-frame-unit-negative",
+          "partition": "validation",
+          "category": "different-attribute-negative",
+          "notes": [
+            {
+              "title": "Frame width",
+              "body": "The demonstration frame width is 35 centimeters."
+            },
+            {
+              "title": "Frame depth",
+              "body": "The demonstration frame depth is 35 centimeters."
+            }
+          ],
+          "related": false,
+          "rationale": "Equal dimensions refer to different attributes."
+        },
+        {
+          "id": "v23",
+          "topic_group": "v-sundial-conditional-scope",
+          "partition": "validation",
+          "category": "conditional-negative",
+          "notes": [
+            {
+              "title": "Sundial summer cover",
+              "body": "During summer demonstrations, leave the sundial uncovered."
+            },
+            {
+              "title": "Sundial winter cover",
+              "body": "During winter storage, keep the sundial covered."
+            }
+          ],
+          "related": false,
+          "rationale": "Different conditions make the opposite states compatible."
+        },
+        {
+          "id": "v24",
+          "topic_group": "v-tray-cross-language-negative",
+          "partition": "validation",
+          "category": "translation-negative",
+          "notes": [
+            {
+              "title": "Bandeja de metal",
+              "body": "La bandeja de metal tiene un borde de goma."
+            },
+            {
+              "title": "木托盘",
+              "body": "木托盘有一个软木边缘。"
+            }
+          ],
+          "related": false,
+          "rationale": "Different trays have different edge materials, not conflicting assertions."
+        }
+      ],
+      "license": "CC0-1.0"
+    },
+    {
+      "author": "anthropic-subscription/claude-opus-5-5",
+      "authoring": "independently authored source-blind practice from .omo/drafts/round4-claude-practice-spec.md (model-authored; practice, NOT held-out)",
+      "source_blind": true,
+      "source_path": ".omo/drafts/round4-claude-practice.json",
+      "source_sha256": "cd24ed0509428f2a9d2738102cdbdde91e3b7714da7186998ccca2b355350eac",
+      "topic_groups": [
+        {
+          "id": "lantern-quay-cafe",
+          "partition": "tuning"
+        },
+        {
+          "id": "olmo-street-garden",
+          "partition": "tuning"
+        },
+        {
+          "id": "kestrel-billing-gateway",
+          "partition": "tuning"
+        },
+        {
+          "id": "haneul-dental-checkup",
+          "partition": "tuning"
+        },
+        {
+          "id": "tsubame-bus-line",
+          "partition": "tuning"
+        },
+        {
+          "id": "cuihu-park-boating",
+          "partition": "tuning"
+        },
+        {
+          "id": "ravenscroft-printer",
+          "partition": "tuning"
+        },
+        {
+          "id": "grandmother-miso-soup",
+          "partition": "tuning"
+        },
+        {
+          "id": "drift-hill-astronomy-club",
+          "partition": "tuning"
+        },
+        {
+          "id": "turia-street-flat",
+          "partition": "tuning"
+        },
+        {
+          "id": "pollen-team",
+          "partition": "tuning"
+        },
+        {
+          "id": "geunyuk-gongjang-gym",
+          "partition": "tuning"
+        },
+        {
+          "id": "cerro-blanco-permit",
+          "partition": "tuning"
+        },
+        {
+          "id": "lindenau-library",
+          "partition": "tuning"
+        },
+        {
+          "id": "orders-db-migration",
+          "partition": "tuning"
+        },
+        {
+          "id": "mika-violin",
+          "partition": "tuning"
+        },
+        {
+          "id": "brightwell-hq",
+          "partition": "tuning"
+        },
+        {
+          "id": "dalbit-tea-house",
+          "partition": "tuning"
+        },
+        {
+          "id": "fenwick-bike-storage",
+          "partition": "tuning"
+        },
+        {
+          "id": "grey-estate-car-inspection",
+          "partition": "tuning"
+        },
+        {
+          "id": "living-room-monstera",
+          "partition": "tuning"
+        },
+        {
+          "id": "design-offsite-q3",
+          "partition": "tuning"
+        },
+        {
+          "id": "kongi-dog-walk",
+          "partition": "tuning"
+        },
+        {
+          "id": "shirakawa-ryokan",
+          "partition": "tuning"
+        },
+        {
+          "id": "talleres-brisa-leave",
+          "partition": "tuning"
+        },
+        {
+          "id": "mower-blade",
+          "partition": "tuning"
+        },
+        {
+          "id": "staff-health-checkup",
+          "partition": "tuning"
+        },
+        {
+          "id": "plum-cake",
+          "partition": "tuning"
+        },
+        {
+          "id": "luna-cat-booster",
+          "partition": "tuning"
+        },
+        {
+          "id": "quarterly-report-deadline",
+          "partition": "tuning"
+        },
+        {
+          "id": "holiday-code-freeze",
+          "partition": "tuning"
+        },
+        {
+          "id": "joon-allergy",
+          "partition": "tuning"
+        },
+        {
+          "id": "office-coffee-machine",
+          "partition": "tuning"
+        },
+        {
+          "id": "house-sitter-handover",
+          "partition": "tuning"
+        },
+        {
+          "id": "copper-kettle-bakery",
+          "partition": "validation"
+        },
+        {
+          "id": "arroyo-seco-pool",
+          "partition": "validation"
+        },
+        {
+          "id": "minho-wedding",
+          "partition": "validation"
+        },
+        {
+          "id": "ward-swimming-pool",
+          "partition": "validation"
+        },
+        {
+          "id": "chengdu-business-trip",
+          "partition": "validation"
+        },
+        {
+          "id": "cellar-gas-heating",
+          "partition": "validation"
+        },
+        {
+          "id": "larch-ridge-loop",
+          "partition": "validation"
+        },
+        {
+          "id": "family-budgie",
+          "partition": "validation"
+        },
+        {
+          "id": "block-three-residents",
+          "partition": "validation"
+        },
+        {
+          "id": "falcon-app-release",
+          "partition": "validation"
+        },
+        {
+          "id": "compound-management-fee",
+          "partition": "validation"
+        },
+        {
+          "id": "tv-eichbach-chair",
+          "partition": "validation"
+        },
+        {
+          "id": "orion-meeting-room",
+          "partition": "validation"
+        },
+        {
+          "id": "puerto-alba-taxi",
+          "partition": "validation"
+        },
+        {
+          "id": "commuter-pass",
+          "partition": "validation"
+        },
+        {
+          "id": "kita-sonnenblume",
+          "partition": "validation"
+        },
+        {
+          "id": "calder-lab-access",
+          "partition": "validation"
+        },
+        {
+          "id": "apartment-recycling",
+          "partition": "validation"
+        },
+        {
+          "id": "home-piano-tuning",
+          "partition": "validation"
+        },
+        {
+          "id": "atlas-team-lead",
+          "partition": "validation"
+        },
+        {
+          "id": "neighborhood-association-dues",
+          "partition": "validation"
+        },
+        {
+          "id": "hub-gear-bicycle",
+          "partition": "validation"
+        },
+        {
+          "id": "kitchen-renovation",
+          "partition": "validation"
+        },
+        {
+          "id": "northwind-payroll",
+          "partition": "validation"
+        },
+        {
+          "id": "hotel-mirador-pets",
+          "partition": "validation"
+        },
+        {
+          "id": "grandmother-eightieth",
+          "partition": "validation"
+        },
+        {
+          "id": "pine-cove-marina",
+          "partition": "validation"
+        },
+        {
+          "id": "liederkranz-choir",
+          "partition": "validation"
+        },
+        {
+          "id": "spanish-class-fee",
+          "partition": "validation"
+        },
+        {
+          "id": "harbor-building-fire",
+          "partition": "validation"
+        },
+        {
+          "id": "parcel-holding",
+          "partition": "validation"
+        },
+        {
+          "id": "moving-day",
+          "partition": "validation"
+        },
+        {
+          "id": "leaking-balcony",
+          "partition": "validation"
+        },
+        {
+          "id": "gull-point-lighthouse",
+          "partition": "validation"
+        }
+      ],
+      "pairs": [
+        {
+          "id": "r4c-val-001",
+          "topic_group": "parcel-holding",
+          "partition": "validation",
+          "category": "same-topic-different-attribute",
+          "notes": [
+            {
+              "title": "택배 보관",
+              "body": "경비실 택배 보관은 일주일까지."
+            },
+            {
+              "title": "郵便受けの暗証番号",
+              "body": "郵便受けの暗証番号は管理人に聞く。"
+            }
+          ],
+          "related": false,
+          "rationale": "Mail handling, different attribute."
+        },
+        {
+          "id": "r4c-tun-001",
+          "topic_group": "turia-street-flat",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Alquiler del piso",
+              "body": "El alquiler del piso de la calle Turia es de 950 euros al mes, gastos de comunidad incluidos."
+            },
+            {
+              "title": "Miete Wohnung Calle Turia",
+              "body": "Die Miete für die Wohnung in der Calle Turia beträgt 1.020 Euro im Monat, Gemeinschaftskosten inklusive."
+            }
+          ],
+          "related": true,
+          "rationale": "Same flat, same rent scope, conflicting amounts."
+        },
+        {
+          "id": "r4c-tun-002",
+          "topic_group": "tsubame-bus-line",
+          "partition": "tuning",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "つばめ線の始発",
+              "body": "市営バスつばめ線の始発は朝5時40分に駅前を出る。"
+            },
+            {
+              "title": "朝のつばめ線",
+              "body": "駅前から出るつばめ線の一番早い便は5時40分発です。"
+            }
+          ],
+          "related": true,
+          "rationale": "Paraphrases of the same first-departure time."
+        },
+        {
+          "id": "r4c-tun-003",
+          "topic_group": "kongi-dog-walk",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "콩이 산책",
+              "body": "콩이 산책은 화·목 저녁 7시에 지민 씨가 한다."
+            },
+            {
+              "title": "옆집 보리 산책",
+              "body": "옆집 보리는 매일 아침 7시에 주인 할머니가 산책시킨다."
+            }
+          ],
+          "related": false,
+          "rationale": "Dog walking, but a different dog and walker."
+        },
+        {
+          "id": "r4c-val-002",
+          "topic_group": "hub-gear-bicycle",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Fahrrad Nabe",
+              "body": "Mein Fahrrad hat eine 3-Gang-Nabe."
+            },
+            {
+              "title": "電動自転車の充電",
+              "body": "電動自転車のバッテリーは週に一度充電する。"
+            }
+          ],
+          "related": false,
+          "rationale": "Bicycles, different bike and attribute."
+        },
+        {
+          "id": "r4c-val-003",
+          "topic_group": "tv-eichbach-chair",
+          "partition": "validation",
+          "category": "historical-conflict",
+          "notes": [
+            {
+              "title": "Vorsitz Turnverein",
+              "body": "Von 2010 bis 2018 war Helga Krämer Vorsitzende des TV Eichbach."
+            },
+            {
+              "title": "Chronik TV Eichbach",
+              "body": "Vorsitz: 2010-2015 Helga Krämer, danach bis 2018 Jürgen Peil."
+            }
+          ],
+          "related": true,
+          "rationale": "Same historical period, conflicting claims on who chaired 2015-2018."
+        },
+        {
+          "id": "r4c-val-004",
+          "topic_group": "pine-cove-marina",
+          "partition": "validation",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "Kayak storage",
+              "body": "Kayaks at Pine Cove marina must be off the racks by October 31."
+            },
+            {
+              "title": "Pine Cove reminder",
+              "body": "End of season: clear your kayak from the Pine Cove racks before Oct 31; anything left gets tagged."
+            }
+          ],
+          "related": true,
+          "rationale": "Same deadline reworded."
+        },
+        {
+          "id": "r4c-tun-004",
+          "topic_group": "luna-cat-booster",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Luna's vet visit",
+              "body": "Luna (our cat) gets her booster shot at Riverside Vet on May 9."
+            },
+            {
+              "title": "Vacuna de Luna",
+              "body": "A Luna, nuestra gata, le toca el refuerzo en la clínica Riverside el 16 de mayo."
+            }
+          ],
+          "related": true,
+          "rationale": "Same appointment, conflicting date."
+        },
+        {
+          "id": "r4c-tun-005",
+          "topic_group": "mower-blade",
+          "partition": "tuning",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "Lawn mower blade",
+              "body": "Sharpen the mower blade every spring; the blade bolt takes a 16 mm socket."
+            },
+            {
+              "title": "Mower maintenance",
+              "body": "Mower: blade bolt is 16 mm. Blade gets sharpened once a year, in spring."
+            }
+          ],
+          "related": true,
+          "rationale": "Same maintenance facts reworded."
+        },
+        {
+          "id": "r4c-val-005",
+          "topic_group": "ward-swimming-pool",
+          "partition": "validation",
+          "category": "same-value-different-subject",
+          "notes": [
+            {
+              "title": "区民プールの営業時間",
+              "body": "区民プールは平日九時から二十一時まで。"
+            },
+            {
+              "title": "市民体育館の営業時間",
+              "body": "市民体育館も平日は九時から二十一時まで開いている。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same hours, different facility."
+        },
+        {
+          "id": "r4c-tun-006",
+          "topic_group": "drift-hill-astronomy-club",
+          "partition": "tuning",
+          "category": "unit-conflict",
+          "notes": [
+            {
+              "title": "Club Dobsonian",
+              "body": "The Drift Hill Astronomy Club's Dobsonian has a 254 mm aperture."
+            },
+            {
+              "title": "Equipment list",
+              "body": "Drift Hill club gear: one 12-inch Dobsonian, two pairs of 10x50 binoculars, a red-light kit."
+            }
+          ],
+          "related": true,
+          "rationale": "Same telescope; 12 inches is about 305 mm, which conflicts with 254 mm."
+        },
+        {
+          "id": "r4c-val-006",
+          "topic_group": "larch-ridge-loop",
+          "partition": "validation",
+          "category": "same-value-different-subject",
+          "notes": [
+            {
+              "title": "Larch Ridge elevation",
+              "body": "The Larch Ridge loop gains about 420 m."
+            },
+            {
+              "title": "Cedar Falls trail",
+              "body": "The Cedar Falls trail is 8 miles round trip."
+            }
+          ],
+          "related": false,
+          "rationale": "Different trails and different attributes."
+        },
+        {
+          "id": "r4c-val-007",
+          "topic_group": "falcon-app-release",
+          "partition": "validation",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Falcon 4.2 release notes",
+              "body": "Release 4.2 of Falcon drops support for Android 9 and adds an offline mode."
+            },
+            {
+              "title": "Falcon support FAQ",
+              "body": "Which Android versions are supported? From 4.2 on, Falcon needs Android 10 or newer. How do I reset my password? Use the link on the login screen."
+            }
+          ],
+          "related": true,
+          "rationale": "Both assert the Android 9 drop in 4.2; the FAQ covers other topics too."
+        },
+        {
+          "id": "r4c-val-008",
+          "topic_group": "hotel-mirador-pets",
+          "partition": "validation",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "Mascotas en el Hotel Mirador",
+              "body": "El Hotel Mirador acepta perros pequeños sin coste adicional."
+            },
+            {
+              "title": "Política del Hotel Mirador",
+              "body": "El Hotel Mirador no admite mascotas de ningún tamaño."
+            }
+          ],
+          "related": true,
+          "rationale": "Direct conflict about pets."
+        },
+        {
+          "id": "r4c-val-009",
+          "topic_group": "cellar-gas-heating",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Heizungswartung",
+              "body": "Die Gasheizung im Keller wird jedes Jahr im September gewartet; der Techniker heißt Herr Brandt."
+            },
+            {
+              "title": "보일러 점검",
+              "body": "지하실 가스 난방기는 매년 9월에 점검을 받는다. 기사님 이름은 브란트 씨."
+            }
+          ],
+          "related": true,
+          "rationale": "Same maintenance fact and technician; no shared Latin identifier."
+        },
+        {
+          "id": "r4c-tun-007",
+          "topic_group": "brightwell-hq",
+          "partition": "tuning",
+          "category": "historical-conflict",
+          "notes": [
+            {
+              "title": "Brightwell HQ history",
+              "body": "From 2014 until 2019 Brightwell's headquarters was on Canal Street in Leeds."
+            },
+            {
+              "title": "Brightwell timeline",
+              "body": "Brightwell: founded 2012 in a garage in Otley; moved HQ to Canal Street, Leeds in 2016; moved to Manchester in 2019."
+            }
+          ],
+          "related": true,
+          "rationale": "Same historical period with conflicting start year for the Canal Street HQ (2014 vs 2016)."
+        },
+        {
+          "id": "r4c-val-010",
+          "topic_group": "minho-wedding",
+          "partition": "validation",
+          "category": "date-conflict",
+          "notes": [
+            {
+              "title": "민호 결혼식",
+              "body": "민호 결혼식은 4월 18일 토요일 낮 12시, 라온웨딩홀."
+            },
+            {
+              "title": "청첩장 받음",
+              "body": "민호 청첩장 왔다. 4월 25일 토요일 낮 12시, 라온웨딩홀이래."
+            }
+          ],
+          "related": true,
+          "rationale": "Same wedding, conflicting dates."
+        },
+        {
+          "id": "r4c-tun-008",
+          "topic_group": "turia-street-flat",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Fianza del piso",
+              "body": "La fianza del piso de la calle Turia son dos mensualidades."
+            },
+            {
+              "title": "Wohnung Calle Turia",
+              "body": "Die Wohnung in der Calle Turia hat zwei Schlafzimmer und einen Balkon nach Süden."
+            }
+          ],
+          "related": false,
+          "rationale": "Same flat, different attributes (deposit vs layout)."
+        },
+        {
+          "id": "r4c-tun-009",
+          "topic_group": "cerro-blanco-permit",
+          "partition": "tuning",
+          "category": "different-scope",
+          "notes": [
+            {
+              "title": "Permiso Cerro Blanco, temporada alta",
+              "body": "Entre diciembre y marzo el permiso del Cerro Blanco se reserva con 30 días de antelación."
+            },
+            {
+              "title": "Cerro Blanco fuera de temporada",
+              "body": "De abril a noviembre no hace falta reservar: el permiso se compra en la caseta del guardaparques el mismo día."
+            }
+          ],
+          "related": false,
+          "rationale": "Explicitly different seasons; the rules do not conflict."
+        },
+        {
+          "id": "r4c-tun-010",
+          "topic_group": "joon-allergy",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Allergy note for Joon",
+              "body": "Joon is allergic to peanuts, but tree nuts are fine."
+            },
+            {
+              "title": "준이 알레르기",
+              "body": "준이는 땅콩뿐 아니라 견과류 전부에 알레르기가 있다."
+            }
+          ],
+          "related": true,
+          "rationale": "Same child; conflicting claims about tree nuts while agreeing on peanuts."
+        },
+        {
+          "id": "r4c-val-011",
+          "topic_group": "atlas-team-lead",
+          "partition": "validation",
+          "category": "same-name-different-subject",
+          "notes": [
+            {
+              "title": "Atlas team lead",
+              "body": "Dana Whitfield leads the Atlas data team."
+            },
+            {
+              "title": "Beacon team lead",
+              "body": "The Beacon team is led by Dana Okoye."
+            }
+          ],
+          "related": false,
+          "rationale": "Shared first name, different person and team."
+        },
+        {
+          "id": "r4c-tun-011",
+          "topic_group": "olmo-street-garden",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Riego del huerto de la calle Olmo",
+              "body": "El huerto comunitario de la calle Olmo se riega cada martes y viernes a las 6 de la mañana. Las mangueras se guardan en el cobertizo azul."
+            },
+            {
+              "title": "Notas de la asamblea de mayo",
+              "body": "Se aprobó comprar abono nuevo y pintar la valla. Recordatorio: el riego del huerto de la calle Olmo sigue siendo los martes y viernes a las seis de la mañana. La próxima asamblea es el 14 de junio."
+            }
+          ],
+          "related": true,
+          "rationale": "Both state the same watering schedule for the Olmo street garden; the second note adds unrelated meeting items."
+        },
+        {
+          "id": "r4c-tun-012",
+          "topic_group": "design-offsite-q3",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Offsite budget",
+              "body": "The Q3 design offsite budget is capped at $12,000 including travel."
+            },
+            {
+              "title": "Q3 offsite 预算",
+              "body": "设计团队 Q3 offsite 的预算上限是一万五千美元，含差旅。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same budget cap with conflicting values (12k vs 15k)."
+        },
+        {
+          "id": "r4c-val-012",
+          "topic_group": "ward-swimming-pool",
+          "partition": "validation",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "区民プールの水泳帽",
+              "body": "区民プールでは水泳帽の着用は不要。"
+            },
+            {
+              "title": "プールの利用ルール",
+              "body": "区民プールでは水泳帽を必ず着用すること。忘れたら受付で百円で買える。"
+            }
+          ],
+          "related": true,
+          "rationale": "Direct negation about swim caps at the same pool."
+        },
+        {
+          "id": "r4c-tun-013",
+          "topic_group": "lantern-quay-cafe",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Lantern Quay Café wifi",
+              "body": "The guest wifi password at Lantern Quay Café rotates every Monday; ask at the counter for the current one."
+            },
+            {
+              "title": "Lantern Quay Café pastries",
+              "body": "Croissants at Lantern Quay Café come from the Harrow Lane bakery and are delivered before opening."
+            }
+          ],
+          "related": false,
+          "rationale": "Same café, but one note is about wifi rotation and the other about the pastry supplier; no shared assertion."
+        },
+        {
+          "id": "r4c-val-013",
+          "topic_group": "pine-cove-marina",
+          "partition": "validation",
+          "category": "unrelated",
+          "notes": [
+            {
+              "title": "Pine Cove kayaks",
+              "body": "Pine Cove kayak racks clear on Oct 31."
+            },
+            {
+              "title": "Invoice macro",
+              "body": "The invoice macro breaks if the sheet is renamed."
+            }
+          ],
+          "related": false,
+          "rationale": "Unrelated."
+        },
+        {
+          "id": "r4c-tun-014",
+          "topic_group": "quarterly-report-deadline",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "분기 보고서 마감",
+              "body": "분기 보고서 초안은 금요일 정오까지 낸다."
+            },
+            {
+              "title": "議事録の締め切り",
+              "body": "月例会議の議事録は翌週の月曜までに共有する。"
+            }
+          ],
+          "related": false,
+          "rationale": "Deadlines, but different documents."
+        },
+        {
+          "id": "r4c-tun-015",
+          "topic_group": "staff-health-checkup",
+          "partition": "tuning",
+          "category": "same-topic-different-attribute",
+          "notes": [
+            {
+              "title": "体检前注意",
+              "body": "体检前一天晚上十点以后禁食。"
+            },
+            {
+              "title": "予防接種",
+              "body": "インフルエンザの予防接種は十一月に会社で受けられる。"
+            }
+          ],
+          "related": false,
+          "rationale": "Workplace health, but different events and instructions."
+        },
+        {
+          "id": "r4c-tun-016",
+          "topic_group": "joon-allergy",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Joon allergy",
+              "body": "Joon is allergic to peanuts."
+            },
+            {
+              "title": "하린이 알레르기",
+              "body": "하린이는 복숭아 알레르기가 있다."
+            }
+          ],
+          "related": false,
+          "rationale": "Allergies of different children."
+        },
+        {
+          "id": "r4c-val-014",
+          "topic_group": "compound-management-fee",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "小区物业费",
+              "body": "小区物业费每平方米每月二元。"
+            },
+            {
+              "title": "地下车位租金",
+              "body": "小区地下车位月租三百元。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same compound, different charge."
+        },
+        {
+          "id": "r4c-tun-017",
+          "topic_group": "quarterly-report-deadline",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "보고서 마감",
+              "body": "분기 보고서 초안 마감은 금요일 정오다."
+            },
+            {
+              "title": "報告書の締め切り",
+              "body": "四半期報告書の草案の締め切りは金曜日の正午。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same deadline, Korean vs Japanese, no Latin token."
+        },
+        {
+          "id": "r4c-tun-018",
+          "topic_group": "grandmother-miso-soup",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "祖母の味噌汁の具",
+              "body": "祖母の味噌汁の具は豆腐とわかめだけと決まっている。"
+            },
+            {
+              "title": "外婆的鸡汤",
+              "body": "外婆炖鸡汤一定要放红枣和枸杞，小火炖三个小时。"
+            }
+          ],
+          "related": false,
+          "rationale": "Family soup recipes, but different dishes and different grandmothers."
+        },
+        {
+          "id": "r4c-val-015",
+          "topic_group": "arroyo-seco-pool",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Precio piscina Arroyo Seco",
+              "body": "La entrada de adulto a la piscina de Arroyo Seco cuesta 3,50 euros."
+            },
+            {
+              "title": "Piscina cubierta de Valdeluz",
+              "body": "La piscina cubierta de Valdeluz abre todo el año."
+            }
+          ],
+          "related": false,
+          "rationale": "Pools, but different facilities and attributes."
+        },
+        {
+          "id": "r4c-tun-019",
+          "topic_group": "grandmother-miso-soup",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "祖母の味噌汁",
+              "body": "祖母の味噌汁は、煮干しで出汁を取り、白味噌と赤味噌を二対一で合わせる。"
+            },
+            {
+              "title": "奶奶的味噌汤",
+              "body": "奶奶做味噌汤时用小鱼干熬汤底，白味噌和红味噌按二比一混合。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same recipe facts in Japanese and Chinese with no shared Latin token."
+        },
+        {
+          "id": "r4c-val-016",
+          "topic_group": "neighborhood-association-dues",
+          "partition": "validation",
+          "category": "exact-duplicate",
+          "notes": [
+            {
+              "title": "町内会費",
+              "body": "町内会費は年額三千六百円で、四月に班長が集金に来る。"
+            },
+            {
+              "title": "町内会費",
+              "body": "町内会費は年額三千六百円で、四月に班長が集金に来る。"
+            }
+          ],
+          "related": true,
+          "rationale": "Identical notes."
+        },
+        {
+          "id": "r4c-tun-020",
+          "topic_group": "haneul-dental-checkup",
+          "partition": "tuning",
+          "category": "date-conflict",
+          "notes": [
+            {
+              "title": "치과 예약",
+              "body": "하늘 치과 정기 검진은 11월 12일 오후 3시로 잡혀 있다."
+            },
+            {
+              "title": "검진 일정 변경",
+              "body": "하늘 치과에서 전화가 와서 정기 검진이 11월 19일 오후 3시로 옮겨졌다."
+            }
+          ],
+          "related": true,
+          "rationale": "Same appointment with conflicting dates; the older note needs review."
+        },
+        {
+          "id": "r4c-tun-021",
+          "topic_group": "house-sitter-handover",
+          "partition": "tuning",
+          "category": "boilerplate-slogan",
+          "notes": [
+            {
+              "title": "Residents newsletter, March",
+              "body": "March: spring cleanup on the 22nd. Questions? Reply to this email - we read every message."
+            },
+            {
+              "title": "Residents newsletter, April",
+              "body": "April: the pool opens on the 30th. Questions? Reply to this email - we read every message."
+            }
+          ],
+          "related": false,
+          "rationale": "Only a closing boilerplate line is shared."
+        },
+        {
+          "id": "r4c-tun-022",
+          "topic_group": "talleres-brisa-leave",
+          "partition": "tuning",
+          "category": "value-conflict",
+          "notes": [
+            {
+              "title": "Vacaciones en Talleres Brisa",
+              "body": "En Talleres Brisa cada empleado tiene 23 días laborables de vacaciones al año."
+            },
+            {
+              "title": "Convenio Talleres Brisa",
+              "body": "El convenio vigente fija 25 días laborables de vacaciones al año por empleado en Talleres Brisa."
+            }
+          ],
+          "related": true,
+          "rationale": "Same company and policy with conflicting number of days."
+        },
+        {
+          "id": "r4c-val-017",
+          "topic_group": "block-three-residents",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Reunión de vecinos",
+              "body": "La reunión de vecinos del bloque 3 es el jueves 6 a las 19:30 en el portal."
+            },
+            {
+              "title": "Block 3 residents meeting",
+              "body": "Block 3 residents' meeting: Thursday the 6th, 7:30 pm, in the lobby."
+            }
+          ],
+          "related": true,
+          "rationale": "Same meeting details."
+        },
+        {
+          "id": "r4c-val-018",
+          "topic_group": "copper-kettle-bakery",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Copper Kettle cakes",
+              "body": "Copper Kettle Bakery takes custom cake orders with 72 hours' notice."
+            },
+            {
+              "title": "Copper Kettle rye",
+              "body": "Copper Kettle Bakery's rye loaf contains caraway seeds."
+            }
+          ],
+          "related": false,
+          "rationale": "Same bakery, different attributes."
+        },
+        {
+          "id": "r4c-val-019",
+          "topic_group": "cellar-gas-heating",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Heizungswartung",
+              "body": "Die Gasheizung wird jedes Jahr im September gewartet."
+            },
+            {
+              "title": "에어컨 청소",
+              "body": "거실 에어컨 필터는 매년 6월에 청소한다."
+            }
+          ],
+          "related": false,
+          "rationale": "Home appliance maintenance, different appliance and month."
+        },
+        {
+          "id": "r4c-val-020",
+          "topic_group": "neighborhood-association-dues",
+          "partition": "validation",
+          "category": "same-value-different-subject",
+          "notes": [
+            {
+              "title": "町内会費",
+              "body": "町内会費は年額三千六百円。"
+            },
+            {
+              "title": "子ども会の会費",
+              "body": "子ども会の会費も年額三千六百円で、五月に集める。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same amount, different organization."
+        },
+        {
+          "id": "r4c-val-021",
+          "topic_group": "falcon-app-release",
+          "partition": "validation",
+          "category": "same-version-different-subject",
+          "notes": [
+            {
+              "title": "Falcon 4.2 offline mode",
+              "body": "Falcon 4.2 adds offline mode."
+            },
+            {
+              "title": "Heron 4.2",
+              "body": "Heron 4.2 adds a dark theme."
+            }
+          ],
+          "related": false,
+          "rationale": "Same version number, different product."
+        },
+        {
+          "id": "r4c-val-022",
+          "topic_group": "family-budgie",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "実家のインコ",
+              "body": "実家のインコは十二歳。"
+            },
+            {
+              "title": "邻居的狗",
+              "body": "邻居家的狗十二岁了，只吃软的狗粮。"
+            }
+          ],
+          "related": false,
+          "rationale": "Old pets, different animal."
+        },
+        {
+          "id": "r4c-val-023",
+          "topic_group": "tv-eichbach-chair",
+          "partition": "validation",
+          "category": "different-scope",
+          "notes": [
+            {
+              "title": "Aktueller Vorsitz",
+              "body": "Der TV Eichbach wird heute von Selin Aydın geleitet."
+            },
+            {
+              "title": "Gründung TV Eichbach",
+              "body": "Bei der Gründung 1952 übernahm Karl Peil den Vorsitz."
+            }
+          ],
+          "related": false,
+          "rationale": "Present-day vs founding-year scope; no conflict."
+        },
+        {
+          "id": "r4c-val-024",
+          "topic_group": "grandmother-eightieth",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "할머니 팔순",
+              "body": "할머니 팔순은 음력 삼월 초닷새."
+            },
+            {
+              "title": "爷爷的生日",
+              "body": "爷爷的生日是农历九月初九。"
+            }
+          ],
+          "related": false,
+          "rationale": "Different relative and date."
+        },
+        {
+          "id": "r4c-val-025",
+          "topic_group": "puerto-alba-taxi",
+          "partition": "validation",
+          "category": "different-scope",
+          "notes": [
+            {
+              "title": "Tarifa diurna",
+              "body": "De día, el taxi en Puerto Alba cobra una bajada de bandera de 2,40 €."
+            },
+            {
+              "title": "Recargo nocturno",
+              "body": "De noche los taxis de Puerto Alba llevan un recargo del 20 %."
+            }
+          ],
+          "related": false,
+          "rationale": "Day vs night scope and different charge types; no conflict."
+        },
+        {
+          "id": "r4c-tun-023",
+          "topic_group": "holiday-code-freeze",
+          "partition": "tuning",
+          "category": "same-topic-different-attribute",
+          "notes": [
+            {
+              "title": "Deployment-Freeze Dezember",
+              "body": "Im Dezember gilt ab dem 18. ein Deployment-Freeze."
+            },
+            {
+              "title": "Holiday on-call",
+              "body": "Holiday on-call rotation: Priya covers Dec 24-26, Tomas covers Dec 31 - Jan 1."
+            }
+          ],
+          "related": false,
+          "rationale": "Same holiday period, different subject (on-call rota vs freeze)."
+        },
+        {
+          "id": "r4c-val-026",
+          "topic_group": "harbor-building-fire",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Fire assembly point",
+              "body": "The fire assembly point for the Harbor building is the north parking lot."
+            },
+            {
+              "title": "Sammelplatz",
+              "body": "Der Sammelplatz bei Feueralarm für das Harbor-Gebäude ist der nördliche Parkplatz."
+            }
+          ],
+          "related": true,
+          "rationale": "Same assembly point."
+        },
+        {
+          "id": "r4c-val-027",
+          "topic_group": "leaking-balcony",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "阳台漏水",
+              "body": "阳台漏水，周五修。"
+            },
+            {
+              "title": "Feuchter Keller",
+              "body": "Im Keller ist es feucht; ein Entfeuchter läuft seit Montag."
+            }
+          ],
+          "related": false,
+          "rationale": "Home water damage, different place and fix."
+        },
+        {
+          "id": "r4c-tun-024",
+          "topic_group": "kestrel-billing-gateway",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Kestrel gateway timeout",
+              "body": "Requests through the Kestrel billing gateway time out after 30 seconds."
+            },
+            {
+              "title": "Zeitlimit des Kestrel-Gateways",
+              "body": "Anfragen über das Kestrel-Abrechnungsgateway brechen nach 45 Sekunden ab."
+            }
+          ],
+          "related": true,
+          "rationale": "Same gateway and same attribute (request timeout) with conflicting values: 30 s vs 45 s."
+        },
+        {
+          "id": "r4c-tun-025",
+          "topic_group": "ravenscroft-printer",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "3rd floor printer toner",
+              "body": "The Ravenscroft printer on the third floor takes the TK-480 black toner cartridge; spares are in the supply closet by the kitchen."
+            },
+            {
+              "title": "3층 프린터 토너",
+              "body": "3층 Ravenscroft 프린터에는 TK-480 검정 토너가 들어간다. 여분은 탕비실 옆 비품 창고에 있다."
+            }
+          ],
+          "related": true,
+          "rationale": "Translation of the same toner fact and spare location."
+        },
+        {
+          "id": "r4c-val-028",
+          "topic_group": "orion-meeting-room",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "회의실 예약 규칙",
+              "body": "Orion 회의실은 최대 2시간까지만 예약 가능. 넘으면 팀장 approval 필요."
+            },
+            {
+              "title": "Meeting room rules",
+              "body": "Orion room bookings max out at two hours; anything longer needs manager approval."
+            }
+          ],
+          "related": true,
+          "rationale": "Same booking rule."
+        },
+        {
+          "id": "r4c-tun-026",
+          "topic_group": "tsubame-bus-line",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "つばめ線の運賃",
+              "body": "つばめ線の大人運賃は均一で220円。"
+            },
+            {
+              "title": "つばめ線の終点",
+              "body": "つばめ線の終点は丘の上の県立図書館前。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same bus line, different attributes (fare vs terminus)."
+        },
+        {
+          "id": "r4c-val-029",
+          "topic_group": "calder-lab-access",
+          "partition": "validation",
+          "category": "conditional-conflict",
+          "notes": [
+            {
+              "title": "Calder lab visitors",
+              "body": "Visitors in the Calder lab must be escorted at all times."
+            },
+            {
+              "title": "Calder lab access update",
+              "body": "Visitors who have signed an NDA no longer need an escort in the Calder lab."
+            }
+          ],
+          "related": true,
+          "rationale": "The update carves an exception out of an absolute rule; the first note is now partly wrong."
+        },
+        {
+          "id": "r4c-tun-027",
+          "topic_group": "kongi-dog-walk",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "콩이 산책 알바",
+              "body": "산책 도우미 지민 씨가 화요일과 목요일 저녁 7시에 콩이를 40분 산책시킨다. 하네스는 현관 서랍에 있다."
+            },
+            {
+              "title": "이번 주 집안일 메모",
+              "body": "세탁기 필터 청소, 관리비 납부. 콩이 산책은 지민 씨가 화·목 저녁 7시에 맡음. 화분 분갈이."
+            }
+          ],
+          "related": true,
+          "rationale": "Shared assertion about who walks the dog and when, amid unrelated chores."
+        },
+        {
+          "id": "r4c-tun-028",
+          "topic_group": "mika-violin",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Mika's violin lesson",
+              "body": "Mika's violin lesson is every Thursday at 5 pm with Mr. Okada; bring Suzuki book 2."
+            },
+            {
+              "title": "美香のバイオリン",
+              "body": "美香のバイオリンのレッスンは毎週木曜の午後5時、岡田先生。鈴木の教本2巻を持っていく。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same lesson schedule, teacher and book."
+        },
+        {
+          "id": "r4c-tun-029",
+          "topic_group": "living-room-monstera",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "モンステラの植え替え",
+              "body": "モンステラは来年の春に一回り大きい鉢に植え替える予定。"
+            },
+            {
+              "title": "Riego del ficus",
+              "body": "El ficus del despacho se riega cada semana, también en invierno."
+            }
+          ],
+          "related": false,
+          "rationale": "Houseplant care, but different plants and different actions."
+        },
+        {
+          "id": "r4c-val-030",
+          "topic_group": "kitchen-renovation",
+          "partition": "validation",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "装修进度",
+              "body": "厨房瓷砖周四贴完，橱柜下周一到货，安装需要两天。"
+            },
+            {
+              "title": "本周家务",
+              "body": "交水电费；周四厨房瓷砖完工；给阳台的花浇水。"
+            }
+          ],
+          "related": true,
+          "rationale": "Shared tiling-completion assertion amid other items."
+        },
+        {
+          "id": "r4c-val-031",
+          "topic_group": "grandmother-eightieth",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "할머니 팔순",
+              "body": "할머니 팔순 잔치는 음력 삼월 초닷새에 한다."
+            },
+            {
+              "title": "奶奶八十大寿",
+              "body": "奶奶的八十大寿在农历三月初五办。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same event, no Latin token."
+        },
+        {
+          "id": "r4c-val-032",
+          "topic_group": "parcel-holding",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "택배 보관",
+              "body": "택배는 경비실에서 최대 일주일 보관해 준다."
+            },
+            {
+              "title": "宅配便の保管",
+              "body": "宅配便は管理人室で最長一週間預かってもらえる。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same rule, no Latin token."
+        },
+        {
+          "id": "r4c-tun-030",
+          "topic_group": "living-room-monstera",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "モンステラの水やり",
+              "body": "リビングのモンステラは、土の表面が乾いてから水をやる。冬は二週間に一回で十分。"
+            },
+            {
+              "title": "Riego de la monstera",
+              "body": "La monstera del salón se riega cuando la tierra de arriba está seca; en invierno basta con una vez cada dos semanas."
+            }
+          ],
+          "related": true,
+          "rationale": "Same watering rule for the same plant, Japanese vs Spanish with no shared Latin identifier."
+        },
+        {
+          "id": "r4c-val-033",
+          "topic_group": "spanish-class-fee",
+          "partition": "validation",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "語学教室の月謝",
+              "body": "スペイン語教室の月謝は八千円。"
+            },
+            {
+              "title": "Cuota de la academia",
+              "body": "La cuota mensual de la clase de español es de 9.000 yenes."
+            }
+          ],
+          "related": true,
+          "rationale": "Same fee, conflicting amounts."
+        },
+        {
+          "id": "r4c-val-034",
+          "topic_group": "chengdu-business-trip",
+          "partition": "validation",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "出差航班",
+              "body": "下周二去成都的航班是早上七点五十起飞。"
+            },
+            {
+              "title": "Chengdu flight",
+              "body": "Tuesday's flight to Chengdu departs at 8:50 a.m."
+            }
+          ],
+          "related": true,
+          "rationale": "Same flight, conflicting departure time."
+        },
+        {
+          "id": "r4c-tun-031",
+          "topic_group": "cuihu-park-boating",
+          "partition": "tuning",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "翠湖划船",
+              "body": "翠湖公园的划船项目冬季照常开放。"
+            },
+            {
+              "title": "翠湖冬季安排",
+              "body": "翠湖公园冬季不开放划船，船只全部入库检修。"
+            }
+          ],
+          "related": true,
+          "rationale": "Direct negation about winter boating at the same park."
+        },
+        {
+          "id": "r4c-val-035",
+          "topic_group": "harbor-building-fire",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Harbor assembly point",
+              "body": "Harbor building assembly point: north lot."
+            },
+            {
+              "title": "Feuerlöscher",
+              "body": "Die Feuerlöscher im Harbor-Gebäude werden jedes Jahr im März geprüft."
+            }
+          ],
+          "related": false,
+          "rationale": "Same building, different fire-safety attribute."
+        },
+        {
+          "id": "r4c-val-036",
+          "topic_group": "home-piano-tuning",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "钢琴调音",
+              "body": "家里的钢琴每年春天请师傅调音一次，费用五百元。"
+            },
+            {
+              "title": "Afinación del piano",
+              "body": "El piano de casa se afina una vez al año, en primavera, y cuesta quinientos yuanes."
+            }
+          ],
+          "related": true,
+          "rationale": "Same fact, no shared Latin identifier."
+        },
+        {
+          "id": "r4c-val-037",
+          "topic_group": "commuter-pass",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "通勤定期",
+              "body": "通勤定期は三ヶ月で四万二千円。"
+            },
+            {
+              "title": "Commuter pass",
+              "body": "My three-month commuter pass costs ¥42,000."
+            }
+          ],
+          "related": true,
+          "rationale": "Same price."
+        },
+        {
+          "id": "r4c-tun-032",
+          "topic_group": "orders-db-migration",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "用户数据库备份",
+              "body": "用户数据库每天凌晨三点做全量备份，保留十四天。"
+            },
+            {
+              "title": "Orders DB migration",
+              "body": "The orders database moves to the new data center at 2 a.m. on March 8."
+            }
+          ],
+          "related": false,
+          "rationale": "Both about databases at night, but different databases and different operations."
+        },
+        {
+          "id": "r4c-tun-033",
+          "topic_group": "pollen-team",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Pollen team standup",
+              "body": "Pollen's daily standup moved to 9:45 in room Birch. Keep updates under two minutes."
+            },
+            {
+              "title": "Pollen onboarding checklist",
+              "body": "New members: request repo access, read the design doc, join the 9:45 standup in Birch, and pair with Ines during week one."
+            }
+          ],
+          "related": true,
+          "rationale": "Both assert the standup time and room; the checklist adds other steps."
+        },
+        {
+          "id": "r4c-tun-034",
+          "topic_group": "luna-cat-booster",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Luna's vet visit",
+              "body": "Luna gets her booster at Riverside Vet on May 9."
+            },
+            {
+              "title": "Vacuna de Tango",
+              "body": "Tango, el perro del vecino, se vacuna el 9 de mayo en otra clínica."
+            }
+          ],
+          "related": false,
+          "rationale": "Same date and topic, different animal and clinic."
+        },
+        {
+          "id": "r4c-tun-035",
+          "topic_group": "plum-cake",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Omas Pflaumenkuchen",
+              "body": "Omas Pflaumenkuchen backt 45 Minuten bei 180 °C."
+            },
+            {
+              "title": "Grandma's apple strudel",
+              "body": "Grandma's apple strudel bakes 40 minutes at 190 °C."
+            }
+          ],
+          "related": false,
+          "rationale": "Same baker, different dish."
+        },
+        {
+          "id": "r4c-tun-036",
+          "topic_group": "fenwick-bike-storage",
+          "partition": "tuning",
+          "category": "negation",
+          "notes": [
+            {
+              "title": "Bike parking at Fenwick",
+              "body": "Bikes may be locked in the Fenwick building basement overnight."
+            },
+            {
+              "title": "Fenwick facilities memo",
+              "body": "Reminder from facilities: overnight bike storage in the Fenwick basement is not permitted; racks are cleared at 10 pm."
+            }
+          ],
+          "related": true,
+          "rationale": "Direct conflict about overnight bike storage in the same basement."
+        },
+        {
+          "id": "r4c-tun-037",
+          "topic_group": "plum-cake",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Omas Pflaumenkuchen",
+              "body": "Für Omas Pflaumenkuchen braucht man ein Kilo Zwetschgen und 300 g Mehl; er backt 45 Minuten bei 180 °C."
+            },
+            {
+              "title": "Grandma's plum cake",
+              "body": "Grandma's plum cake: 1 kg damson plums, 300 g flour; bake 45 minutes at 180 °C."
+            }
+          ],
+          "related": true,
+          "rationale": "Same recipe in two languages."
+        },
+        {
+          "id": "r4c-tun-038",
+          "topic_group": "staff-health-checkup",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "公司体检",
+              "body": "今年的员工体检安排在十月十五日，地点是市第一医院。"
+            },
+            {
+              "title": "健康診断",
+              "body": "今年の社員健康診断は十月二十二日、市立第一病院で行う。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same check-up with conflicting dates; no shared Latin token."
+        },
+        {
+          "id": "r4c-val-038",
+          "topic_group": "leaking-balcony",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "阳台漏水",
+              "body": "阳台漏水是因为排水口堵了，物业说周五来修。"
+            },
+            {
+              "title": "Balkon undicht",
+              "body": "Der Balkon ist undicht, weil der Abfluss verstopft ist; die Hausverwaltung kommt am Freitag."
+            }
+          ],
+          "related": true,
+          "rationale": "Same cause and repair date."
+        },
+        {
+          "id": "r4c-tun-039",
+          "topic_group": "office-coffee-machine",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Cafetera de la oficina",
+              "body": "La cafetera se descalcifica el primer lunes del mes."
+            },
+            {
+              "title": "办公室饮水机",
+              "body": "办公室饮水机的滤芯每三个月更换一次。"
+            }
+          ],
+          "related": false,
+          "rationale": "Office appliance maintenance, different appliance and interval."
+        },
+        {
+          "id": "r4c-val-039",
+          "topic_group": "northwind-payroll",
+          "partition": "validation",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Payroll date",
+              "body": "Salaries at Northwind Studio are paid on the 25th of each month."
+            },
+            {
+              "title": "工资发放",
+              "body": "Northwind Studio 的 payroll 是每月二十八号发。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same payroll date, conflicting values."
+        },
+        {
+          "id": "r4c-val-040",
+          "topic_group": "minho-wedding",
+          "partition": "validation",
+          "category": "same-date-different-subject",
+          "notes": [
+            {
+              "title": "민호 결혼식",
+              "body": "민호 결혼식은 4월 18일 낮 12시."
+            },
+            {
+              "title": "수진이 딸 돌잔치",
+              "body": "수진이 딸 돌잔치는 4월 18일 저녁 6시에 한다."
+            }
+          ],
+          "related": false,
+          "rationale": "Same day, different events."
+        },
+        {
+          "id": "r4c-val-041",
+          "topic_group": "kita-sonnenblume",
+          "partition": "validation",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "Kita Schließtage",
+              "body": "Die Kita Sonnenblume schließt im Sommer vom 27. Juli bis 14. August."
+            },
+            {
+              "title": "Cierre de la guardería",
+              "body": "La guardería Sonnenblume cierra en verano del 27 de julio al 21 de agosto."
+            }
+          ],
+          "related": true,
+          "rationale": "Same closure, conflicting end date."
+        },
+        {
+          "id": "r4c-tun-040",
+          "topic_group": "lantern-quay-cafe",
+          "partition": "tuning",
+          "category": "exact-duplicate",
+          "notes": [
+            {
+              "title": "Lantern Quay Café hours",
+              "body": "Lantern Quay Café opens at 7:30 on weekdays and closes at 18:00. Saturday hours are 9:00 to 15:00; it is closed on Sundays."
+            },
+            {
+              "title": "Lantern Quay Café hours",
+              "body": "Lantern Quay Café opens at 7:30 on weekdays and closes at 18:00. Saturday hours are 9:00 to 15:00; it is closed on Sundays."
+            }
+          ],
+          "related": true,
+          "rationale": "Identical notes about the same café's opening hours."
+        },
+        {
+          "id": "r4c-tun-041",
+          "topic_group": "grey-estate-car-inspection",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "HU für den Kombi",
+              "body": "Die Hauptuntersuchung für unseren grauen Kombi ist im April 2027 fällig."
+            },
+            {
+              "title": "Auto-Termine",
+              "body": "Grauer Kombi: nächste HU 04/2027. Reifenwechsel im Oktober nicht vergessen, Ölwechsel erst nächstes Jahr."
+            }
+          ],
+          "related": true,
+          "rationale": "Same inspection due date, written differently; the second note adds other car chores."
+        },
+        {
+          "id": "r4c-val-042",
+          "topic_group": "spanish-class-fee",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "語学教室の月謝",
+              "body": "スペイン語教室の月謝は八千円。"
+            },
+            {
+              "title": "Horario de la academia",
+              "body": "La clase de español es los miércoles por la tarde."
+            }
+          ],
+          "related": false,
+          "rationale": "Same class, schedule vs fee."
+        },
+        {
+          "id": "r4c-val-043",
+          "topic_group": "puerto-alba-taxi",
+          "partition": "validation",
+          "category": "conditional-conflict",
+          "notes": [
+            {
+              "title": "Recargo nocturno de taxi",
+              "body": "En Puerto Alba, entre las 22:00 y las 6:00 el taxi cobra un recargo del 20 %."
+            },
+            {
+              "title": "Taxis en Puerto Alba",
+              "body": "Por la noche, de diez de la noche a seis de la mañana, los taxis de Puerto Alba aplican un 25 % de recargo."
+            }
+          ],
+          "related": true,
+          "rationale": "Same condition (night hours), conflicting surcharge."
+        },
+        {
+          "id": "r4c-val-044",
+          "topic_group": "northwind-payroll",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Payroll date",
+              "body": "Northwind Studio pays salaries on the 25th."
+            },
+            {
+              "title": "报销",
+              "body": "Northwind Studio 的报销每月十号统一处理。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same company, expense claims vs payroll."
+        },
+        {
+          "id": "r4c-val-045",
+          "topic_group": "gull-point-lighthouse",
+          "partition": "validation",
+          "category": "different-scope",
+          "notes": [
+            {
+              "title": "Gull Point today",
+              "body": "The Gull Point lighthouse museum opens on weekends from May."
+            },
+            {
+              "title": "Gull Point in 1890",
+              "body": "In 1890 the Gull Point keeper was paid twelve dollars a month."
+            }
+          ],
+          "related": false,
+          "rationale": "Present-day vs 1890 scope."
+        },
+        {
+          "id": "r4c-val-046",
+          "topic_group": "compound-management-fee",
+          "partition": "validation",
+          "category": "current-fact-change",
+          "notes": [
+            {
+              "title": "小区物业费",
+              "body": "我们小区物业费每平方米每月二元。"
+            },
+            {
+              "title": "物业费已上调",
+              "body": "小区物业费已经上调，现在是每平方米每月二点五元。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same current fee with a changed value."
+        },
+        {
+          "id": "r4c-val-047",
+          "topic_group": "kitchen-renovation",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "厨房装修",
+              "body": "厨房瓷砖周四贴完。"
+            },
+            {
+              "title": "卫生间装修",
+              "body": "卫生间瓷砖周四才开始贴。"
+            }
+          ],
+          "related": false,
+          "rationale": "Different room."
+        },
+        {
+          "id": "r4c-tun-042",
+          "topic_group": "mika-violin",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Mika's piano recital",
+              "body": "Mika's piano recital is on June 3 at the community hall."
+            },
+            {
+              "title": "美香のバイオリン",
+              "body": "美香のバイオリンのレッスンは毎週木曜の午後5時。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same child, different activities and events."
+        },
+        {
+          "id": "r4c-tun-043",
+          "topic_group": "office-coffee-machine",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Cafetera de la oficina",
+              "body": "La cafetera de la oficina se descalcifica el primer lunes de cada mes."
+            },
+            {
+              "title": "办公室咖啡机",
+              "body": "办公室的咖啡机每月第一个星期一除垢。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same maintenance schedule, no shared Latin identifier."
+        },
+        {
+          "id": "r4c-tun-044",
+          "topic_group": "talleres-brisa-leave",
+          "partition": "tuning",
+          "category": "same-fact-different-subject",
+          "notes": [
+            {
+              "title": "Vacaciones en Talleres Brisa",
+              "body": "Talleres Brisa: 23 días laborables de vacaciones."
+            },
+            {
+              "title": "Vacaciones en Ferretería Luna",
+              "body": "En Ferretería Luna también se dan 23 días laborables de vacaciones al año."
+            }
+          ],
+          "related": false,
+          "rationale": "Same value, different employer."
+        },
+        {
+          "id": "r4c-val-048",
+          "topic_group": "block-three-residents",
+          "partition": "validation",
+          "category": "same-time-different-subject",
+          "notes": [
+            {
+              "title": "Reunión bloque 3",
+              "body": "Reunión de vecinos del bloque 3 el jueves 6 a las 19:30."
+            },
+            {
+              "title": "Block 5 residents meeting",
+              "body": "Block 5 meets Thursday the 6th at 7:30 pm in the garden."
+            }
+          ],
+          "related": false,
+          "rationale": "Same time, different building and place."
+        },
+        {
+          "id": "r4c-tun-045",
+          "topic_group": "design-offsite-q3",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Q3 offsite venue",
+              "body": "The Q3 design offsite will be held at Thornbury Lodge."
+            },
+            {
+              "title": "年会预算",
+              "body": "公司第四季度年会的预算是两万美元。"
+            }
+          ],
+          "related": false,
+          "rationale": "Company events and budgets, but a different event and attribute."
+        },
+        {
+          "id": "r4c-val-049",
+          "topic_group": "gull-point-lighthouse",
+          "partition": "validation",
+          "category": "historical-conflict",
+          "notes": [
+            {
+              "title": "Gull Point automation",
+              "body": "The Gull Point lighthouse was automated in 1971."
+            },
+            {
+              "title": "Gull Point history",
+              "body": "Keepers lived at Gull Point until the light was automated in 1968."
+            }
+          ],
+          "related": true,
+          "rationale": "Same historical event, conflicting year."
+        },
+        {
+          "id": "r4c-tun-046",
+          "topic_group": "cuihu-park-boating",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "翠湖划船票价",
+              "body": "翠湖公园划船每小时四十元，押金一百元。"
+            },
+            {
+              "title": "翠湖夜跑",
+              "body": "翠湖公园环湖跑道晚上十点关灯。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same park, unrelated attributes (boat price vs running-track lights)."
+        },
+        {
+          "id": "r4c-tun-047",
+          "topic_group": "shirakawa-ryokan",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Kyoto ryokan booking",
+              "body": "Ryokan Shirakawa in Kyoto: Nov 21-23."
+            },
+            {
+              "title": "大阪のホテル",
+              "body": "大阪では11月23日にホテル北浜を1泊予約した。"
+            }
+          ],
+          "related": false,
+          "rationale": "Trip lodging, but different city and hotel."
+        },
+        {
+          "id": "r4c-val-050",
+          "topic_group": "orion-meeting-room",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Orion 회의실",
+              "body": "Orion 회의실 예약은 2시간까지."
+            },
+            {
+              "title": "Vega room equipment",
+              "body": "The Vega room has a 75-inch display and a ceiling mic."
+            }
+          ],
+          "related": false,
+          "rationale": "Meeting rooms, different room and attribute."
+        },
+        {
+          "id": "r4c-val-051",
+          "topic_group": "larch-ridge-loop",
+          "partition": "validation",
+          "category": "unit-conflict",
+          "notes": [
+            {
+              "title": "Larch Ridge distance",
+              "body": "The Larch Ridge loop is 8 miles round trip."
+            },
+            {
+              "title": "Larch Ridge loop",
+              "body": "Larch Ridge loop: 8 km round trip, about 2.5 hours at an easy pace."
+            }
+          ],
+          "related": true,
+          "rationale": "Same trail, conflicting distance (8 mi is about 12.9 km)."
+        },
+        {
+          "id": "r4c-val-052",
+          "topic_group": "liederkranz-choir",
+          "partition": "validation",
+          "category": "boilerplate-slogan",
+          "notes": [
+            {
+              "title": "Liederkranz Probe",
+              "body": "Probe am Mittwoch um 19 Uhr im Gemeindesaal. Singen verbindet!"
+            },
+            {
+              "title": "Liederkranz Sommerfest",
+              "body": "Sommerfest am 12. Juli im Pfarrgarten. Singen verbindet!"
+            }
+          ],
+          "related": false,
+          "rationale": "Only the slogan is shared."
+        },
+        {
+          "id": "r4c-val-053",
+          "topic_group": "moving-day",
+          "partition": "validation",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Mudanza",
+              "body": "La mudanza es el sábado 12; el camión llega a las 8 y hay que dejar las llaves viejas al casero."
+            },
+            {
+              "title": "Weekend plan",
+              "body": "Saturday the 12th: moving day, truck at 8. Sunday: brunch with Ana."
+            }
+          ],
+          "related": true,
+          "rationale": "Shared moving date and truck time."
+        },
+        {
+          "id": "r4c-tun-048",
+          "topic_group": "pollen-team",
+          "partition": "tuning",
+          "category": "boilerplate-slogan",
+          "notes": [
+            {
+              "title": "Pollen retro notes",
+              "body": "Retro: deploy failures are down; flaky search tests remain the top annoyance. We ship small, we ship often."
+            },
+            {
+              "title": "Pollen hiring notes",
+              "body": "Hiring: two backend roles open, interviews on Thursdays. We ship small, we ship often."
+            }
+          ],
+          "related": false,
+          "rationale": "Only a repeated team slogan is shared; the substantive content is unrelated."
+        },
+        {
+          "id": "r4c-tun-049",
+          "topic_group": "cerro-blanco-permit",
+          "partition": "tuning",
+          "category": "conditional-paraphrase",
+          "notes": [
+            {
+              "title": "Permiso de trekking del Cerro Blanco",
+              "body": "Para subir al Cerro Blanco en temporada alta (diciembre a marzo) hace falta reservar el permiso con 30 días de antelación."
+            },
+            {
+              "title": "Cerro Blanco en verano",
+              "body": "Si vas al Cerro Blanco entre diciembre y marzo, el permiso se reserva con un mes de antelación como mínimo."
+            }
+          ],
+          "related": true,
+          "rationale": "Same condition (high season) and same requirement, paraphrased."
+        },
+        {
+          "id": "r4c-tun-050",
+          "topic_group": "dalbit-tea-house",
+          "partition": "tuning",
+          "category": "cross-language-conflict",
+          "notes": [
+            {
+              "title": "단골 찻집 휴무일",
+              "body": "골목 끝 달빛다원은 매주 월요일에 쉰다."
+            },
+            {
+              "title": "月光茶院休息日",
+              "body": "巷子尽头的月光茶院每周二休息。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same tea house, conflicting closing day; no shared Latin token."
+        },
+        {
+          "id": "r4c-val-054",
+          "topic_group": "moving-day",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Mudanza",
+              "body": "Nos mudamos el sábado 12."
+            },
+            {
+              "title": "Ana's move",
+              "body": "Ana moves apartments on the 26th."
+            }
+          ],
+          "related": false,
+          "rationale": "Different person's move."
+        },
+        {
+          "id": "r4c-val-055",
+          "topic_group": "hub-gear-bicycle",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Fahrradreparatur",
+              "body": "Das Hinterrad meines Fahrrads hat eine 3-Gang-Nabe; Ersatzteile gibt es bei Rad Hofer."
+            },
+            {
+              "title": "自転車の修理",
+              "body": "私の自転車の後輪は三段変速のハブで、部品はホーファー自転車店で手に入る。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same facts, no shared Latin identifier."
+        },
+        {
+          "id": "r4c-val-056",
+          "topic_group": "apartment-recycling",
+          "partition": "validation",
+          "category": "unrelated",
+          "notes": [
+            {
+              "title": "분리수거",
+              "body": "아파트 분리수거는 수요일."
+            },
+            {
+              "title": "기타 줄 교체",
+              "body": "통기타 줄은 석 달에 한 번 갈아준다."
+            }
+          ],
+          "related": false,
+          "rationale": "Unrelated topics."
+        },
+        {
+          "id": "r4c-val-057",
+          "topic_group": "family-budgie",
+          "partition": "validation",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "実家のインコ",
+              "body": "実家のインコのピー太は十二歳で、粟の穂しか食べない。"
+            },
+            {
+              "title": "老家的鹦鹉",
+              "body": "老家的鹦鹉皮太十二岁了，只吃谷穗。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same bird facts, no Latin token."
+        },
+        {
+          "id": "r4c-val-058",
+          "topic_group": "atlas-team-lead",
+          "partition": "validation",
+          "category": "current-fact-change",
+          "notes": [
+            {
+              "title": "Atlas team lead",
+              "body": "Dana Whitfield leads the Atlas data team."
+            },
+            {
+              "title": "Org update",
+              "body": "As of this month Ravi Menon leads the Atlas data team; Dana moved to the platform group."
+            }
+          ],
+          "related": true,
+          "rationale": "Same role, current holder changed."
+        },
+        {
+          "id": "r4c-tun-051",
+          "topic_group": "olmo-street-garden",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Riego del huerto de la calle Olmo",
+              "body": "En el huerto comunitario de la calle Olmo regamos los martes y viernes temprano."
+            },
+            {
+              "title": "Huerto escolar del colegio Arrayán",
+              "body": "El huerto escolar del colegio Arrayán tiene riego por goteo automático que se activa cada noche."
+            }
+          ],
+          "related": false,
+          "rationale": "Both are about watering a garden, but different gardens with independent schedules."
+        },
+        {
+          "id": "r4c-tun-052",
+          "topic_group": "lindenau-library",
+          "partition": "tuning",
+          "category": "same-fact-different-subject",
+          "notes": [
+            {
+              "title": "Lindenau Kinderbücher",
+              "body": "In der Stadtbücherei Lindenau fallen für Kinderbücher keine Mahngebühren an."
+            },
+            {
+              "title": "Gemeindebücherei Ostheim",
+              "body": "Die Gemeindebücherei Ostheim verlangt für Kinderbücher keine Mahngebühren."
+            }
+          ],
+          "related": false,
+          "rationale": "Same policy wording, but a different library; neither note says anything about the other."
+        },
+        {
+          "id": "r4c-tun-053",
+          "topic_group": "brightwell-hq",
+          "partition": "tuning",
+          "category": "different-scope",
+          "notes": [
+            {
+              "title": "Brightwell HQ",
+              "body": "Brightwell's headquarters is in Manchester, at Ancoats Works."
+            },
+            {
+              "title": "Brightwell early days",
+              "body": "In its first two years Brightwell operated out of a garage in Otley."
+            }
+          ],
+          "related": false,
+          "rationale": "Current location vs explicitly early-history location; no conflict."
+        },
+        {
+          "id": "r4c-tun-054",
+          "topic_group": "ravenscroft-printer",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Third floor printer jams",
+              "body": "The Ravenscroft printer on the third floor jams with envelope stock; feed envelopes through the manual tray."
+            },
+            {
+              "title": "2층 프린터 토너",
+              "body": "2층 Halden 프린터는 TK-310 토너를 쓴다. 주문은 총무팀에 요청."
+            }
+          ],
+          "related": false,
+          "rationale": "Both about office printers, but different printers and different attributes."
+        },
+        {
+          "id": "r4c-val-059",
+          "topic_group": "home-piano-tuning",
+          "partition": "validation",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "钢琴调音",
+              "body": "钢琴每年春天调音。"
+            },
+            {
+              "title": "Clases de guitarra",
+              "body": "Las clases de guitarra de Leo son los sábados por la mañana."
+            }
+          ],
+          "related": false,
+          "rationale": "Music at home, different instrument and activity."
+        },
+        {
+          "id": "r4c-tun-055",
+          "topic_group": "geunyuk-gongjang-gym",
+          "partition": "tuning",
+          "category": "current-fact-change",
+          "notes": [
+            {
+              "title": "헬스장 월회비",
+              "body": "동네 '근육공장' 헬스장 월회비는 5만 5천 원이다."
+            },
+            {
+              "title": "근육공장 membership update",
+              "body": "근육공장 헬스장이 1월부터 monthly fee를 6만 원으로 올렸음. 기존 회원도 동일 적용."
+            }
+          ],
+          "related": true,
+          "rationale": "Same gym's current monthly fee with a changed value."
+        },
+        {
+          "id": "r4c-val-060",
+          "topic_group": "kita-sonnenblume",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Kita Schließtage",
+              "body": "Die Kita Sonnenblume hat im Sommer drei Wochen zu."
+            },
+            {
+              "title": "Horario de la guardería",
+              "body": "La guardería Sonnenblume abre a las 7:30."
+            }
+          ],
+          "related": false,
+          "rationale": "Same daycare, different attribute."
+        },
+        {
+          "id": "r4c-tun-056",
+          "topic_group": "dalbit-tea-house",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "달빛다원 추천 메뉴",
+              "body": "달빛다원은 보이차와 대추 정과가 맛있다."
+            },
+            {
+              "title": "月光茶院的位置",
+              "body": "月光茶院在老城区巷子尽头，门口有一棵柿子树。"
+            }
+          ],
+          "related": false,
+          "rationale": "Same tea house, different attributes (menu vs location)."
+        },
+        {
+          "id": "r4c-tun-057",
+          "topic_group": "shirakawa-ryokan",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Kyoto ryokan booking",
+              "body": "Booked Ryokan Shirakawa for Nov 21-23, two nights, dinner included."
+            },
+            {
+              "title": "京都の宿",
+              "body": "白川旅館を11月21日から2泊で予約。夕食付き。チェックインは15時から。"
+            }
+          ],
+          "related": true,
+          "rationale": "Same booking facts; Japanese note adds check-in time."
+        },
+        {
+          "id": "r4c-val-061",
+          "topic_group": "copper-kettle-bakery",
+          "partition": "validation",
+          "category": "exact-duplicate",
+          "notes": [
+            {
+              "title": "Copper Kettle day-old bread",
+              "body": "Copper Kettle Bakery sells day-old bread at half price after 4 pm."
+            },
+            {
+              "title": "Copper Kettle day-old bread",
+              "body": "Copper Kettle Bakery sells day-old bread at half price after 4 pm."
+            }
+          ],
+          "related": true,
+          "rationale": "Identical notes."
+        },
+        {
+          "id": "r4c-tun-058",
+          "topic_group": "house-sitter-handover",
+          "partition": "tuning",
+          "category": "partial-overlap",
+          "notes": [
+            {
+              "title": "Garage door code",
+              "body": "The garage door code is 4-7-1-9; change it after the contractor finishes."
+            },
+            {
+              "title": "Handover for the sitter",
+              "body": "Feed the fish once a day. Water plants on Wednesday. Garage door code is 4719. Trash goes out Thursday night."
+            }
+          ],
+          "related": true,
+          "rationale": "Same garage code asserted in both, amid other details."
+        },
+        {
+          "id": "r4c-tun-059",
+          "topic_group": "orders-db-migration",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "订单数据库迁移",
+              "body": "订单数据库将在三月八日凌晨两点迁移到新机房，期间停机约四十分钟。"
+            },
+            {
+              "title": "Orders DB migration",
+              "body": "The orders database moves to the new data center at 2 a.m. on March 8; expect roughly 40 minutes of downtime."
+            }
+          ],
+          "related": true,
+          "rationale": "Same migration window and downtime in two languages."
+        },
+        {
+          "id": "r4c-tun-060",
+          "topic_group": "haneul-dental-checkup",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "하늘 치과 검진",
+              "body": "내 하늘 치과 정기 검진은 11월 12일 오후 3시."
+            },
+            {
+              "title": "동생 안과 예약",
+              "body": "동생 서윤이의 안과 검진은 11월 12일 오전 10시, 밝은눈 안과에서 한다."
+            }
+          ],
+          "related": false,
+          "rationale": "Shares the date and the idea of a check-up, but a different person, clinic and appointment."
+        },
+        {
+          "id": "r4c-val-062",
+          "topic_group": "commuter-pass",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "通勤定期",
+              "body": "通勤定期は三ヶ月で四万二千円。"
+            },
+            {
+              "title": "Commuter pass refund",
+              "body": "Commuter pass refunds need the original receipt and a handling fee."
+            }
+          ],
+          "related": false,
+          "rationale": "Same pass, different attribute."
+        },
+        {
+          "id": "r4c-val-063",
+          "topic_group": "apartment-recycling",
+          "partition": "validation",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "분리수거 요일",
+              "body": "우리 아파트 분리수거는 매주 수요일 저녁이다."
+            },
+            {
+              "title": "재활용 버리는 날",
+              "body": "재활용품은 수요일 저녁마다 아파트 마당에 내놓으면 된다."
+            }
+          ],
+          "related": true,
+          "rationale": "Same day reworded."
+        },
+        {
+          "id": "r4c-tun-061",
+          "topic_group": "fenwick-bike-storage",
+          "partition": "tuning",
+          "category": "unrelated",
+          "notes": [
+            {
+              "title": "Bike parking at Fenwick",
+              "body": "Bikes can be locked in the Fenwick basement during work hours."
+            },
+            {
+              "title": "Sourdough starter",
+              "body": "Feed the starter twice a day at 1:1:1 flour, water and starter by weight."
+            }
+          ],
+          "related": false,
+          "rationale": "Unrelated topics."
+        },
+        {
+          "id": "r4c-val-064",
+          "topic_group": "hotel-mirador-pets",
+          "partition": "validation",
+          "category": "same-fact-different-subject",
+          "notes": [
+            {
+              "title": "Desayuno Hotel Mirador",
+              "body": "En el Hotel Mirador el desayuno se sirve de 7 a 10."
+            },
+            {
+              "title": "Hostal Las Dunas",
+              "body": "El Hostal Las Dunas acepta perros pequeños."
+            }
+          ],
+          "related": false,
+          "rationale": "Different lodging and attribute."
+        },
+        {
+          "id": "r4c-val-065",
+          "topic_group": "arroyo-seco-pool",
+          "partition": "validation",
+          "category": "paraphrase",
+          "notes": [
+            {
+              "title": "Piscina municipal de Arroyo Seco",
+              "body": "La piscina municipal de Arroyo Seco abre del 15 de junio al 10 de septiembre."
+            },
+            {
+              "title": "Temporada de baño",
+              "body": "Temporada de baño en Arroyo Seco: desde mediados de junio (el día 15) hasta el 10 de septiembre en la piscina municipal."
+            }
+          ],
+          "related": true,
+          "rationale": "Same season dates reworded."
+        },
+        {
+          "id": "r4c-tun-062",
+          "topic_group": "mower-blade",
+          "partition": "tuning",
+          "category": "unrelated",
+          "notes": [
+            {
+              "title": "Lawn mower blade",
+              "body": "The mower blade bolt takes a 16 mm socket."
+            },
+            {
+              "title": "Steuererklärung",
+              "body": "Die Steuererklärung für 2025 muss bis Ende Juli 2026 abgegeben werden."
+            }
+          ],
+          "related": false,
+          "rationale": "Unrelated topics."
+        },
+        {
+          "id": "r4c-tun-063",
+          "topic_group": "kestrel-billing-gateway",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Kestrel gateway retries",
+              "body": "The Kestrel billing gateway retries a failed request three times with exponential backoff."
+            },
+            {
+              "title": "Protokolle des Kestrel-Gateways",
+              "body": "Das Kestrel-Abrechnungsgateway schreibt seine Protokolle 90 Tage lang in den Archivspeicher."
+            }
+          ],
+          "related": false,
+          "rationale": "Same system, different attributes (retry policy vs log retention)."
+        },
+        {
+          "id": "r4c-tun-064",
+          "topic_group": "drift-hill-astronomy-club",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "Club Dobsonian",
+              "body": "The Drift Hill Astronomy Club's Dobsonian has a 254 mm aperture and lives in the shed."
+            },
+            {
+              "title": "Club refractor",
+              "body": "The Drift Hill Astronomy Club's travel refractor has an 80 mm aperture and fits in the blue case."
+            }
+          ],
+          "related": false,
+          "rationale": "Same club and attribute type, but different instruments."
+        },
+        {
+          "id": "r4c-tun-065",
+          "topic_group": "geunyuk-gongjang-gym",
+          "partition": "tuning",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "근육공장 운영시간",
+              "body": "근육공장 헬스장은 평일 새벽 6시부터 밤 11시까지 연다."
+            },
+            {
+              "title": "근육공장 사우나",
+              "body": "근육공장 사우나는 수리 중이라 이번 달에는 이용할 수 없다."
+            }
+          ],
+          "related": false,
+          "rationale": "Same gym, different attributes (hours vs sauna repair)."
+        },
+        {
+          "id": "r4c-tun-066",
+          "topic_group": "grey-estate-car-inspection",
+          "partition": "tuning",
+          "category": "same-topic-different-subject",
+          "notes": [
+            {
+              "title": "HU für den Kombi",
+              "body": "Die Hauptuntersuchung für den grauen Kombi ist im April 2027 fällig."
+            },
+            {
+              "title": "HU für den Roller",
+              "body": "Der Motorroller muss erst im September 2028 zur Hauptuntersuchung."
+            }
+          ],
+          "related": false,
+          "rationale": "Both are vehicle inspections, but different vehicles."
+        },
+        {
+          "id": "r4c-val-066",
+          "topic_group": "liederkranz-choir",
+          "partition": "validation",
+          "category": "current-fact-change",
+          "notes": [
+            {
+              "title": "Chorbeitrag",
+              "body": "Der Jahresbeitrag im Chor Liederkranz beträgt 60 Euro."
+            },
+            {
+              "title": "Kassenbericht",
+              "body": "Liederkranz: Beitrag ab sofort 72 Euro im Jahr, Proben weiterhin mittwochs."
+            }
+          ],
+          "related": true,
+          "rationale": "Same fee, changed value."
+        },
+        {
+          "id": "r4c-val-067",
+          "topic_group": "calder-lab-access",
+          "partition": "validation",
+          "category": "same-subject-different-attribute",
+          "notes": [
+            {
+              "title": "Calder lab escorts",
+              "body": "Visitors in the Calder lab need an escort."
+            },
+            {
+              "title": "Calder lab solvents",
+              "body": "Solvents in the Calder lab go in the yellow cabinet."
+            }
+          ],
+          "related": false,
+          "rationale": "Same lab, different rule."
+        },
+        {
+          "id": "r4c-tun-067",
+          "topic_group": "lindenau-library",
+          "partition": "tuning",
+          "category": "exact-duplicate",
+          "notes": [
+            {
+              "title": "Stadtbücherei Lindenau",
+              "body": "Die Stadtbücherei Lindenau erhebt keine Mahngebühren mehr für Kinderbücher."
+            },
+            {
+              "title": "Stadtbücherei Lindenau",
+              "body": "Die Stadtbücherei Lindenau erhebt keine Mahngebühren mehr für Kinderbücher."
+            }
+          ],
+          "related": true,
+          "rationale": "Identical notes."
+        },
+        {
+          "id": "r4c-val-068",
+          "topic_group": "chengdu-business-trip",
+          "partition": "validation",
+          "category": "same-trip-different-attribute",
+          "notes": [
+            {
+              "title": "出差航班",
+              "body": "下周二早上的航班飞成都。"
+            },
+            {
+              "title": "Chengdu hotel",
+              "body": "Hotel in Chengdu: two nights near Chunxi Road."
+            }
+          ],
+          "related": false,
+          "rationale": "Same trip, different attribute (flight vs hotel)."
+        },
+        {
+          "id": "r4c-tun-068",
+          "topic_group": "holiday-code-freeze",
+          "partition": "tuning",
+          "category": "cross-language-equivalence",
+          "notes": [
+            {
+              "title": "Deployment-Freeze",
+              "body": "Ab dem 18. Dezember gilt ein Deployment-Freeze bis zum 6. Januar, nur Hotfixes mit Approval."
+            },
+            {
+              "title": "Holiday code freeze",
+              "body": "Code freeze runs Dec 18 - Jan 6; hotfixes only, and only with approval."
+            }
+          ],
+          "related": true,
+          "rationale": "Same freeze window and exception."
+        }
+      ],
+      "license": "CC0-1.0"
+    }
+  ]
+}
