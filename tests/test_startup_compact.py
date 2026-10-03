@@ -7,7 +7,8 @@ from typing import TypedDict
 
 import pytest
 
-from birkin_mnemosyne.identity_reader import parse_sections
+from birkin_mnemosyne import startup_compact
+from birkin_mnemosyne.identity_reader import Section, parse_sections
 from birkin_mnemosyne.startup import StartupReader
 from birkin_mnemosyne.startup_compact import (
     CompactPayload,
@@ -105,6 +106,53 @@ def test_v2_roundtrips_bom_crlf_empty_and_final_line() -> None:
         entry = payload["order"][0] if payload["order"] else OrderEntry(path="MODE.md")
         assert apply_order(raw.decode("utf-8"), entry).encode("utf-8") == raw
         assert verify_context(context, sources).complete
+
+
+def test_effects_parse_note_sections_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given real note sections with both ordering and supersession effects.
+    text = ("## TOP NOTE 2026-09-01\nOld\n### Detail\nChild\n"
+            "## TOP NOTE 2026-10-01\nSupersedes: TOP NOTE 2026-09-01\nNew\n")
+    newer = len(text[:text.index("## TOP NOTE 2026-10-01")].encode())
+    calls: list[str] = []
+
+    def counted(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
+        calls.append(text)
+        return parse_sections(text, startup_labels=startup_labels)
+
+    monkeypatch.setattr(startup_compact, "parse_sections", counted)
+    # When effects are derived through the real parser.
+    effects = compact_effects(text)
+    # Then one parse supplies both effects without changing their byte offsets.
+    assert effects == ([[newer, 0]], [0])
+    assert calls == [text]
+
+
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_verifier_parses_each_supplied_source_once(
+    monkeypatch: pytest.MonkeyPatch, corrupt: bool,
+) -> None:
+    # Given an affected source and an unaffected source, using real payload bytes.
+    text = ("## TOP NOTE 2026-09-01\nOld\n"
+            "## TOP NOTE 2026-10-01\nSupersedes: TOP NOTE 2026-09-01\nNew\n")
+    plain = "# Safety\nKeep clear\n"
+    sources = {"notes.md": text.encode(), "plain.md": plain.encode()}
+    payload = decode_compact(compact_payload(sources))
+    if corrupt:
+        payload["order"][0]["superseded"] = []
+    calls: list[str] = []
+
+    def counted(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
+        calls.append(text)
+        return parse_sections(text, startup_labels=startup_labels)
+
+    monkeypatch.setattr(startup_compact, "parse_sections", counted)
+    # When independently verifying against the supplied source snapshot.
+    coverage = verify_context(json.dumps(payload), sources)
+    # Then each source is parsed once and corruption still fails closed.
+    assert calls == [text, plain]
+    assert coverage.complete is not corrupt
+    if corrupt:
+        assert "supersession-drift:notes.md" in coverage.errors
 
 
 @pytest.mark.parametrize("raw", [

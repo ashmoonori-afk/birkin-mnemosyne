@@ -80,12 +80,12 @@ def _spans(text: str) -> list[tuple[int, int, str, int]]:
             for begin, end, heading, level in spans]
 
 
-def _units(text: str) -> list[_Unit]:
+def _units(spans: list[tuple[int, int, str, int]]) -> list[_Unit]:
     """Byte partition: note groups (root + descendants) and plain spans."""
     units: list[_Unit] = []
     active: int | None = None
     level = 0
-    for start, end, heading, heading_level in _spans(text):
+    for start, end, heading, heading_level in spans:
         if heading.upper().startswith("TOP NOTE"):
             units.append({"note": True, "root": start, "start": start,
                           "end": end, "heading": heading})
@@ -131,7 +131,8 @@ def _supersession_targets(text: str) -> set[str]:
 
 def compact_effects(text: str) -> tuple[list[list[int]], list[int]]:
     """Presentation effects for one file: changed note runs and superseded roots."""
-    units = _units(text)
+    spans = _spans(text)
+    units = _units(spans)
     notes = [unit for unit in units if unit["note"]]
     if not notes:
         return [], []
@@ -164,7 +165,7 @@ def compact_effects(text: str) -> tuple[list[list[int]], list[int]]:
     raw = text.encode("utf-8")
     declared: set[str] = set()
     # Legacy declarations are scoped to each individual note section.
-    for start, end, _, _ in _spans(text):
+    for start, end, _, _ in spans:
         if any(unit["start"] <= start < unit["end"] for unit in notes):
             declared.update(_supersession_targets(raw[start:end].decode("utf-8")))
     superseded = sorted(unit["root"] for unit in notes
@@ -199,7 +200,7 @@ def compact_payload(sources: Mapping[str, bytes]) -> str:
 
 def apply_order(text: str, entry: OrderEntry) -> str:
     """Assemble one file: relocate whole note groups into the declared order."""
-    units = _units(text)
+    units = _units(_spans(text))
     raw = text.encode("utf-8")
     text_of = {unit["root"]: raw[unit["start"]:unit["end"]].decode("utf-8")
                for unit in units if unit["note"]}

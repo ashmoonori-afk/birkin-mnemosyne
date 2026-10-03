@@ -94,7 +94,9 @@ def _int_list(value: JsonValue) -> list[int] | None:
     return result
 
 
-def _compact_order_errors(entry: dict[str, JsonValue], text: str, path: str) -> list[str]:
+def _compact_order_errors(
+    entry: dict[str, JsonValue], expected: tuple[list[list[int]], list[int]], path: str,
+) -> list[str]:
     errors: list[str] = []
     if set(entry) - {"path", "reorder", "superseded"}:
         errors.append(f"unexpected-order-field:{path}")
@@ -124,7 +126,7 @@ def _compact_order_errors(entry: dict[str, JsonValue], text: str, path: str) -> 
         if seen.intersection(parsed_run):
             errors.append(f"overlapping-reorder:{path}")
         seen.update(parsed_run)
-    expected_reorder, expected_superseded = compact_effects(text)
+    expected_reorder, expected_superseded = expected
     if reorders != expected_reorder:
         errors.append(f"reorder-drift:{path}")
     if superseded is None or superseded != expected_superseded:
@@ -159,6 +161,8 @@ def _verify_compact(payload: dict[str, JsonValue], sources: Mapping[str, bytes])
         errors.append("duplicate-file")
     if set(declared) != set(sources) or declared != list(sources):
         errors.append("path-order")
+    expected_effects = {path: compact_effects(raw.decode("utf-8"))
+                        for path, raw in sources.items()}
     order_paths: list[str] = []
     for entry in order:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
@@ -169,15 +173,14 @@ def _verify_compact(payload: dict[str, JsonValue], sources: Mapping[str, bytes])
             errors.append("malformed-order")
             continue
         order_paths.append(path)
-        raw = sources.get(path)
-        if raw is None:
+        expected = expected_effects.get(path)
+        if expected is None:
             errors.append(f"foreign-order:{path}")
             continue
-        errors.extend(_compact_order_errors(entry, raw.decode("utf-8"), path))
+        errors.extend(_compact_order_errors(entry, expected, path))
     if len(order_paths) != len(set(order_paths)):
         errors.append("duplicate-order")
-    affected = [path for path, raw in sources.items()
-                if any(compact_effects(raw.decode("utf-8")))]
+    affected = [path for path, effects in expected_effects.items() if any(effects)]
     if order_paths != affected:
         errors.append("missing-order")
     return errors
