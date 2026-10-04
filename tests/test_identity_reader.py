@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from birkin_mnemosyne.identity_reader import IdentityReader, IdentityReadError
+from birkin_mnemosyne._startup_syntax import Span, parse_spans
+from birkin_mnemosyne.identity_reader import (
+    IdentityReader,
+    IdentityReadError,
+    Section,
+    parse_sections,
+)
 
 
 def fixture(tmp_path, text):
@@ -154,3 +160,56 @@ def test_lru_total_source_budget_is_bounded(tmp_path):
         reader.read_full(f"{i}.md")
     assert len(reader._cache) == 4
     assert sum(d.fingerprint[2] for d in reader._cache.values()) <= 1_048_576
+
+
+@pytest.mark.parametrize(("text", "startup_labels", "expected"), [
+    ("", False, ()),
+    (" \r\n\t", False, ()),
+    ("---\nfield: value\n---\n", False, ()),
+    ("\ufeff---\r\nfield: value\r\n---\r\n \r\n# Root\r\n끝", False,
+     ((4, 6, "Root", 1),)),
+    ("\ufeff# 연락 ###\r\n방식\r\n#### Child\r\n끝", False,
+     ((0, 2, "연락", 1), (2, 4, "Child", 4))),
+    ("\ufeffRoot\r\n===\r\nTools\r\n---\r\n끝", False,
+     ((0, 2, "Root", 1), (2, 5, "Tools", 2))),
+    ("rule\n# Root\n## Same\n### Child\n## Same\n# Other", False,
+     ((0, 1, "Preamble", 0), (1, 2, "Root", 1), (2, 3, "Same", 2),
+      (3, 4, "Child", 3), (4, 5, "Same", 2), (5, 6, "Other", 1))),
+    ("TOP NOTE: live\nbody\n## End", False,
+     ((0, 2, "Preamble", 0), (2, 3, "End", 2))),
+    ("TOP NOTE: live\nbody\n## End", True,
+     ((0, 2, "TOP NOTE: live", 2), (2, 3, "End", 2))),
+    (("\ufeff````lang\n# Hidden\n```\n# Hidden\n~~~~\n# Hidden\n"
+      "```` trailing\n# Hidden\n````\n# Visible"), True,
+     ((0, 9, "Preamble", 0), (9, 10, "Visible", 1))),
+    ("~~~\nTOP NOTE: hidden\n# Hidden\n~~~\nTOP NOTE: live", True,
+     ((0, 4, "Preamble", 0), (4, 5, "TOP NOTE: live", 2))),
+    ("# Root\n\ufeff## Not heading\n## Real", False,
+     ((0, 2, "Root", 1), (2, 3, "Real", 2))),
+    ("---\nunclosed\n# Root", False,
+     ((0, 2, "Preamble", 0), (2, 3, "Root", 1))),
+])
+def test_primitive_spans_preserve_syntax_boundaries(
+    text: str, startup_labels: bool, expected: tuple[Span, ...],
+) -> None:
+    assert parse_spans(text, startup_labels=startup_labels) == expected
+
+
+def test_rich_fields_keep_duplicate_occurrences_and_descendant_ancestry() -> None:
+    text = "\ufeff# 연락\r\n## Same\r\n첫째\r\n#### Child\r\n끝\r\n## Same"
+    expected = (
+        ("연락", (), 1, 1, 1, "\ufeff# 연락\r\n"),
+        ("Same", ("연락",), 2, 2, 3, "## Same\r\n첫째\r\n"),
+        ("Child", ("연락", "Same"), 4, 4, 5, "#### Child\r\n끝\r\n"),
+        ("Same", ("연락",), 2, 6, 6, "## Same"),
+    )
+    sections = parse_sections(text)
+    rich: list[Section] = []
+    for occurrence, (heading, ancestry, level, begin, end, body) in zip(
+        (1, 1, 1, 2), expected, strict=True,
+    ):
+        anchor = hashlib.sha256(
+            ("\0".join((*ancestry, heading)) + f"\0{occurrence}").encode("utf-8"),
+        ).hexdigest()[:16]
+        rich.append(Section(anchor, heading, ancestry, level, begin, end, body))
+    assert sections == tuple(rich)
