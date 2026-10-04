@@ -25,7 +25,6 @@ import sys
 import types
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -686,7 +685,7 @@ def test_probe_file_does_not_import_the_product_before_its_mode(tmp_path):
         payload_context(payload, root, paths).encode("utf-8")).hexdigest()
 
 
-def payload_context(payload: dict[str, Any], root: Path, paths: list[str]) -> str:
+def payload_context(payload: dict[str, protocol.JsonValue], root: Path, paths: list[str]) -> str:
     """Rebuild the legacy full context the probe declares it measured."""
     return json.dumps({"files": [{"path": path, "text": (root / path).read_bytes().decode("utf-8")}
                                  for path in paths]}, ensure_ascii=False)
@@ -818,6 +817,17 @@ def synthetic_recall_rows():
             for author in ("history-a", "history-b", "history-extra") for split in ("dev", "test")]
 
 
+def synthetic_approval(manifest: protocol.FrozenManifest) -> protocol.ApprovedEvaluation:
+    return protocol.ApprovedEvaluation(
+        protocol._canonical_sha256(manifest),
+        frozenset((author, feature, tuple(paths))
+                  for author, slices in manifest["required_authors"].items()
+                  for feature, paths in slices.items()),
+        frozenset(manifest["author_identity"].items()),
+        frozenset(protocol._required_recall(manifest)),
+    )
+
+
 @pytest.fixture
 def sealed_synthetic(tmp_path, monkeypatch):
     """Only invented authors, pair cases, contexts and scorer decisions enter this fixture."""
@@ -844,6 +854,7 @@ def sealed_synthetic(tmp_path, monkeypatch):
     class Service:
         def __init__(self, root, *, semantic=False, thresholds=None):
             self.semantic_status = "ready"
+            self.semantic = semantic
             calls.append(("service", semantic, thresholds))
 
         def questions(self, limit=20):
@@ -911,9 +922,14 @@ def sealed_synthetic(tmp_path, monkeypatch):
         relative = author + ".json"
         data = {"author": author,
                 "startup": {"files": [{"path": "MODE.md", "text": source}],
-                            "questions": [{"id": "q"}]},
-                "identity": {"questions": [{"id": "i"}]},
-                "consolidation": [{"id": str(index), "titles": ["A", "B"], "bodies": ["A", "B"]}
+                            "required_items": [{"source": "MODE.md", "text": "synthetic"}],
+                            "questions": [{"id": "q", "source": "MODE.md", "section": "Mode",
+                                           "field": "Guard", "answer": "synthetic"}]},
+                "identity": {"document": source, "questions": [
+                    {"id": "i", "query": "Guard", "section": "Mode",
+                     "field": "Guard", "answer": "synthetic"}]},
+                "consolidation": [{"id": str(index), "titles": ["A", "B"], "bodies": ["A", "B"],
+                                  "related": True}
                                   for index in range(10)]}
         path = root / relative
         path.write_text(json.dumps(data), "utf-8")
@@ -951,9 +967,24 @@ def sealed_synthetic(tmp_path, monkeypatch):
 
     real_probe = protocol.round4_probe
     monkeypatch.setattr(protocol, "round4_probe", probe)
+    approval = [synthetic_approval(manifest)]
+    registry = root / "test-frozen-runs.jsonl"
+    evaluate, main = protocol.sealed_evaluation, protocol.main
+
+    def synthetic_evaluation(*args, **kwargs):
+        kwargs.setdefault("_test_approval", approval[0])
+        kwargs.setdefault("_test_registry", registry)
+        return evaluate(*args, **kwargs)
+
+    def synthetic_main(argv):
+        return main(argv, _test_approval=approval[0], _test_registry=registry)
+
+    monkeypatch.setattr(protocol, "sealed_evaluation", synthetic_evaluation)
+    monkeypatch.setattr(protocol, "main", synthetic_main)
     return types.SimpleNamespace(root=root, manifest=manifest, path=manifest_path, pinned=pinned,
                                  runner=runner, reader=Reader, service=Service, rows=rows,
-                                 calls=calls, probes=probe_calls, baseline=baseline, real_probe=real_probe)
+                                 calls=calls, probes=probe_calls, baseline=baseline, real_probe=real_probe,
+                                 approval=approval, registry=registry)
 
 
 def test_sealed_cli_preserves_authors_pairs_provenance_and_private_artifacts(sealed_synthetic, capsys):
@@ -1035,6 +1066,7 @@ def test_sealed_cli_fails_closed_before_any_scoring(sealed_synthetic, capsys, fa
     elif failure == "bad-config":
         (fixture.root / "thresholds.json").write_text('{"locked": false}')
     fixture.path.write_text(json.dumps(fixture.manifest))
+    fixture.approval[0] = synthetic_approval(fixture.manifest)
     output = fixture.root / "failed-results.json"
     assert protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
                           "--output", str(output)]) == 1
@@ -1114,7 +1146,7 @@ def test_sealed_refuses_existing_evidence_without_scoring(sealed_synthetic, caps
     output.write_text("existing sealed evidence")
     assert protocol.main(["--manifest", str(sealed_synthetic.path), "--root", str(sealed_synthetic.root),
                           "--output", str(output)]) == 1
-    assert "already exists" in json.loads(capsys.readouterr().err)["reason"]
+    assert json.loads(capsys.readouterr().err)["code"] == "FROZEN_EVALUATION_FAILED"
     assert output.read_text() == "existing sealed evidence"
     assert sealed_synthetic.calls == []
 
@@ -1168,12 +1200,11 @@ def test_sealed_semantic_unready_pipeline_stays_pending(sealed_synthetic, monkey
     assert sealed_synthetic.runner.Consolidation is sealed_synthetic.service
 
 
-def test_sealed_missing_baseline_is_pending_not_an_invented_number(sealed_synthetic):
+def test_sealed_missing_baseline_aborts_before_scoring(sealed_synthetic):
     sealed_synthetic.baseline.unlink()
-    report = protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
-    assert report["gates"]["IS-4"]["status"] == "PENDING"
-    assert report["baseline_source"]["path"] == "baseline.json"
-    assert all("baseline" not in row for row in report["historical_recall"])
+    with pytest.raises(protocol.FrozenInputError):
+        protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert sealed_synthetic.calls == sealed_synthetic.probes == []
 
 
 def test_sealed_scorer_mutation_is_rejected_and_bindings_restored(sealed_synthetic, monkeypatch):
@@ -1262,13 +1293,13 @@ def test_sealed_pair_median_keeps_raw_outlier_without_averaging(sealed_synthetic
 
 
 def test_sealed_cli_writes_pending_artifact_and_returns_nonzero(sealed_synthetic, capsys):
-    sealed_synthetic.baseline.unlink()
+    (sealed_synthetic.root / "thresholds.json").unlink()
     output = sealed_synthetic.root / "pending-results.json"
     code = protocol.main(["--manifest", str(sealed_synthetic.path), "--root", str(sealed_synthetic.root),
                           "--output", str(output)])
     assert code == 2
     assert json.loads(capsys.readouterr().out)["status"] == "PENDING"
-    assert json.loads(output.read_text())["gates"]["IS-4"]["status"] == "PENDING"
+    assert json.loads(output.read_text())["gates"]["IS-6"]["status"] == "PENDING"
 
 
 def test_sealed_pair_bpe_uses_raw_crlf_context_not_normalized_round3_full(
@@ -1315,3 +1346,194 @@ def test_sealed_pair_bpe_uses_raw_crlf_context_not_normalized_round3_full(
     assert timing["round3_full_context_size_matches_raw_full"] is False
     assert timing["whole_context"]["full"]["characters"] > measured["full_context"]["characters"]
     assert protocol.startup_gates(measured, timing)["IS-2"]["status"] == "PASS"
+
+
+@pytest.mark.parametrize("mutation", ["author", "slice", "historical", "metadata"])
+def test_integrity_attack_manifest_requirements_cannot_be_reduced(sealed_synthetic, mutation):
+    fixture = sealed_synthetic
+    if mutation == "author":
+        fixture.manifest["required_authors"].pop("invented-b")
+    elif mutation == "slice":
+        fixture.manifest["required_authors"]["invented-b"].pop("identity")
+    elif mutation == "historical":
+        fixture.manifest["required_recall_authors"].remove("history-b")
+    else:
+        fixture.manifest["slices_validated_at"] = "attacker-approved"
+    fixture.path.write_text(json.dumps(fixture.manifest), encoding="utf-8")
+
+    code = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                          "--output", str(fixture.root / "attack-results.json")])
+
+    assert code == 1
+    assert fixture.calls == fixture.probes == []
+
+
+@pytest.mark.parametrize("defect", [
+    "baseline-file", "baseline-r@1", "baseline-r@5", "baseline-mrr", "baseline-ndcg@10",
+    "baseline-n", "baseline-before_raw_precision_at_1", "baseline-before_p95_ms",
+    "baseline-duplicate", "baseline-slice",
+    "three-note-case", "startup-questions", "identity-questions",
+])
+def test_integrity_attack_preflight_aborts_with_zero_scorer_calls(sealed_synthetic, defect):
+    fixture = sealed_synthetic
+    if defect == "baseline-file":
+        fixture.baseline.unlink()
+    elif defect.startswith("baseline-"):
+        payload = json.loads(fixture.baseline.read_text("utf-8"))
+        if defect == "baseline-duplicate":
+            payload["kibitzer"].append(payload["kibitzer"][-1])
+        elif defect == "baseline-slice":
+            payload["kibitzer"].pop()
+        else:
+            field = defect.removeprefix("baseline-")
+            row = payload["kibitzer"][-1]
+            (row if field.startswith("before_") else row["before"]).pop(field)
+        fixture.baseline.write_text(json.dumps(payload), encoding="utf-8")
+        fixture.manifest["recall_baseline"]["raw_sha256"] = protocol.raw_sha256(
+            fixture.baseline.read_bytes())
+    else:
+        path = fixture.root / "invented-b.json"
+        payload = json.loads(path.read_text("utf-8"))
+        if defect == "three-note-case":
+            payload["consolidation"][-1]["titles"].append("C")
+            payload["consolidation"][-1]["bodies"].append("C")
+        else:
+            payload[defect.removesuffix("-questions")]["questions"] = []
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        fixture.pinned[path.name] = path.read_bytes()
+        digest = protocol.raw_sha256(path.read_bytes())
+        fixture.manifest["required_files"][path.name] = {
+            "raw_sha256": digest, "git_blob_sha256": digest}
+    fixture.path.write_text(json.dumps(fixture.manifest), encoding="utf-8")
+    fixture.approval[0] = synthetic_approval(fixture.manifest)
+
+    code = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                          "--output", str(fixture.root / "preflight-results.json")])
+
+    assert (code, len(fixture.calls), len(fixture.probes)) == (1, 0, 0)
+
+
+@pytest.mark.parametrize("channel", [
+    "exception", "stdout", "stderr", "pending", "runtime", "system-exit", "subprocess",
+])
+def test_integrity_attack_scorer_secrets_stay_off_console(
+    sealed_synthetic, monkeypatch, capfd, channel,
+):
+    fixture = sealed_synthetic
+    secret = "PLANTED_SYNTHETIC_SECRET_4f2a"
+    original = fixture.runner.consolidation
+
+    def disclose(data):
+        if channel == "exception":
+            raise protocol.FrozenInputError(secret)
+        if channel == "runtime":
+            raise RuntimeError(secret)
+        if channel == "system-exit":
+            raise SystemExit(secret)
+        if channel == "pending" and fixture.runner.Consolidation(fixture.root).semantic:
+            raise protocol.PendingProductSurfaceError(secret)
+        if channel == "stdout":
+            print(secret)
+            os.write(1, secret.encode())
+        if channel == "stderr":
+            print(secret, file=sys.stderr)
+            os.write(2, secret.encode())
+        if channel == "subprocess":
+            subprocess.run([sys.executable, "-c",
+                            f"import sys; print({secret!r}); print({secret!r}, file=sys.stderr)"],
+                           check=True)
+        return original(data)
+
+    monkeypatch.setattr(fixture.runner, "consolidation", disclose)
+    output = fixture.root / "private-results.json"
+    code = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                          "--output", str(output)])
+
+    captured = capfd.readouterr()
+    assert secret not in captured.out + captured.err
+    assert code == (1 if channel in ("exception", "runtime", "system-exit")
+                    else 2 if channel == "pending" else 0)
+    private = output if output.exists() else output.with_name(output.stem + "-diagnostics.json")
+    assert secret in private.read_text("utf-8")
+    if os.name != "nt":
+        assert private.stat().st_mode & 0o777 == 0o600
+    records = [json.loads(line) for line in fixture.registry.read_text("utf-8").splitlines()]
+    assert [record["event"] for record in records] == ["attempt", "outcome"]
+    assert records[-1]["status"] == ("FAIL" if code == 1 else "PENDING" if code == 2 else "PASS")
+
+
+def test_integrity_attack_new_output_path_cannot_repeat_evaluation(sealed_synthetic, capsys):
+    fixture = sealed_synthetic
+    arguments = ["--manifest", str(fixture.path), "--root", str(fixture.root)]
+    assert protocol.main([*arguments, "--output", str(fixture.root / "first-results.json")]) == 0
+    _ = capsys.readouterr()
+    calls, probes = len(fixture.calls), len(fixture.probes)
+
+    code = protocol.main([*arguments, "--output", str(fixture.root / "second-results.json")])
+
+    assert code == 1
+    assert (len(fixture.calls), len(fixture.probes)) == (calls, probes)
+    assert json.loads(capsys.readouterr().err)["code"] == "FROZEN_RUN_REPEATED"
+    records = [json.loads(line) for line in fixture.registry.read_text("utf-8").splitlines()]
+    assert [record["event"] for record in records] == ["attempt", "outcome", "refused"]
+    assert len(records[-1]["prior_attempts"]) == 2
+    assert len({record["key"] for record in records}) == 1
+
+
+@pytest.mark.parametrize("held", [False, True])
+def test_integrity_attack_registry_lock_refuses_without_scoring(sealed_synthetic, capsys, held):
+    fixture = sealed_synthetic
+    lock = fixture.registry.with_name(fixture.registry.name + ".lock")
+    descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    if not held:
+        os.close(descriptor)
+    try:
+        code = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                              "--output", str(fixture.root / "locked-results.json")])
+    finally:
+        if held:
+            os.close(descriptor)
+
+    assert code == 1
+    assert json.loads(capsys.readouterr().err)["code"] == "FROZEN_RUN_LOCKED"
+    assert fixture.calls == fixture.probes == []
+    assert lock.is_file()
+    assert not fixture.registry.exists()
+
+
+@pytest.mark.parametrize("failure", [None, "registry-open", "registry-parse", "registry-append", "scorer"])
+def test_registry_lock_is_released_after_success_and_failure(sealed_synthetic, monkeypatch, failure):
+    fixture = sealed_synthetic
+    lock = fixture.registry.with_name(fixture.registry.name + ".lock")
+    held_during_appends = []
+    append = protocol._RunAttempt._append
+
+    def observed_append(self, record, stream):
+        held_during_appends.append(lock.is_file())
+        if failure == "registry-append":
+            raise OSError("synthetic append failure")
+        append(self, record, stream)
+
+    monkeypatch.setattr(protocol._RunAttempt, "_append", observed_append)
+    if failure == "registry-open":
+        fixture.registry.mkdir()
+    elif failure == "registry-parse":
+        fixture.registry.write_text("{invalid json}\n", encoding="utf-8")
+    elif failure == "scorer":
+        def fail_score(data):
+            raise protocol.FrozenInputError("synthetic scorer failure")
+        monkeypatch.setattr(fixture.runner, "consolidation", fail_score)
+    output = fixture.root / "release-results.json"
+
+    code = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                          "--output", str(output)])
+
+    assert code == (0 if failure is None else 1)
+    assert not lock.exists()
+    if failure is None or failure == "scorer":
+        assert held_during_appends == [True, True]
+        records = [json.loads(line) for line in fixture.registry.read_text("utf-8").splitlines()]
+        assert [record["event"] for record in records] == ["attempt", "outcome"]
+        assert records[-1]["status"] == ("PASS" if failure is None else "FAIL")
+    else:
+        assert held_during_appends == ([True] if failure == "registry-append" else [])

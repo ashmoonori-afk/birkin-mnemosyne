@@ -39,8 +39,10 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import traceback
 from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
@@ -50,6 +52,7 @@ from typing import (
     Literal,
     NoReturn,
     Protocol,
+    TextIO,
     TypeAlias,
     TypedDict,
     TypeGuard,
@@ -76,6 +79,7 @@ sys.path.insert(0, str(ROOT))
 DEFAULT_MANIFEST = HERE / "frozen-manifest.json"
 THRESHOLDS_PATH = HERE / "detection-thresholds.json"
 BENCHMARKS = ROOT / "benchmarks"
+RUN_REGISTRY: Final = ROOT / ".omo/evidence/round4/frozen-runs.jsonl"
 
 # Scorer modules whose functions stay byte-unchanged; imported on demand only.
 SCORER_MODULES = ("benchmarks.round3.run", "benchmarks.round3.answerer",
@@ -151,6 +155,42 @@ class FrozenManifest(_ManifestFields, total=False):
     required_recall_slices: list[str]
     source_tree_sha256: str
     recall_baseline: dict[str, JsonValue]
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovedEvaluation:
+    """Immutable approval; alternate approvals are explicit Python-only test inputs."""
+
+    manifest_sha256: str
+    author_slices: frozenset[tuple[str, str, tuple[str, ...]]]
+    author_identities: frozenset[tuple[str, str]]
+    historical_keys: frozenset[tuple[str, str, str]]
+
+
+APPROVED_MANIFEST_SHA256: Final = "ca1563a4e9881a199ca92b48b554e7b2fc53fd0d410349627153c5a99eec357c"
+APPROVED_AUTHOR_SLICES: Final = frozenset({
+    ("gpt-6.1-sol", "consolidation", ("benchmarks/round3/frozen_sol.json",)),
+    ("gpt-6.1-sol", "identity", ("benchmarks/round3/frozen_sol.json",)),
+    ("gpt-6.1-sol", "startup", ("benchmarks/round3/frozen_sol_startup.json",)),
+    ("anthropic-subscription/claude-opus-5-5", "consolidation",
+     ("benchmarks/round3/frozen_claude_consolidation.json",)),
+    ("anthropic-subscription/claude-opus-5-5", "identity",
+     ("benchmarks/round3/frozen_claude_identity.json",)),
+    ("anthropic-subscription/claude-opus-5-5", "startup",
+     ("benchmarks/round3/frozen_claude_startup.json",)),
+})
+APPROVED_AUTHOR_IDENTITIES: Final = frozenset({
+    (path, author) for author, _, paths in APPROVED_AUTHOR_SLICES for path in paths
+})
+APPROVED_HISTORICAL_KEYS: Final = frozenset({
+    (author, split, kind)
+    for author in ("claude-opus-5.5", "gpt-6.1-sol", "claude-fable-5.1")
+    for split in ("dev", "test") for kind in ("exact", "para", "mixed")
+})
+APPROVED_EVALUATION: Final = ApprovedEvaluation(
+    APPROVED_MANIFEST_SHA256, APPROVED_AUTHOR_SLICES,
+    APPROVED_AUTHOR_IDENTITIES, APPROVED_HISTORICAL_KEYS,
+)
 
 
 class _AuthorSlice(TypedDict):
@@ -245,9 +285,66 @@ class IntegrityReport(TypedDict):
 class FrozenInputError(RuntimeError):
     """A frozen input, scorer or required author slice failed its integrity contract."""
 
+    code: str = "FROZEN_EVALUATION_FAILED"
+
 
 class PendingProductSurfaceError(FrozenInputError):
     """A selected public product surface cannot supply valid measured evidence."""
+
+
+class _SealedFailure(FrozenInputError):
+    """Carry private diagnostics to the CLI without exposing them on its console."""
+
+    def __init__(self, cause: BaseException, diagnostics: dict[str, JsonValue]) -> None:
+        super().__init__(str(cause))
+        self.diagnostics: dict[str, JsonValue] = diagnostics
+        self.code: str = cause.code if isinstance(cause, FrozenInputError) else "FROZEN_EVALUATION_FAILED"
+
+
+class _CapturedProcessFailure(Protocol):
+    stdout: str | bytes | None
+    stderr: str | bytes | None
+
+
+def _captured_process_failure(cause: BaseException) -> TypeGuard[_CapturedProcessFailure]:
+    return isinstance(cause, subprocess.CalledProcessError)
+
+
+@contextmanager
+def _sealed_streams(diagnostics: dict[str, JsonValue]) -> Generator[None]:
+    """Seal Python streams, descriptor writes and inherited child-process streams."""
+    _ = sys.stdout.flush()
+    _ = sys.stderr.flush()
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as out, \
+            tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err:
+        saved_out, saved_err = os.dup(1), os.dup(2)
+        try:
+            _ = os.dup2(out.fileno(), 1)
+            _ = os.dup2(err.fileno(), 2)
+            with redirect_stdout(out), redirect_stderr(err):
+                try:
+                    yield
+                finally:
+                    cause = sys.exc_info()[1]
+                    if cause is not None:
+                        diagnostics["exception"] = traceback.format_exc()
+                        if _captured_process_failure(cause):
+                            for label, value in (("subprocess_stdout", cause.stdout),
+                                                 ("subprocess_stderr", cause.stderr)):
+                                if isinstance(value, bytes):
+                                    diagnostics[label] = value.decode("utf-8", errors="replace")
+                                elif isinstance(value, str):
+                                    diagnostics[label] = value
+                    out.flush()
+                    err.flush()
+        finally:
+            _ = os.dup2(saved_out, 1)
+            _ = os.dup2(saved_err, 2)
+            os.close(saved_out)
+            os.close(saved_err)
+            _ = out.seek(0)
+            _ = err.seek(0)
+            diagnostics["stdout"], diagnostics["stderr"] = out.read(), err.read()
 
 
 def normalize_blob(data: bytes) -> bytes:
@@ -942,6 +1039,25 @@ def _required_recall(manifest: FrozenManifest) -> set[tuple[str, str, str]]:
     return {(author, split, kind) for author in authors for split in ("dev", "test") for kind in kinds}
 
 
+def _canonical_sha256(manifest: FrozenManifest) -> str:
+    """Use the guard's sorted, compact JSON canonicalization, not checkout formatting."""
+    return raw_sha256(json.dumps(
+        manifest, sort_keys=True, separators=(",", ":"), allow_nan=False,
+    ).encode("utf-8"))
+
+
+def _verify_approval(manifest: FrozenManifest, approved: ApprovedEvaluation) -> str:
+    digest = _canonical_sha256(manifest)
+    slices = frozenset((author, feature, tuple(paths))
+                       for author, features in manifest["required_authors"].items()
+                       for feature, paths in features.items())
+    if digest != approved.manifest_sha256 or slices != approved.author_slices or \
+            frozenset(manifest["author_identity"].items()) != approved.author_identities or \
+            frozenset(_required_recall(manifest)) != approved.historical_keys:
+        raise FrozenInputError("manifest differs from immutable evaluation approval")
+    return digest
+
+
 def _recall_key(row: Mapping[str, JsonValue]) -> tuple[str, str, str]:
     return (_text(row.get("author"), "recall.author"),
             _text(row.get("split"), "recall.split"), _text(row.get("kind"), "recall.kind"))
@@ -1145,6 +1261,92 @@ def _score_slice(
     return result
 
 
+def _preflight_slice(feature: str, data: Mapping[str, JsonValue]) -> None:
+    """Validate the unchanged scorer's full input shape without emitting payload content."""
+    if feature == "consolidation":
+        cases = _records(data.get(feature), "consolidation cases")
+        for case in cases:
+            for field in ("titles", "bodies"):
+                pair = case.get(field)
+                if not isinstance(pair, list) or len(pair) != 2 or \
+                        not all(isinstance(value, str) for value in pair):
+                    raise FrozenInputError("unchanged consolidation scorer requires two-note pair cases")
+            if not isinstance(case.get("related"), bool):
+                raise FrozenInputError("consolidation related must be boolean")
+    elif feature in ("startup", "identity"):
+        fixture = _mapping(data.get(feature), "feature fixture")
+        cases = _records(fixture.get("questions"), "feature questions")
+        if feature == "identity":
+            document = fixture.get("document")
+            if not isinstance(document, str):
+                raise FrozenInputError("identity document must be a string")
+            for case in cases:
+                for field in ("query", "section", "field"):
+                    _ = _text(case.get(field), "identity question field")
+        else:
+            sources: set[str] = set()
+            for record in _records(fixture.get("files"), "startup files"):
+                name = _text(record.get("path"), "startup path")
+                path = Path(name)
+                if path.is_absolute() or ".." in path.parts or name in sources or \
+                        not isinstance(record.get("text"), str):
+                    raise FrozenInputError("invalid or duplicate startup source")
+                sources.add(name)
+            material = fixture.get("long_material", [])
+            if not isinstance(material, list):
+                raise FrozenInputError("startup long_material must be a list")
+            for item in material:
+                record = _mapping(item, "startup long_material")
+                count = record.get("count")
+                if isinstance(count, bool) or not isinstance(count, int) or count < 0 or \
+                        record.get("path") not in sources or not isinstance(record.get("tail"), str):
+                    raise FrozenInputError("invalid startup long_material expansion")
+                template = _text(record.get("line_template"), "startup template")
+                if count:
+                    _ = template.format(i=0)
+            required_items = fixture.get("required_items")
+            if not isinstance(required_items, list):
+                raise FrozenInputError("startup required_items must be a list")
+            for item in required_items:
+                record = _mapping(item, "startup required item")
+                if record.get("source") not in sources or not isinstance(record.get("text"), str):
+                    raise FrozenInputError("invalid startup required item")
+            for case in cases:
+                if case.get("source") not in sources:
+                    raise FrozenInputError("startup question source is absent")
+                if not isinstance(case.get("json_pointer"), str):
+                    for field in ("section", "field"):
+                        _ = _text(case.get(field), "startup question field")
+        if any("answer" not in case for case in cases):
+            raise FrozenInputError("question answer field is absent")
+    else:
+        raise FrozenInputError("unsupported required feature slice")
+    ids = [_text(case.get("id"), "case id") for case in cases]
+    if len(ids) != len(set(ids)):
+        raise FrozenInputError("duplicate case id")
+
+
+def _preflight_baseline(
+    baseline: Sequence[dict[str, JsonValue]], required: set[tuple[str, str, str]],
+) -> None:
+    recorded = _recall_index(baseline)
+    if required - recorded.keys():
+        raise FrozenInputError("recorded baseline is missing required historical slices")
+    for key, row in recorded.items():
+        if key[1] not in ("dev", "test"):
+            raise FrozenInputError("recorded baseline has an invalid split")
+        before = _mapping(row.get("before"), "recorded baseline before")
+        for field in ("r@1", "r@5", "mrr", "ndcg@10"):
+            value = _number(before.get(field), "recorded baseline rank metric")
+            if not 0 <= value <= 1:
+                raise FrozenInputError("recorded baseline rank metric is outside its range")
+        count = _number(before.get("n"), "recorded baseline denominator")
+        precision = _number(row.get("before_raw_precision_at_1"), "recorded baseline raw precision")
+        latency = _number(row.get("before_p95_ms"), "recorded baseline latency")
+        if count <= 0 or not count.is_integer() or not 0 <= precision <= 1 or latency < 0:
+            raise FrozenInputError("recorded baseline has invalid denominator, precision or latency")
+
+
 def _baseline(
     manifest: FrozenManifest,
 ) -> tuple[list[dict[str, JsonValue]], dict[str, JsonValue]]:
@@ -1152,7 +1354,7 @@ def _baseline(
     name = _text(config.get("path", "benchmarks/round3/results.json"), "recall baseline path")
     path = _resolve(name)
     if not path.is_file():
-        return [], {"path": name, "status": "PENDING", "reason": "recorded recall baseline file missing"}
+        raise FrozenInputError("recorded recall baseline file missing")
     raw = path.read_bytes()
     digest = raw_sha256(raw)
     declared = config.get("raw_sha256")
@@ -1200,15 +1402,92 @@ def _tree_state() -> dict[str, JsonValue]:
         path = ROOT / name
         hashes[name] = raw_sha256(path.read_bytes()) if path.is_file() else None
     return {"head": git("rev-parse", "HEAD"), "git_tree": git("rev-parse", "HEAD^{tree}"),
-            "status": git("status", "--porcelain"),
+            "status": git("status", "--porcelain", "--", ".",
+                          ":(exclude).omo/evidence/round4/frozen-runs.jsonl"),
             "working_tree_sha256": raw_sha256(json.dumps(
                 hashes, sort_keys=True, separators=(",", ":")).encode("utf-8")),
             "tracked_working_files": hashes}
 
 
-def sealed_evaluation(
+class _RepeatedRunError(FrozenInputError):
+    code: str = "FROZEN_RUN_REPEATED"
+
+
+class _RunLockedError(FrozenInputError):
+    code: str = "FROZEN_RUN_LOCKED"
+
+
+@contextmanager
+def _locked_registry(path: Path) -> Generator[TextIO]:
+    """Serialize claims and outcomes across local evaluator processes."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    try:
+        lock = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError as exc:
+        raise _RunLockedError("run registry lock already exists") from exc
+    try:
+        descriptor = os.open(path, os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o600)
+        with os.fdopen(descriptor, "a+", encoding="utf-8") as stream:
+            yield stream
+    finally:
+        os.close(lock)
+        lock_path.unlink()
+
+
+@dataclass(slots=True)
+class _RunAttempt:
+    """Local append-only disclosure, not tamper proof: its owner can delete the registry.
+
+    The mutable record is set only when an attempt is durably claimed and is
+    completed by the outer evaluation boundary, including exceptional outcomes.
+    """
+
+    registry: Path
+    record: dict[str, JsonValue] | None = None
+
+    def begin(self, identity: dict[str, JsonValue]) -> dict[str, JsonValue]:
+        key = raw_sha256(json.dumps(
+            identity, sort_keys=True, separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8"))
+        with _locked_registry(self.registry) as stream:
+            prior: list[JsonValue] = []
+            repeated = False
+            _ = stream.seek(0)
+            for line in stream:
+                row = _mapping(_json(line), "run registry record")
+                prior.append({name: value for name, value in row.items()
+                              if name != "prior_attempts"})
+                repeated |= row.get("key") == key
+            record: dict[str, JsonValue] = {
+                "key": key, "identity": identity, "started_at": _utc_now(),
+                "event": "refused" if repeated else "attempt",
+                "status": "FAIL" if repeated else "STARTED", "prior_attempts": prior,
+                "registry_limit": "Local registry can be deleted; disclose all retained prior attempts.",
+            }
+            self._append(record, stream)
+            if repeated:
+                raise _RepeatedRunError("same evaluation identity has already been attempted")
+            self.record = record
+            return record
+
+    def _append(self, record: Mapping[str, JsonValue], stream: TextIO) -> None:
+        _ = stream.write(json.dumps(record, ensure_ascii=True, allow_nan=False) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+    def finish(self, status: JsonValue) -> None:
+        if self.record is not None:
+            with _locked_registry(self.registry) as stream:
+                self._append({**self.record, "event": "outcome", "status": status,
+                              "finished_at": _utc_now()}, stream)
+
+
+def _evaluate(
     manifest_path: Path = DEFAULT_MANIFEST, *, root: Path = ROOT,
     startup_mode: str = COMPACT_STARTUP_MODE, detection_mode: str = SEMANTIC_DETECTION_MODE,
+    _test_approval: ApprovedEvaluation | None = None,
+    _attempt: _RunAttempt,
 ) -> dict[str, JsonValue]:
     """Score once on verified inputs; only the owner invokes this on real frozen data."""
     started = _utc_now()
@@ -1216,16 +1495,28 @@ def sealed_evaluation(
     # one tree while scoring another; synthetic tests rebind ROOT explicitly.
     if root.resolve() != ROOT.resolve():
         raise FrozenInputError("scoring --root must be the scorer checkout; use a disposable checkout")
+    manifest = load_manifest(manifest_path)
+    approved = APPROVED_EVALUATION if _test_approval is None else _test_approval
+    canonical_manifest_hash = _verify_approval(manifest, approved)
     bytecode_before = _bytecode_state()
     integrity = check_inputs(manifest_path, root=root)
-    manifest = load_manifest(manifest_path)
     for module in SCORER_MODULES:
         relative = module.replace(".", "/") + ".py"
         if relative not in manifest["required_files"]:
             raise FrozenInputError(f"{relative}: immutable scorer is not hash-bound by the manifest")
     _ = validate_required_authors(root, manifest_path)
-    required_recall = _required_recall(manifest)
+    required_recall = set(approved.historical_keys)
     baseline, baseline_source = _baseline(manifest)
+    _preflight_baseline(baseline, required_recall)
+    payloads: dict[str, dict[str, JsonValue]] = {}
+    for slices in manifest["required_authors"].values():
+        for feature, files in slices.items():
+            if len(files) != len(set(files)):
+                raise FrozenInputError("duplicate required slice file")
+            for name in files:
+                if name not in payloads:
+                    payloads[name] = _mapping(_json(_resolve(name).read_text("utf-8")), "author payload")
+                _preflight_slice(feature, payloads[name])
     if startup_mode not in (LEGACY_STARTUP_MODE, COMPACT_STARTUP_MODE) or \
             detection_mode not in (LEGACY_DETECTION_MODE, SEMANTIC_DETECTION_MODE):
         raise FrozenInputError("unknown explicit startup/detection mode")
@@ -1245,6 +1536,19 @@ def sealed_evaluation(
     missing_recall = sorted(required_recall - observed)
     if missing_recall:
         raise FrozenInputError(f"missing required historical recall author/split/kind: {missing_recall}")
+    _preflight_baseline(baseline, required_recall | observed)
+    run_record = _attempt.begin({
+        "manifest_sha256": canonical_manifest_hash, "git_tree": tree_before["git_tree"],
+        "config_threshold_sha256": raw_sha256(json.dumps({
+            "startup_mode": startup_mode, "detection_mode": detection_mode,
+            "thresholds_sha256": threshold_hash,
+        }, sort_keys=True, separators=(",", ":")).encode("utf-8")),
+        "implementation_identity": {
+            "working_tree_sha256": tree_before["working_tree_sha256"],
+            "evaluator_sha256": raw_sha256(Path(__file__).read_bytes()),
+            "python": sys.version,
+        },
+    })
     authors: dict[str, JsonValue] = {}
     per_row: dict[str, list[dict[str, JsonValue]]] = {key: [] for key in ("IS-1", "IS-2", "IS-6")}
     try:
@@ -1253,7 +1557,7 @@ def sealed_evaluation(
             for feature, files in sorted(slices.items()):
                 results: list[JsonValue] = []
                 for name in files:
-                    data = _mapping(_json(_resolve(name).read_text("utf-8")), name)
+                    data = payloads[name]
                     legacy = _score_slice(scorer, feature, data, LEGACY_STARTUP_MODE, LEGACY_DETECTION_MODE)
                     pending = (feature == "startup" and startup_mode == COMPACT_STARTUP_MODE and not compact) \
                         or (feature == "consolidation" and detection_mode == SEMANTIC_DETECTION_MODE
@@ -1269,8 +1573,9 @@ def sealed_evaluation(
                     else:
                         try:
                             candidate = _score_slice(scorer, feature, data, startup_mode, detection_mode)
-                        except PendingProductSurfaceError as exc:
-                            gate = _pending_gate(str(exc))
+                        except PendingProductSurfaceError:
+                            result["pending_diagnostics"] = traceback.format_exc()
+                            gate = _pending_gate("PENDING_PRODUCT_SURFACE")
                             result["configured"] = gate
                             for key in (("IS-1", "IS-2") if feature == "startup" else ("IS-6",)):
                                 per_row[key].append(gate)
@@ -1318,11 +1623,13 @@ def sealed_evaluation(
         "status_scope": "IS-1/IS-2/IS-4/IS-6/IS-9 frozen scoring only",
         "all_IS_status": _aggregate(list(gates.values()))["status"],
         "authors": authors, "historical_recall": list(recall),
+        "run_record": run_record,
         "integrity": _json_value(integrity), "baseline_source": baseline_source,
         "configuration": {"startup_mode": startup_mode, "detection_mode": detection_mode,
                           "thresholds_path": str(THRESHOLDS_PATH), "thresholds_sha256": threshold_hash},
         "provenance": {"tree_before": tree_before, "tree_after": tree_after,
                        "manifest_sha256": manifest_hash,
+                       "canonical_manifest_sha256": canonical_manifest_hash,
                        "manifest_source_tree_sha256": manifest.get("source_tree_sha256"),
                        "manifest_source_tree_sha256_missing": "source_tree_sha256" not in manifest,
                        "input_source_tree_sha256": integrity["source_tree_sha256"],
@@ -1339,6 +1646,31 @@ def sealed_evaluation(
         "scope": "fixed context-only extraction and complete pair-case discovery; " +
                  "historical raw P@1 and sibling-filtered metrics remain distinct; no author averaging",
     }
+
+
+def sealed_evaluation(
+    manifest_path: Path = DEFAULT_MANIFEST, *, root: Path = ROOT,
+    startup_mode: str = COMPACT_STARTUP_MODE, detection_mode: str = SEMANTIC_DETECTION_MODE,
+    _test_approval: ApprovedEvaluation | None = None,
+    _test_registry: Path | None = None,
+) -> dict[str, JsonValue]:
+    """Capture all evaluation diagnostics; alternate approval is unreachable from argparse."""
+    diagnostics: dict[str, JsonValue] = {}
+    attempt = _RunAttempt(RUN_REGISTRY if _test_registry is None else _test_registry)
+    try:
+        with _sealed_streams(diagnostics):
+            try:
+                result = _evaluate(manifest_path, root=root, startup_mode=startup_mode,
+                                   detection_mode=detection_mode, _test_approval=_test_approval,
+                                   _attempt=attempt)
+            except BaseException:
+                attempt.finish("FAIL")
+                raise
+            attempt.finish(result["status"])
+    except BaseException as exc:
+        raise _SealedFailure(exc, diagnostics) from exc
+    result["diagnostics"] = diagnostics
+    return result
 
 
 def _gates_path(output: Path) -> Path:
@@ -1363,7 +1695,10 @@ class _Arguments(argparse.Namespace):
     detection_mode: str = SEMANTIC_DETECTION_MODE
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None, *, _test_approval: ApprovedEvaluation | None = None,
+    _test_registry: Path | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     _ = parser.add_argument("--check-inputs-only", action="store_true",
@@ -1386,7 +1721,8 @@ def main(argv: list[str] | None = None) -> int:
                 raise FrozenInputError("sealed output already exists; refusing to overwrite evidence")
             sealed = sealed_evaluation(args.manifest, root=args.root,
                                        startup_mode=args.startup_mode,
-                                       detection_mode=args.detection_mode)
+                                       detection_mode=args.detection_mode,
+                                       _test_approval=_test_approval, _test_registry=_test_registry)
             _write_sealed(args.output, sealed)
             summary: dict[str, JsonValue] = {
                 "status": sealed["status"], "gates": sealed["gates"],
@@ -1395,7 +1731,17 @@ def main(argv: list[str] | None = None) -> int:
             }
             _write_sealed(gates_path, summary)
         except (FrozenInputError, OSError, ValueError, ImportError, subprocess.SubprocessError) as exc:
-            print(json.dumps({"status": "FAIL", "reason": str(exc)}), file=sys.stderr)
+            diagnostics = exc.diagnostics if isinstance(exc, _SealedFailure) else {
+                "exception": traceback.format_exc(),
+            }
+            try:
+                _write_sealed(args.output.with_name(args.output.stem + "-diagnostics.json"), diagnostics)
+            except (OSError, ValueError):
+                print(json.dumps({"status": "FAIL", "code": "SEALED_DIAGNOSTICS_WRITE_FAILED"}),
+                      file=sys.stderr)
+                return 1
+            code = exc.code if isinstance(exc, FrozenInputError) else "FROZEN_EVALUATION_FAILED"
+            print(json.dumps({"status": "FAIL", "code": code}), file=sys.stderr)
             return 1
         print(json.dumps(summary, ensure_ascii=True))
         return 0 if sealed["status"] == "PASS" else 2
