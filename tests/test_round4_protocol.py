@@ -783,3 +783,535 @@ def test_repo_frozen_files_are_never_written_by_the_suite():
     for relative, meta in manifest["required_files"].items():
         data = (ROOT / relative).read_bytes()
         assert hashlib.sha256(data).hexdigest() == meta["raw_sha256"], relative
+
+
+@pytest.mark.parametrize(("precision", "recall", "expected"), [
+    (1.0, 0.9, "PASS"), (0.999, 1.0, "FAIL"), (1.0, 0.899, "FAIL"),
+    (None, 0.0, "FAIL"),
+])
+def test_sealed_consolidation_gate_boundaries(precision, recall, expected):
+    result = {"after_precision": precision, "after_recall": recall}
+    assert protocol.consolidation_gate(result)["status"] == expected
+
+
+@pytest.mark.parametrize(("tokens", "latency", "expected"), [
+    (9, 0.9, "PASS"), (10, 0.9, "FAIL"), (9, 1.0, "FAIL"),
+])
+def test_sealed_startup_gate_requires_strict_improvements(tokens, latency, expected):
+    result = {
+        "complete": True, "missing_required_items": [],
+        "rows": [{"before_correct": True, "after_correct": True}],
+        "full_context": {"tokens_measured_o200k_base": 10},
+        "complete_context": {"tokens_measured_o200k_base": tokens},
+    }
+    timing = {"full_median_load_read_ms": 1.0, "compact_median_load_read_ms": latency,
+              "whole_context": {"full": result["full_context"], "compact": result["complete_context"]}}
+    assert protocol.startup_gates(result, timing)["IS-2"]["status"] == expected
+
+
+def synthetic_recall_rows():
+    metrics = {"r@1": 0.8, "r@5": 0.8, "mrr": 0.8, "ndcg@10": 0.8, "n": 10.0}
+    return [{"author": author, "split": split, "kind": "exact",
+             "before": dict(metrics), "after": dict(metrics),
+             "before_raw_precision_at_1": 0.7, "after_raw_precision_at_1": 0.7,
+             "before_p95_ms": 2.0, "after_p95_ms": 2.0}
+            for author in ("history-a", "history-b", "history-extra") for split in ("dev", "test")]
+
+
+@pytest.fixture
+def sealed_synthetic(tmp_path, monkeypatch):
+    """Only invented authors, pair cases, contexts and scorer decisions enter this fixture."""
+    import birkin_mnemosyne
+
+    root = tmp_path / "sealed-tree"
+    root.mkdir()
+    calls = []
+    probe_calls = []
+    source = "# Mode\nGuard: synthetic\n"
+
+    class Reader:
+        def __init__(self, root):
+            self.root = root
+
+        def read(self, paths, *, compact=False):
+            context = json.dumps({"files": [{"path": "MODE.md", "text": source}]},
+                                 ensure_ascii=False, separators=(",", ":") if compact else None)
+            return types.SimpleNamespace(context=context)
+
+        def verify(self, context, paths):
+            return types.SimpleNamespace(complete=True)
+
+    class Service:
+        def __init__(self, root, *, semantic=False, thresholds=None):
+            self.semantic_status = "ready"
+            calls.append(("service", semantic, thresholds))
+
+        def questions(self, limit=20):
+            return ()
+
+    monkeypatch.setattr(birkin_mnemosyne, "StartupReader", Reader)
+    monkeypatch.setattr(birkin_mnemosyne, "Consolidation", Service)
+    monkeypatch.setattr(protocol, "ROOT", root)
+    threshold_path = root / "thresholds.json"
+    threshold_path.write_text(json.dumps({"locked": True, "thresholds": {"synthetic": 1}}), "utf-8")
+    monkeypatch.setattr(protocol, "THRESHOLDS_PATH", threshold_path)
+
+    def context_size(text):
+        return {"characters": len(text), "utf8_bytes": len(text.encode()),
+                "tokens_measured_o200k_base": 9 if '":[{' in text else 10}
+
+    runner = types.ModuleType(protocol.SCORER_MODULES[0])
+    runner.__dict__.update(StartupReader=Reader, Consolidation=Service, context_size=context_size)
+
+    def startup(data):
+        calls.append(("startup", data["author"]))
+        full = Reader(root).read([]).context
+        candidate = runner.StartupReader(root).read([]).context
+        return {"author": data["author"], "complete": True, "missing_required_items": [],
+                "rows": [{"id": "q", "before_correct": True, "after_correct": True}],
+                "full_context": context_size(full), "complete_context": context_size(candidate),
+                "fresh_process": {"startup": {"legacy": True}}}
+
+    def consolidation(data):
+        runner.Consolidation(root).questions()
+        calls.append(("consolidation", data["author"]))
+        detected = 10 if data["author"] == "invented-a" else 9
+        rows = [{"id": case["id"], "gold_related": True, "after_detected": index < detected}
+                for index, case in enumerate(data["consolidation"])]
+        return {"author": data["author"], "rows": rows, "after_precision": 1.0,
+                "after_recall": detected / 10}
+
+    def identity(data):
+        calls.append(("identity", data["author"]))
+        return {"author": data["author"], "rows": [{"id": "i", "after_correct": True}]}
+
+    rows = synthetic_recall_rows()
+    runner.__dict__.update(
+        startup=startup, consolidation=consolidation, identity=identity, kibitzer=lambda: rows,
+        corpus=types.SimpleNamespace(queries=lambda: [
+            types.SimpleNamespace(author=row["author"], split=row["split"], kind=row["kind"])
+            for row in rows]),
+    )
+    pinned = {}
+    required_files = {}
+    for name in protocol.SCORER_MODULES:
+        relative = name.replace(".", "/") + ".py"
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Synthetic immutable scorer sentinel\n", "utf-8")
+        module = runner if name == protocol.SCORER_MODULES[0] else types.ModuleType(name)
+        module.__file__ = str(path)
+        monkeypatch.setitem(sys.modules, name, module)
+        pinned[relative] = path.read_bytes()
+        digest = protocol.raw_sha256(pinned[relative])
+        required_files[relative] = {"raw_sha256": digest, "git_blob_sha256": digest}
+    required_authors = {}
+    identities = {}
+    for author in ("invented-a", "invented-b"):
+        relative = author + ".json"
+        data = {"author": author,
+                "startup": {"files": [{"path": "MODE.md", "text": source}],
+                            "questions": [{"id": "q"}]},
+                "identity": {"questions": [{"id": "i"}]},
+                "consolidation": [{"id": str(index), "titles": ["A", "B"], "bodies": ["A", "B"]}
+                                  for index in range(10)]}
+        path = root / relative
+        path.write_text(json.dumps(data), "utf-8")
+        pinned[relative] = path.read_bytes()
+        digest = protocol.raw_sha256(pinned[relative])
+        required_files[relative] = {"raw_sha256": digest, "git_blob_sha256": digest}
+        required_authors[author] = {feature: [relative] for feature in
+                                   ("startup", "identity", "consolidation")}
+        identities[relative] = author
+    baseline = root / "baseline.json"
+    baseline.write_text(json.dumps({"kibitzer": rows}), "utf-8")
+    manifest = {"required_files": required_files, "required_authors": required_authors,
+                "author_identity": identities, "hash_contract": {"normalization": "CRLF"},
+                "slices_validated_at": "synthetic", "source_tree_sha256": "synthetic-source-tree",
+                "required_recall_authors": ["history-a", "history-b", "history-extra"],
+                "required_recall_slices": ["exact"],
+                "recall_baseline": {"path": "baseline.json",
+                                    "raw_sha256": protocol.raw_sha256(baseline.read_bytes())}}
+    manifest_path = root / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), "utf-8")
+    monkeypatch.setattr(protocol, "_pinned_blob_bytes", lambda name: pinned.get(name))
+    monkeypatch.setattr(protocol, "normalized_object_id", lambda data: "synthetic-object")
+    monkeypatch.setattr(protocol, "_tree_state",
+                        lambda: {"head": "synthetic-head", "git_tree": "synthetic-tree",
+                                 "working_tree_sha256": "synthetic-working", "status": ""})
+
+    def probe(probe_root, paths, mode):
+        context = Reader(probe_root).read(paths, compact=mode == "compact").context
+        probe_calls.append((mode, probe_root, list(paths)))
+        return {"mode": mode, "probe": "synthetic-probe", "root": str(probe_root), "paths": paths,
+                "context_sha256": protocol.raw_sha256(context.encode()),
+                "load_read_ms": 1.0 if mode == "full" else 0.5, "peak_rss_bytes": 10,
+                "context_characters": len(context), "product_imported": mode == "compact",
+                "optional_imports": [], "legacy": False}
+
+    real_probe = protocol.round4_probe
+    monkeypatch.setattr(protocol, "round4_probe", probe)
+    return types.SimpleNamespace(root=root, manifest=manifest, path=manifest_path, pinned=pinned,
+                                 runner=runner, reader=Reader, service=Service, rows=rows,
+                                 calls=calls, probes=probe_calls, baseline=baseline, real_probe=real_probe)
+
+
+def test_sealed_cli_preserves_authors_pairs_provenance_and_private_artifacts(sealed_synthetic, capsys):
+    fixture = sealed_synthetic
+    output = fixture.root / "synthetic-results.json"
+    status = protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                            "--output", str(output)])
+    assert status == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert set(summary) == {"status", "status_scope", "all_IS_status", "gates", "output", "gates_output"}
+    assert summary["all_IS_status"] == "PENDING"
+    report = json.loads(output.read_text("utf-8"))
+    assert set(report["authors"]) == {"invented-a", "invented-b"}
+    assert report["authors"]["invented-a"]["consolidation"][0]["configured"]["after_recall"] == 1.0
+    candidate = report["authors"]["invented-b"]["consolidation"][0]["configured"]
+    assert candidate["after_recall"] == 0.9
+    assert candidate["complete_counts"]["fn"] == candidate["complete_counts"]["abstentions"] == 1
+    assert len(report["historical_recall"]) == 6
+    for author in report["authors"].values():
+        timing = author["startup"][0]["paired_startup"]
+        assert len(timing["pairs"]) == 10
+        assert [pair["order"] for pair in timing["pairs"]] == \
+            [["full", "compact"], ["compact", "full"]] * 5
+        assert all(len(pair["observations"]) == 2 for pair in timing["pairs"])
+        assert timing["full_median_load_read_ms"] == 1.0
+        assert timing["compact_median_load_read_ms"] == 0.5
+    assert len(fixture.probes) == 40
+    assert all(not root.exists() for _, root, _ in fixture.probes)
+    assert fixture.runner.StartupReader is fixture.reader
+    assert fixture.runner.Consolidation is fixture.service
+    assert report["provenance"]["manifest_source_tree_sha256"] == "synthetic-source-tree"
+    assert report["configuration"]["thresholds_sha256"] == protocol.raw_sha256(
+        (fixture.root / "thresholds.json").read_bytes())
+    assert report["provenance"]["bytecode_before"]["policy"]
+    assert report["started_at"] <= report["finished_at"]
+    assert all(report["gates"][key]["status"] == "PASS" for key in
+               ("IS-1", "IS-2", "IS-4", "IS-6", "IS-9"))
+    assert report["gates"]["IS-8"]["status"] == "PENDING"
+    assert json.loads(Path(summary["gates_output"]).read_text())["gates"] == report["gates"]
+
+
+@pytest.mark.parametrize("failure", [
+    "hash", "scorer-hash", "missing-file", "missing-scorer", "unhashed-scorer", "author", "wrong-author",
+    "missing-slice", "empty-slice", "unhashed-slice",
+    "historical-author", "historical-slice", "baseline-hash", "bad-config",
+])
+def test_sealed_cli_fails_closed_before_any_scoring(sealed_synthetic, capsys, failure):
+    fixture = sealed_synthetic
+    path = fixture.root / ("benchmarks/round3/answerer.py" if "scorer" in failure else "invented-a.json")
+    if failure in ("hash", "scorer-hash"):
+        path.write_bytes(path.read_bytes() + b" ")
+    elif failure in ("missing-file", "missing-scorer"):
+        path.unlink()
+    elif failure == "unhashed-scorer":
+        fixture.manifest["required_files"].pop("benchmarks/round3/answerer.py")
+    elif failure in ("author", "wrong-author", "missing-slice"):
+        payload = json.loads(path.read_text())
+        if failure == "author":
+            payload.pop("author")
+        elif failure == "wrong-author":
+            payload["author"] = "not-the-required-author"
+        else:
+            payload.pop("startup")
+        path.write_text(json.dumps(payload))
+        fixture.pinned["invented-a.json"] = path.read_bytes()
+        digest = protocol.raw_sha256(path.read_bytes())
+        fixture.manifest["required_files"]["invented-a.json"] = {
+            "raw_sha256": digest, "git_blob_sha256": digest}
+    elif failure == "empty-slice":
+        fixture.manifest["required_authors"]["invented-a"]["startup"] = []
+    elif failure == "unhashed-slice":
+        fixture.manifest["required_files"].pop("invented-a.json")
+    elif failure == "historical-author":
+        fixture.rows[:] = [row for row in fixture.rows if row["author"] != "history-b"]
+    elif failure == "historical-slice":
+        fixture.rows.pop()
+    elif failure == "baseline-hash":
+        fixture.baseline.write_text("{}")
+    elif failure == "bad-config":
+        (fixture.root / "thresholds.json").write_text('{"locked": false}')
+    fixture.path.write_text(json.dumps(fixture.manifest))
+    output = fixture.root / "failed-results.json"
+    assert protocol.main(["--manifest", str(fixture.path), "--root", str(fixture.root),
+                          "--output", str(output)]) == 1
+    assert json.loads(capsys.readouterr().err)["status"] == "FAIL"
+    assert fixture.calls == fixture.probes == []
+    assert not output.exists()
+
+
+def test_sealed_restores_constructor_globals_after_scorer_failure(sealed_synthetic, monkeypatch):
+    def fail(data):
+        raise protocol.FrozenInputError("synthetic scorer failure")
+
+    monkeypatch.setattr(sealed_synthetic.runner, "consolidation", fail)
+    with pytest.raises(protocol.FrozenInputError, match="synthetic scorer failure"):
+        protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert sealed_synthetic.runner.StartupReader is sealed_synthetic.reader
+    assert sealed_synthetic.runner.Consolidation is sealed_synthetic.service
+
+
+@pytest.mark.parametrize("surface", ["compact", "semantic", "thresholds"])
+def test_sealed_missing_product_surface_is_pending(sealed_synthetic, monkeypatch, surface):
+    import birkin_mnemosyne
+
+    if surface == "compact":
+        class LegacyReader(sealed_synthetic.reader):
+            def read(self, paths):
+                return super().read(paths)
+        monkeypatch.setattr(birkin_mnemosyne, "StartupReader", LegacyReader)
+    elif surface == "semantic":
+        class LegacyService(sealed_synthetic.service):
+            def __init__(self, root):
+                super().__init__(root)
+        monkeypatch.setattr(birkin_mnemosyne, "Consolidation", LegacyService)
+    else:
+        (sealed_synthetic.root / "thresholds.json").unlink()
+    report = protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert report["status"] == "PENDING"
+    key = "IS-2" if surface == "compact" else "IS-6"
+    assert report["gates"][key]["status"] == "PENDING"
+
+
+@pytest.mark.parametrize(("field", "value", "expected"), [
+    ("after_p95_ms", 2.0, "PASS"), ("after_p95_ms", 2.001, "FAIL"),
+    ("after_raw_precision_at_1", 0.7, "PASS"), ("after_raw_precision_at_1", 0.699, "FAIL"),
+    ("mrr", 0.8, "PASS"), ("mrr", 0.799, "FAIL"), ("n", 9.0, "FAIL"),
+    ("r@1", 0.8, "PASS"), ("r@1", 0.799, "FAIL"),
+    ("r@5", 0.8, "PASS"), ("r@5", 0.799, "FAIL"),
+    ("ndcg@10", 0.8, "PASS"), ("ndcg@10", 0.799, "FAIL"),
+])
+def test_sealed_recall_baseline_boundaries(field, value, expected):
+    before = synthetic_recall_rows()[0]
+    after = json.loads(json.dumps(before))
+    if field in after["after"]:
+        after["after"][field] = value
+    else:
+        after[field] = value
+    key = (before["author"], before["split"], before["kind"])
+    assert protocol.recall_gates([after], [before], {key})[0]["gate"]["status"] == expected
+
+
+@pytest.mark.parametrize("missing", ["slice", "before_p95_ms", "mrr"])
+def test_sealed_missing_recorded_baseline_names_exact_gap(missing):
+    candidate = synthetic_recall_rows()[0]
+    baseline = json.loads(json.dumps(candidate))
+    if missing == "before_p95_ms":
+        baseline.pop(missing)
+    elif missing == "mrr":
+        baseline["before"].pop(missing)
+    key = (candidate["author"], candidate["split"], candidate["kind"])
+    result = protocol.recall_gates([candidate], [] if missing == "slice" else [baseline], {key})[0]
+    assert result["gate"]["status"] == "PENDING"
+    assert missing in result["gate"]["reason"]
+
+
+def test_sealed_refuses_existing_evidence_without_scoring(sealed_synthetic, capsys):
+    output = sealed_synthetic.root / "existing.json"
+    output.write_text("existing sealed evidence")
+    assert protocol.main(["--manifest", str(sealed_synthetic.path), "--root", str(sealed_synthetic.root),
+                          "--output", str(output)]) == 1
+    assert "already exists" in json.loads(capsys.readouterr().err)["reason"]
+    assert output.read_text() == "existing sealed evidence"
+    assert sealed_synthetic.calls == []
+
+
+def test_sealed_pairing_uses_twenty_real_fresh_subprocesses(sealed_synthetic, monkeypatch):
+    fixture = sealed_synthetic
+    probe_dir = fixture.root / "benchmarks/round4"
+    probe_dir.mkdir(parents=True)
+    (probe_dir / "_startup_probe.py").write_text(
+        "import hashlib, json, os, pathlib, sys\n"
+        "mode, root, *paths = sys.argv[1:]\n"
+        "context = json.dumps({'files': [{'path': p, 'text': "
+        "(pathlib.Path(root) / p).read_text()} for p in paths]}, ensure_ascii=False, "
+        "separators=(',', ':') if mode == 'compact' else None)\n"
+        "print(json.dumps({'mode': mode, 'probe': 'synthetic', 'root': root, 'paths': paths, "
+        "'context_sha256': hashlib.sha256(context.encode()).hexdigest(), "
+        "'load_read_ms': 1.0 if mode == 'full' else 0.5, 'peak_rss_bytes': 10, "
+        "'context_characters': len(context), 'product_imported': mode == 'compact', "
+        "'optional_imports': [], 'pid': os.getpid()}))\n",
+        encoding="utf-8")
+    monkeypatch.setattr(protocol, "HERE", probe_dir)
+    data = json.loads((fixture.root / "invented-a.json").read_text())
+    measured = protocol._score_slice(fixture.runner, "startup", data, "compact", "semantic")
+    launched = []
+    run = subprocess.run
+
+    def capture(command, **kwargs):
+        launched.append(list(command))
+        return run(command, **kwargs)
+
+    monkeypatch.setattr(protocol, "round4_probe", fixture.real_probe)
+    monkeypatch.setattr(subprocess, "run", capture)
+    timing = protocol.paired_startup(data, fixture.runner, measured)
+    assert len(launched) == 20
+    assert [command[2] for command in launched] == ["full", "compact", "compact", "full"] * 5
+    assert all(command[0] == sys.executable and command[1] == str(probe_dir / "_startup_probe.py")
+               for command in launched)
+    assert all(len(pair["observations"]) == 2 for pair in timing["pairs"])
+    assert len({row["pid"] for pair in timing["pairs"] for row in pair["observations"]}) == 20
+
+
+def test_sealed_semantic_unready_pipeline_stays_pending(sealed_synthetic, monkeypatch):
+    def unavailable(self, limit=20):
+        self.semantic_status = "unavailable"
+        return ()
+
+    monkeypatch.setattr(sealed_synthetic.service, "questions", unavailable)
+    report = protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert report["gates"]["IS-6"]["status"] == "PENDING"
+    assert report["status"] == "PENDING"
+    assert sealed_synthetic.runner.Consolidation is sealed_synthetic.service
+
+
+def test_sealed_missing_baseline_is_pending_not_an_invented_number(sealed_synthetic):
+    sealed_synthetic.baseline.unlink()
+    report = protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert report["gates"]["IS-4"]["status"] == "PENDING"
+    assert report["baseline_source"]["path"] == "baseline.json"
+    assert all("baseline" not in row for row in report["historical_recall"])
+
+
+def test_sealed_scorer_mutation_is_rejected_and_bindings_restored(sealed_synthetic, monkeypatch):
+    original = sealed_synthetic.runner.consolidation
+
+    def drift(data):
+        result = original(data)
+        (sealed_synthetic.root / "benchmarks/round3/answerer.py").write_text("changed scorer")
+        return result
+
+    monkeypatch.setattr(sealed_synthetic.runner, "consolidation", drift)
+    with pytest.raises(protocol.FrozenInputError, match="drifted"):
+        protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    assert sealed_synthetic.runner.StartupReader is sealed_synthetic.reader
+    assert sealed_synthetic.runner.Consolidation is sealed_synthetic.service
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("context_sha256", "different"), ("paths", ["other.md"]),
+    ("load_read_ms", float("nan")), ("load_read_ms", -1.0),
+])
+def test_sealed_paired_probe_rejects_invalid_or_different_closure(
+    sealed_synthetic, monkeypatch, field, value,
+):
+    probe = protocol.round4_probe
+
+    def changed(*args):
+        result = probe(*args)
+        result[field] = value
+        return result
+
+    monkeypatch.setattr(protocol, "round4_probe", changed)
+    with pytest.raises(protocol.FrozenInputError):
+        protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+
+
+@pytest.mark.parametrize("failure", ["omitted-case", "bad-abstention-denominator"])
+def test_sealed_rejects_incomplete_scorer_evidence(sealed_synthetic, monkeypatch, failure):
+    original = sealed_synthetic.runner.consolidation
+
+    def incomplete(data):
+        result = original(data)
+        if failure == "omitted-case":
+            result["rows"].pop()
+        else:
+            result["after_recall"] = 0.123
+        return result
+
+    monkeypatch.setattr(sealed_synthetic.runner, "consolidation", incomplete)
+    with pytest.raises(protocol.FrozenInputError):
+        protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+
+
+@pytest.mark.parametrize("failure", ["incomplete", "miss", "changed-answer"])
+def test_sealed_startup_zero_miss_and_unchanged_answer_boundaries(failure):
+    measured = {
+        "complete": failure != "incomplete",
+        "missing_required_items": ["synthetic miss"] if failure == "miss" else [],
+        "rows": [{"before_correct": True, "after_correct": failure != "changed-answer"}],
+        "full_context": {"tokens_measured_o200k_base": 10},
+        "complete_context": {"tokens_measured_o200k_base": 9},
+    }
+    timing = {"full_median_load_read_ms": 1.0, "compact_median_load_read_ms": 0.5,
+              "whole_context": {"full": measured["full_context"], "compact": measured["complete_context"]}}
+    gates = protocol.startup_gates(measured, timing)
+    assert gates["IS-1"]["status"] == gates["IS-2"]["status"] == "FAIL"
+
+
+def test_sealed_pair_median_keeps_raw_outlier_without_averaging(sealed_synthetic, monkeypatch):
+    probe = protocol.round4_probe
+    full_count = 0
+
+    def outlier(*args):
+        nonlocal full_count
+        result = probe(*args)
+        if result["mode"] == "full":
+            full_count += 1
+            result["load_read_ms"] = 100.0 if full_count == 1 else 1.0
+        return result
+
+    monkeypatch.setattr(protocol, "round4_probe", outlier)
+    report = protocol.sealed_evaluation(sealed_synthetic.path, root=sealed_synthetic.root)
+    timing = report["authors"]["invented-a"]["startup"][0]["paired_startup"]
+    assert timing["pairs"][0]["observations"][0]["load_read_ms"] == 100.0
+    assert timing["full_median_load_read_ms"] == 1.0
+
+
+def test_sealed_cli_writes_pending_artifact_and_returns_nonzero(sealed_synthetic, capsys):
+    sealed_synthetic.baseline.unlink()
+    output = sealed_synthetic.root / "pending-results.json"
+    code = protocol.main(["--manifest", str(sealed_synthetic.path), "--root", str(sealed_synthetic.root),
+                          "--output", str(output)])
+    assert code == 2
+    assert json.loads(capsys.readouterr().out)["status"] == "PENDING"
+    assert json.loads(output.read_text())["gates"]["IS-4"]["status"] == "PENDING"
+
+
+def test_sealed_pair_bpe_uses_raw_crlf_context_not_normalized_round3_full(
+    sealed_synthetic, monkeypatch,
+):
+    from benchmarks.round4._startup_probe import full_context
+
+    source = "# Mode\r\nGuard: synthetic\r\n"
+    data = {"startup": {"files": [{"path": "MODE.md", "text": source}]}}
+
+    class RawReader:
+        def __init__(self, root):
+            self.root = root
+
+        def read(self, paths):
+            text = (self.root / paths[0]).read_bytes().decode("utf-8")
+            return types.SimpleNamespace(context=json.dumps(
+                {"files": [{"path": paths[0], "text": text}]},
+                ensure_ascii=False, separators=(",", ":")))
+
+        def verify(self, context, paths):
+            return types.SimpleNamespace(complete=True)
+
+    def size(text):
+        return {"characters": len(text), "tokens_measured_o200k_base": len(text)}
+
+    def probe(root, paths, mode):
+        context = full_context(root, paths) if mode == "full" else RawReader(root).read(paths).context
+        return {"mode": mode, "probe": "synthetic", "root": str(root), "paths": paths,
+                "context_sha256": protocol.raw_sha256(context.encode()),
+                "load_read_ms": 1.0 if mode == "full" else 0.5, "peak_rss_bytes": 10,
+                "context_characters": len(context), "product_imported": mode == "compact",
+                "optional_imports": [], "legacy": False}
+
+    monkeypatch.setattr(protocol, "configured_startup", lambda root, mode: RawReader(root))
+    monkeypatch.setattr(protocol, "round4_probe", probe)
+    monkeypatch.setattr(sealed_synthetic.runner, "context_size", size)
+    normalized = json.dumps({"files": [{"path": "MODE.md", "text": source.replace("\r\n", "\n")}]})
+    compact = json.dumps({"files": [{"path": "MODE.md", "text": source}]}, separators=(",", ":"))
+    measured = {"full_context": size(normalized), "complete_context": size(compact),
+                "complete": True, "missing_required_items": [],
+                "rows": [{"before_correct": True, "after_correct": True}]}
+    timing = protocol.paired_startup(data, sealed_synthetic.runner, measured)
+    assert timing["round3_full_context_size_matches_raw_full"] is False
+    assert timing["whole_context"]["full"]["characters"] > measured["full_context"]["characters"]
+    assert protocol.startup_gates(measured, timing)["IS-2"]["status"] == "PASS"
