@@ -311,17 +311,38 @@ def compact_available() -> bool:
     return "compact" in inspect.signature(StartupReader.read).parameters
 
 
+def semantic_available() -> bool:
+    """The same predicate run.py uses to decide the semantic surface exists."""
+    from birkin_mnemosyne import Consolidation
+
+    return {"semantic", "thresholds"} <= set(inspect.signature(Consolidation.__init__).parameters)
+
+
 def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def test_configured_modes_refuse_pending_product_surfaces_without_fallback(tmp_path):
+def test_configured_modes_refuse_pending_product_surfaces_without_fallback(tmp_path, monkeypatch):
+    import birkin_mnemosyne
     from birkin_mnemosyne import Consolidation, StartupReader
 
     legacy = protocol.configured_consolidation(tmp_path, protocol.LEGACY_DETECTION_MODE)
     assert isinstance(legacy, Consolidation)
-    with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
-        protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
+    if not semantic_available():
+        with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
+            protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
+    else:
+        class LegacyConsolidation(Consolidation):
+            def __init__(self, root):
+                super().__init__(root)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(birkin_mnemosyne, "Consolidation", LegacyConsolidation)
+            with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
+                protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
+        monkeypatch.setattr(protocol, "THRESHOLDS_PATH", tmp_path / "missing-thresholds.json")
+        with pytest.raises(protocol.FrozenInputError, match="thresholds are missing"):
+            protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
     if not compact_available():
         with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
             protocol.configured_startup(tmp_path, protocol.COMPACT_STARTUP_MODE)
@@ -350,7 +371,8 @@ def test_declared_modes_report_pending_surfaces_and_legacy_evidence():
         assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["pending"]["delivered_by"] == "round4 T6"
     else:
         assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["available"] is True
-    assert modes["detection"][protocol.SEMANTIC_DETECTION_MODE]["available"] is False
+    semantic = modes["detection"][protocol.SEMANTIC_DETECTION_MODE]
+    assert semantic["available"] is semantic_available()
     assert modes["detection"][protocol.LEGACY_DETECTION_MODE]["available"] is True
     assert "future" in modes["scope"]
 
