@@ -281,6 +281,15 @@ def test_invalid_semantic_config_is_rejected(
         _ = qa.semantic_thresholds()
 
 
+def test_crowded_fixture_keeps_pending_capture_when_thresholds_are_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(qa, "THRESHOLDS_PATH", tmp_path / "absent.json")
+    fixture = qa.crowded_vault_fixture(semantic=True)
+    assert fixture["result"] == "PENDING"
+    assert "cleanup_root" not in fixture
+
+
 def test_sol_provenance_must_say_practice_not_held_out():
     document = _document()
     document["authors"][0]["authoring"] = "independent held-out evaluation set"

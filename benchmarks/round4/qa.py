@@ -2414,9 +2414,10 @@ def crowded_vault_fixture(*, semantic: bool = False) -> _CrowdedVault:
     notes = crowds_notes_per_topic(CROWDED_NEIGHBORHOOD_MIN + 8)
     positives = set(combinations(range(len(notes)), 2))
     capture = _capture_questions(notes, positives, semantic=semantic)
-    _require(not Path(capture.get("cleanup_root", "")).exists(),
-             "crowded question vault leaked")
-    _ = capture.pop("cleanup_root", None)
+    if "cleanup_root" in capture:
+        _require(not Path(capture["cleanup_root"]).exists(),
+                 "crowded question vault leaked")
+        _ = capture.pop("cleanup_root")
     extras: _CrowdedExtras = {
         "case": "crowded-neighborhood",
         "exceeds_threshold": len(notes) > CROWDED_NEIGHBORHOOD_MIN,

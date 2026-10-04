@@ -51,6 +51,7 @@ fatal for bounds in the report, never silently averaged in.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import math
@@ -730,7 +731,10 @@ def run_probe(args: _ProbeArguments) -> _ProbeReport:
                      "bounds": {"startup_ms": 1000,
                                 "total_peak_rss_bytes": 150_000_000},
                      "model_name": MODEL_NAME, "modes": {}, "cleanup": []}
-    with tempfile.TemporaryDirectory(prefix="mnemosyne-r4-resource-") as directory:
+    with contextlib.ExitStack() as stack:
+        prefix = "mnemosyne-r4-resource-"
+        directory = (tempfile.mkdtemp(prefix=prefix) if args.keep_vaults
+                     else stack.enter_context(tempfile.TemporaryDirectory(prefix=prefix)))
         workspace = Path(directory)
         for mode in modes:
             if mode == "consolidation-semantic" and not dependency["prepared"]:

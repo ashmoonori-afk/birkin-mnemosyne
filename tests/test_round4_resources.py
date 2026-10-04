@@ -23,6 +23,7 @@ The regressions pin the corrected surfaces:
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -402,6 +403,36 @@ def _handle(mode: str, repeats: int = 2, model_dir: Path | None = None):
 def _run(mode: str, vault: Path, repeats: int = 2,
          model_dir: Path | None = None) -> Mapping[str, Any]:
     return probe.run_probe(_handle(mode, repeats, model_dir))
+
+
+def _workspace_roots(parent: Path) -> list[Path]:
+    return sorted(parent.glob("mnemosyne-r4-resource-*"))
+
+
+def test_keep_vaults_retains_the_reported_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(probe.tempfile, "tempdir", str(tmp_path))
+    args = _handle("compact", 1)
+    args.keep_vaults = True
+    out = probe.run_probe(args)
+    retained = [Path(str(e["workspace_retained"])) for e in out["cleanup"]
+                if "workspace_retained" in e]
+    assert len(retained) == 1
+    try:
+        assert retained[0].is_dir()
+        assert _workspace_roots(tmp_path) == retained
+    finally:
+        shutil.rmtree(retained[0], ignore_errors=True)
+
+
+def test_without_keep_vaults_nothing_is_left_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(probe.tempfile, "tempdir", str(tmp_path))
+    out = probe.run_probe(_handle("compact", 1))
+    assert not any("workspace_retained" in e for e in out["cleanup"])
+    assert _workspace_roots(tmp_path) == []
 
 
 def test_compact_mode_is_pending_until_the_real_read_exists(tmp_path):
