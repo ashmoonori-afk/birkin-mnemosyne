@@ -817,9 +817,9 @@ def backend_check(model_dir: Path | None) -> _BackendReport:
         "detector_status": "PENDING",
         "detector_note": "backend readiness only; the semantic question detector "
                          + "and its frozen evaluation are future product work",
+        **_fresh_download_guard(prepared),
         **status, "readiness": {**status, "model_dir": str(
-            Path(model_dir) if model_dir is not None else status["model_dir"])},
-        **_fresh_download_guard(prepared)}
+            Path(model_dir) if model_dir is not None else status["model_dir"])}}
     report["model_dir"] = report["readiness"]["model_dir"]
     vault = Path(tempfile.mkdtemp(prefix="mnemosyne-r4-check-"))
     try:

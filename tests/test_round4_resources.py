@@ -721,7 +721,9 @@ def test_semantic_ready_check_is_a_real_data_surface_when_the_model_exists(tmp_p
         assert readiness["prepared"] is True
     else:                                          # weakened, never skipped
         assert out["encode"] == {"ok": False, "reason": "model_not_prepared"}
-        assert _object(out["readiness"])["status"] == "model_not_prepared"
+        expected = ("model_not_prepared" if semantic.available()
+                    else "ml-dependencies-missing")
+        assert _object(out["readiness"])["status"] == expected
         assert out["detector_status"] == "PENDING"
 
 
