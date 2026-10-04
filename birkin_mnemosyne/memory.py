@@ -21,22 +21,61 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 from __future__ import annotations
 
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, TypedDict
 
-from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
-                        Mnemosyne, expansion_weights)
-from .mnemosyne import atomic_write as _atomic_write
-from .mnemosyne import slug as _slug
+from . import frontmatter
+from .atomic import atomic_write as _atomic_write
+from .mnemosyne import (
+    ARCHIVE_ZONE,
+    IDENTITY_ZONE,
+    TYPE_ZONE,
+    WIKILINK_RE,
+    IndexEntry,
+    JsonInput,
+    JsonValue,
+    Mnemosyne,
+    expansion_weights,
+    json_float,
+    json_int,
+)
 from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import STEM_MIN as _STEM_MIN
-from .mnemosyne import _script
 from .mnemosyne import normalize_with_offsets as _normalize
+from .mnemosyne import script as _script
+from .mnemosyne import slug as _slug
 from .mnemosyne import tokenize as _tokenize
-from . import frontmatter
 from .vault_lock import VaultLock
+
+if TYPE_CHECKING:
+    from typing import NotRequired
+
+_parse_frontmatter: Callable[[str], tuple[dict[str, JsonValue], str]] = frontmatter.parse
+
+
+class MemoryConfig(TypedDict):
+    vault_path: NotRequired[str | Path]
+    vault: NotRequired[str | Path]
+    evidence_required: NotRequired[bool]
+
+
+class ListedNote(TypedDict):
+    title: str
+    type: str
+    updated: str
+    confidence: float
+    polarity: str
+    zone: str
+    path: Path
+
+
+class MemoryHit(TypedDict):
+    title: str
+    snippet: str
+    zone: str
+    related: list[str]
 
 VALID_TYPES = {"person", "project", "preference", "fact", "topic", "session"}
 VALID_POLARITIES = {"positive", "negative"}
@@ -65,7 +104,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _vault_dir(cfg):
+def _vault_dir(cfg: MemoryConfig | None) -> Path:
     cfg = cfg or {}
     # Honor both keys: the documented "vault_path" and the legacy "vault"
     # fallback (dropping it silently sent a configured vault to ./vault).
@@ -76,9 +115,9 @@ def _vault_dir(cfg):
 
 
 class VaultMemory:
-    def __init__(self, cfg: dict[str, Any] | None = None):
-        self.cfg = cfg or {}
-        self.vault = _vault_dir(self.cfg)
+    def __init__(self, cfg: MemoryConfig | None = None) -> None:
+        self.cfg: MemoryConfig = cfg or {}
+        self.vault: Path = _vault_dir(self.cfg)
         self._dex: Mnemosyne | None = None
 
     @property
@@ -129,8 +168,8 @@ class VaultMemory:
         self.dex.record_access(p.stem)   # reading a note = using it
         return text
 
-    def list_notes(self) -> list[dict[str, Any]]:
-        notes: list[dict[str, Any]] = []
+    def list_notes(self) -> list[ListedNote]:
+        notes: list[ListedNote] = []
         for entry in self.dex.entries().values():
             if entry["zone"] == ARCHIVE_ZONE:
                 continue   # soft-forgotten; reachable via zone="_archive"
@@ -160,7 +199,7 @@ class VaultMemory:
         removed = 0
         for f in self.vault.rglob("*.md"):
             try:
-                meta, _ = frontmatter.parse(
+                meta, _ = _parse_frontmatter(
                     f.read_text(encoding="utf-8", errors="replace"))
             except OSError:
                 continue
@@ -200,14 +239,14 @@ class VaultMemory:
         # slip between resolve and write (stale path -> duplicate note).
         with VaultLock(self.vault).hold(), _note_lock(_slug(title)):
             p = self._resolve_path(title, note_type, zone)
-            created = date.today().isoformat()
+            created = datetime.now().astimezone().date().isoformat()
             sources: list[str] = []
             existing_body = ""
             existing_polarity: str | None = None
             existing_version = 0
             if p.is_file():
                 old = p.read_text(encoding="utf-8", errors="replace")
-                meta, old_body = frontmatter.parse(old)
+                meta, old_body = _parse_frontmatter(old)
                 created = str(meta.get("created", created))
                 old_sources = meta.get("sources")
                 if isinstance(old_sources, list):
@@ -215,7 +254,7 @@ class VaultMemory:
                 existing_body = old_body.strip()
                 existing_polarity = str(meta.get("polarity") or "") or None
                 try:
-                    existing_version = int(meta.get("version") or 0)
+                    existing_version = json_int(meta.get("version") or 0)
                 except (TypeError, ValueError):
                     existing_version = 0
 
@@ -231,7 +270,7 @@ class VaultMemory:
             if not sources and self.cfg.get("evidence_required"):
                 raise ValueError(
                     "memory writes require at least one `source` for a new note "
-                    "(evidence_required is enabled in config)")
+                    + "(evidence_required is enabled in config)")
 
             if polarity is not None and polarity not in VALID_POLARITIES:
                 raise ValueError(
@@ -254,7 +293,8 @@ class VaultMemory:
             expires_at = None
             if ttl_days is not None and int(ttl_days) > 0:
                 from datetime import timedelta
-                expires_at = (date.today() + timedelta(days=int(ttl_days))).isoformat()
+                expires_at = (datetime.now().astimezone().date()
+                              + timedelta(days=int(ttl_days))).isoformat()
 
             fm = _compose_frontmatter(
                 title=title, note_type=note_type, created=created,
@@ -267,8 +307,8 @@ class VaultMemory:
             return p
 
     def search(self, query: str, limit: int = 8,
-               expansions: Mapping[str, Any] | None = None
-               ) -> list[dict[str, Any]]:
+               expansions: Mapping[str, JsonInput] | None = None
+               ) -> list[MemoryHit]:
         """Index-backed search (BM25 × dynamics × zone priority). Reads only
         the top ``limit`` note files for snippets — never the whole vault.
         ``expansions``: see :meth:`Mnemosyne.search`."""
@@ -278,11 +318,11 @@ class VaultMemory:
         terms = _tokenize(query)
         if expansions:
             terms += list(expansion_weights(expansions, terms))
-        out: list[dict[str, Any]] = []
+        out: list[MemoryHit] = []
         for h in self.dex.search(query, limit=limit, expansions=expansions):
             body = h["summary"]
             try:
-                _, parsed = frontmatter.parse(
+                _, parsed = _parse_frontmatter(
                     (self.vault / h["rel"]).read_text(encoding="utf-8",
                                                       errors="replace"))
                 body = parsed or body
@@ -343,16 +383,20 @@ class VaultMemory:
             return False
         if f"[[{to_title}]]" in text:
             return True
-        meta, body = frontmatter.parse(text)
+        meta, body = _parse_frontmatter(text)
         body = body.rstrip()
         if "## Related" in body:
             body += f" · [[{to_title}]]"
         else:
             body += f"\n\n## Related\n[[{to_title}]]"
         # rewrite preserving frontmatter
-        self.write_note(meta.get("title", from_title), body,
+        title = meta.get("title", from_title)
+        title_is_text = isinstance(title, str)
+        if not title_is_text:
+            raise AttributeError(f"'{type(title).__name__}' object has no attribute 'strip'")
+        _ = self.write_note(title, body,
                         note_type=str(meta.get("type", "topic")),
-                        confidence=float(meta.get("confidence", 0.7) or 0.7))
+                        confidence=json_float(meta.get("confidence", 0.7) or 0.7))
         return True
 
     # -- palace maintenance --------------------------------------------------
@@ -379,7 +423,7 @@ class VaultMemory:
         """
         dex = self.dex
         now = datetime.now(timezone.utc)
-        by_zone: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+        by_zone: dict[str, list[tuple[float, IndexEntry]]] = {}
         for s, e in dex.entries().items():
             if e["zone"] == ARCHIVE_ZONE or _is_expired(e):
                 continue
@@ -394,7 +438,7 @@ class VaultMemory:
             + mid + ([""] if "" in by_zone else [])
         total = sum(len(v) for v in by_zone.values())
         lines = [f"Vault: {self.vault} ({total} notes). "
-                 f"Use memory_search / memory_get_note for details."]
+                 + "Use memory_search / memory_get_note for details."]
         left = limit
         for z in order:
             if left <= 0:
@@ -427,27 +471,27 @@ def _compose_frontmatter(*, title: str, note_type: str, created: str,
     ttl_line = f"expires_at: {expires_at}\n" if expires_at else ""
     return (
         "---\n"
-        f"title: {title}\n"
-        f"type: {note_type}\n"
-        f"created: {created}\n"
-        f"updated: {updated}\n"
-        f"confidence: {confidence}\n"
-        f"polarity: {polarity}\n"
-        f"version: {int(version)}\n"
-        f"sources: [{src}]\n"
-        f"tags: [{tg}]\n"
+        + f"title: {title}\n"
+        + f"type: {note_type}\n"
+        + f"created: {created}\n"
+        + f"updated: {updated}\n"
+        + f"confidence: {confidence}\n"
+        + f"polarity: {polarity}\n"
+        + f"version: {int(version)}\n"
+        + f"sources: [{src}]\n"
+        + f"tags: [{tg}]\n"
         + ttl_line
         + "---\n\n"
     )
 
 
-def _is_expired(meta: dict[str, Any]) -> bool:
+def _is_expired(meta: IndexEntry | Mapping[str, JsonValue]) -> bool:
     """True if ``meta['expires_at']`` is a date strictly in the past."""
     raw = meta.get("expires_at")
     if not raw:
         return False
     try:
-        return date.fromisoformat(str(raw)) < date.today()
+        return date.fromisoformat(str(raw)) < datetime.now().astimezone().date()
     except ValueError:
         return False
 
@@ -498,7 +542,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
         return text.strip()[:width]
     hits.sort()
     from collections import Counter
-    inwin: Counter = Counter()
+    inwin: Counter[str] = Counter()
     best_start, best_end, best_distinct = hits[0][0], hits[0][0] + len(hits[0][1]), 1
     j = 0
     for i, (pos, term) in enumerate(hits):
@@ -515,3 +559,7 @@ def _snippet(text: str, terms: list[str] | str, width: int = 240) -> str:
     start = max(0, best_start - width // 8)
     end = min(len(low), max(best_start + width, best_end))
     return text[offsets[start]:offsets[end]].replace("\n", " ").strip()
+
+
+is_expired = _is_expired
+snippet = _snippet
