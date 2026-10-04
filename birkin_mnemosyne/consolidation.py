@@ -10,15 +10,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from . import frontmatter
+from ._assertion_witness import assertion_witness, lexical_reason
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, tokenize
 from .review_journal import Change, Receipt, ReviewError, commit, undo_receipt
 from .vault_lock import VaultLock
+
+if TYPE_CHECKING:
+    from ._semantic_questions import SemanticQuestions
 
 Choice = Literal[
     "keep-both", "keep-first", "keep-second", "current-first", "current-second",
@@ -42,6 +47,7 @@ class Question:
     second: NoteSnapshot
     reason: Literal["duplicate", "overlap-or-conflict"]
     similarity: float
+    configuration_id: str = ""
 
     @property
     def text(self) -> str:
@@ -64,7 +70,14 @@ def _hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _question_id(first: NoteSnapshot, second: NoteSnapshot) -> str:
+def _question_id(
+    first: NoteSnapshot, second: NoteSnapshot, configuration_id: str = "",
+) -> str:
+    if configuration_id:
+        return _hash(json.dumps(
+            ([(n.path, n.sha256) for n in (first, second)], configuration_id),
+            ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8"))
     return _hash(json.dumps(
         [(n.path, n.sha256) for n in (first, second)],
         ensure_ascii=False, separators=(",", ":"),
@@ -74,9 +87,39 @@ def _question_id(first: NoteSnapshot, second: NoteSnapshot) -> str:
 class Consolidation:
     """Discover read-only candidate pairs; apply only an explicit bound answer."""
 
-    def __init__(self, vault: str | Path) -> None:
+    def __init__(
+        self, vault: str | Path, *, semantic: bool = False,
+        thresholds: Mapping[str, float] | None = None,
+    ) -> None:
         self.vault: Path = Path(vault).resolve()
-        self.dex: Mnemosyne = Mnemosyne(self.vault)
+        self.dex: Mnemosyne = Mnemosyne(self.vault, semantic=False)
+        self._semantic: SemanticQuestions | None = None
+        self._semantic_requested: bool = semantic
+        if semantic:
+            from ._semantic_questions import Configuration, SemanticQuestions
+
+            configuration = Configuration.parse(thresholds)
+            self._semantic = SemanticQuestions(configuration)
+        elif thresholds is not None:
+            raise ValueError("thresholds require semantic=True")
+
+    @property
+    def semantic_status(self) -> str:
+        if not self._semantic_requested:
+            return "lexical"
+        return self._semantic.status if self._semantic is not None else "unavailable"
+
+    @property
+    def semantic_error(self) -> str:
+        return self._semantic.error if self._semantic is not None else ""
+
+    @property
+    def encoded_chunks(self) -> int:
+        return self._semantic.encoded_chunks if self._semantic is not None else 0
+
+    @property
+    def configuration_id(self) -> str:
+        return self._semantic.identity if self._semantic is not None else ""
 
     def questions(self, limit: int = 20) -> tuple[Question, ...]:
         """Return deterministic candidate pairs without changing any note."""
@@ -112,27 +155,45 @@ class Consolidation:
                     sources=tuple(sources) if isinstance(sources, list) else (),
                 ))
             notes.sort(key=lambda n: n.path)
+            witnesses = [assertion_witness(n.body) for n in notes]
+            semantic_evidence: dict[tuple[int, int], float] = {}
+            if self._semantic_requested:
+                if self._semantic is None:
+                    return ()
+                evidence = self._semantic.evidence(witnesses)
+                if evidence is None:
+                    return ()
+                semantic_evidence = evidence
             terms = [set(tokenize(n.body)) for n in notes]
             inverted: dict[str, list[int]] = {}
+            identical: dict[str, list[int]] = {}
             pairs: set[tuple[int, int]] = set()
             for i, tokens in enumerate(terms):
+                body = witnesses[i].body
+                if body:
+                    for j in identical.get(body, []):
+                        pairs.add((j, i))
+                    identical.setdefault(body, []).append(i)
                 for token in tokens:
                     for j in inverted.get(token, []):
                         pairs.add((j, i))
                     inverted.setdefault(token, []).append(i)
+            pairs.update(semantic_evidence)
             result: list[Question] = []
             for i, j in sorted(pairs):
                 first, second = notes[i], notes[j]
                 common = terms[i] & terms[j]
                 union = terms[i] | terms[j]
                 similarity = len(common) / len(union) if union else 0.0
-                same = " ".join(first.body.split()).casefold() == \
-                    " ".join(second.body.split()).casefold()
-                if not same and (len(common) < 3 or similarity < 0.55):
+                reason = lexical_reason(witnesses[i], witnesses[j])
+                if reason is None and (i, j) in semantic_evidence:
+                    reason = "overlap-or-conflict"
+                    similarity = semantic_evidence[i, j]
+                if reason is None:
                     continue
                 result.append(Question(
-                    _question_id(first, second), first, second,
-                    "duplicate" if same else "overlap-or-conflict", similarity,
+                    _question_id(first, second, self.configuration_id), first, second,
+                    reason, similarity, self.configuration_id,
                 ))
             result.sort(key=lambda q: (-q.similarity, q.id))
             return tuple(result[:limit])
@@ -145,8 +206,13 @@ class Consolidation:
         }
         if answer.choice not in choices or answer.survivor not in {"first", "second"}:
             raise ReviewError("unknown answer choice or survivor")
+        if self._semantic_requested and (
+            self._semantic is None or not self._semantic.current()
+        ):
+            raise ReviewError("semantic runtime unavailable; ask again")
         if answer.question_id != question.id or question.id != \
-                _question_id(question.first, question.second):
+                _question_id(question.first, question.second, self.configuration_id) or \
+                question.configuration_id != self.configuration_id:
             raise ReviewError("answer does not bind to this question")
         if question.first.path == question.second.path:
             raise ReviewError("a question requires two distinct notes")
