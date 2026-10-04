@@ -132,7 +132,9 @@ def test_thresholds_snapshot_and_answer_configuration_binding(
         changed = Consolidation(tmp_path, semantic=True, thresholds=config)
         assert changed.semantic_status == "ready", changed.semantic_error
         assert changed.configuration_id != service.configuration_id
-        assert changed.questions() == ()
+        # No competing supported frame means an unavailable margin, not zero.
+        expected_count = 0 if config["cosine"] == 1.0 else 1
+        assert len(changed.questions()) == expected_count
         with pytest.raises(ReviewError, match="bind"):
             _ = changed.apply(question, Answer(question.id, "keep-first"))
     with pytest.raises(ReviewError, match="bind"):
@@ -160,6 +162,87 @@ def test_topic_scope_values_and_examples_are_not_semantic_evidence(
                                 thresholds={"cosine": 0.5, "margin": 0.0})
         assert service.questions() == (), pair
         assert service.semantic_status == "ready", service.semantic_error
+
+
+def test_semantic_frames_do_not_require_lexical_clause_support(
+    tmp_path: Path, prepared_assets: Path,
+) -> None:
+    # Given a supported literal subject longer than the lexical grammar allows.
+    assert prepared_assets.is_dir()
+    seed(tmp_path, (
+        "The amber signal repeater relay keeps audit records.",
+        "The amber signal repeater relay retains audit records.",
+    ))
+    assert Consolidation(tmp_path).questions() == ()
+    service = Consolidation(tmp_path, semantic=True,
+                            thresholds={"cosine": 0.5, "margin": 0.0})
+
+    # When the complete semantic proposal pipeline discovers the pair.
+    questions = service.questions()
+
+    # Then independently parsed semantic frames can produce an actual offer.
+    assert len(questions) == 1
+    assert questions[0].configuration_id == service.configuration_id
+
+
+def test_supported_neighbor_margin_rejects_competing_subject(
+    tmp_path: Path, prepared_assets: Path,
+) -> None:
+    # Given supported competing subjects rather than a predicate/topic proxy.
+    assert prepared_assets.is_dir()
+    seed(tmp_path, (
+        "The amber relay keeps audit records.",
+        "The amber relay retains audit records.",
+        "The violet relay retains audit records.",
+    ))
+    service = Consolidation(tmp_path, semantic=True,
+                            thresholds={"cosine": 0.5, "margin": 0.2})
+
+    # When a competing supported frame is closer than the allowed gap.
+    questions = service.questions()
+
+    # Then no pair is offered on the strength of predicate/topic affinity.
+    assert questions == ()
+
+
+def test_unavailable_margin_uses_structured_witness_without_suppressing_matches(
+    tmp_path: Path, prepared_assets: Path,
+) -> None:
+    # Given only genuine matches with identical subject and argument anchors.
+    assert prepared_assets.is_dir()
+    seed(tmp_path, (
+        "The amber relay keeps audit records.",
+        "The amber relay retains audit records.",
+        "The amber relay preserves audit records.",
+    ))
+    service = Consolidation(tmp_path, semantic=True,
+                            thresholds={"cosine": 0.5, "margin": 0.2})
+
+    # When all supported frames belong to the same subject/attribute.
+    questions = service.questions(limit=10000)
+
+    # Then genuine neighbors do not enter the margin denominator or hide pairs.
+    assert len(questions) == 3
+
+
+def test_complete_semantic_discovery_exceeds_shortlists_and_public_caps(
+    tmp_path: Path, prepared_assets: Path,
+) -> None:
+    # Given a crowded neighborhood with every unordered pair genuinely related.
+    assert prepared_assets.is_dir()
+    seed(tmp_path, tuple(
+        f"The amber relay {verb} audit records."
+        for verb in ("keeps", "retains") * 17
+    ))
+    service = Consolidation(tmp_path, semantic=True,
+                            thresholds={"cosine": 0.5, "margin": 0.2})
+
+    # When discovery requests complete rather than capped offers.
+    questions = service.questions(limit=10000)
+
+    # Then no neighborhood cap suppresses a genuine match.
+    assert len(questions) == 34 * 33 // 2
+    assert len({(q.first.path, q.second.path) for q in questions}) == 561
 
 
 @pytest.mark.parametrize("thresholds", [

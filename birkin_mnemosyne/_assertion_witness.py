@@ -25,7 +25,7 @@ _NEGATED: Final = re.compile(
     r"\b(is|are|was|were|does|do|did|can|could|will|would|should|must|may|might)"
     + r"\s+not\b"
 )
-_SUBJECT_FUNCTIONS: Final = frozenset(
+SUBJECT_FUNCTIONS: Final = frozenset(
     (
         "i me my mine we us our ours you your yours he him his she her hers "
         + "it its they them their theirs this that these those who which whose "
@@ -48,6 +48,7 @@ class AssertionWitness:
     quantities: frozenset[tuple[str, str]]
     negated: frozenset[str]
     categorical: frozenset[str]
+    prose: tuple[str, ...]
 
 
 def _normalize(text: str) -> str:
@@ -80,7 +81,7 @@ def assertion_witness(body: str) -> AssertionWitness:
         clause = _normalize(part)
         words = [match.group() for match in _WORDS.finditer(clause)]
         category = _CATEGORICAL.fullmatch(clause)
-        if category and not _SUBJECT_FUNCTIONS.intersection(
+        if category and not SUBJECT_FUNCTIONS.intersection(
             match.group() for match in _WORDS.finditer(category[1])
         ):
             # Only an explicit attribute with one atomic value is masked.
@@ -92,8 +93,8 @@ def assertion_witness(body: str) -> AssertionWitness:
             if subject[0] in {"the", "a", "an"}:
                 subject = subject[1:]
             if (1 <= len(subject) <= 3
-                    and not _SUBJECT_FUNCTIONS.intersection(subject)
-                    and word not in _SUBJECT_FUNCTIONS
+                    and not SUBJECT_FUNCTIONS.intersection(subject)
+                    and word not in SUBJECT_FUNCTIONS
                     and _PREDICATE.fullmatch(word)):
                 declared = True
                 break
@@ -112,6 +113,9 @@ def assertion_witness(body: str) -> AssertionWitness:
     return AssertionWitness(
         _normalize(body), frozenset(clauses),
         frozenset(quantities), frozenset(negated), frozenset(categorical),
+        tuple(_normalize(part) for part in re.split(
+            r"(?<=[.!?])\s+|(?<=[。！？])\s*|\n\s*\n", "\n".join(prose),
+        ) if part.strip()),
     )
 
 

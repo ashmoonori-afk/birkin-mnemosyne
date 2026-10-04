@@ -1,0 +1,90 @@
+{
+  "locked": true,
+  "thresholds": {
+    "cosine": 0.98,
+    "margin": 0.2
+  },
+  "is6_gate": "FAIL",
+  "eligible_for_frozen_evaluation": false,
+  "lock_scope": "Practice calibration only; zero FP qualifies under task item 4. Locking is not an IS-6 recall pass.",
+  "selection_rule": "zero false positives per author on tuning, then maximal minimum-author complete recall, then larger cosine, then larger margin",
+  "parameter_sha256": "0b313bfc69fe1e41b7b42fba2b75a5a9f99564f6d6e8ef9a61f8f464588463e5",
+  "provenance": {
+    "head": "7d5c0f656017597813aa50b0796e964071071d6f",
+    "working_tree": "dirty; exact changed production hashes below",
+    "practice_sha256": "a1749195ea98f25991f3d4614345b7292ddb0eed7ec474307ee2fe7e7a169aa6",
+    "model_id": "minishlab/potion-multilingual-128M",
+    "prepared_format": 2,
+    "model_sha256": "7cc806f1de3d9f2ebe0e397749c0dc7ff32dc0485ccf1633a3facf9a9a24425b",
+    "model_hash_definition": "SHA256 of compact JSON (filename, byte size, asset SHA256) tuples in provider asset order",
+    "parser": "assertion-neighbor-v2",
+    "source_sha256": {
+      "birkin_mnemosyne/_assertion_witness.py": "262efb7d9ed0397f7f503a0a7e94abaae748f4d8e5413d929105e9aa565bc338",
+      "birkin_mnemosyne/_semantic_questions.py": "fcc816e271021cb746b8218b847304fb1c82cad540890e585029c0083edc66a9",
+      "birkin_mnemosyne/consolidation.py": "70c2963a4e665be81f0c4610df59fc52bd1f3c29f5fa27b29c891dbf12b919d3",
+      "benchmarks/round4/qa.py": "caf2fdc735e40398b385ddfb3805336bd557db735abe6f9d08fae263fc0424aa"
+    },
+    "tuning": [
+      {
+        "author": "chatgpt-subscription/gpt-6.1-sol",
+        "pairs": 24,
+        "positives": 12,
+        "pairs_sha256": "50607b6e04498c3b82ac7bc5c030116618be86e07658b6833a8e229d0e2ddc5c",
+        "sorted_ids_sha256": "3cc744665abbcd9ec73a537c5c227c8a90104fdd06cfd02cb9c60c5441935aaa",
+        "confusion": {"tp": 5, "fp": 0, "fn": 7, "abstained": 7},
+        "precision": 1.0,
+        "complete_recall": 0.4166666666666667
+      },
+      {
+        "author": "anthropic-subscription/claude-opus-5-5",
+        "pairs": 68,
+        "positives": 34,
+        "pairs_sha256": "ea1cf5b6111a5f1acf842aaaf9b6b794e7f6ae4c57a4fdde245e8c63949827ac",
+        "sorted_ids_sha256": "75b5f6fa92d970f4a3d00562923428e149c5512f9ab6fba39fd41f046125e3e1",
+        "confusion": {"tp": 2, "fp": 0, "fn": 32, "abstained": 32},
+        "precision": 1.0,
+        "complete_recall": 0.058823529411764705
+      }
+    ],
+    "grid": {
+      "cosine": [0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8, 0.81, 0.82, 0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9, 0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98],
+      "margin": [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2],
+      "candidates": 1029
+    }
+  },
+  "selection_trace": [
+    {
+      "stage": "complete production pipeline",
+      "observed_corners": [[0.5, 0.0], [0.98, 0.2]],
+      "author_case_counts": [24, 68],
+      "mixed_positive_gold_pairs": [276, 2278],
+      "mixed_negative_gold_pairs": [276, 2278],
+      "mixed_false_positives_per_author": [0, 0],
+      "method": "Exact monotonic plateau: semantic acceptance is conjunctive lower bounds and lexical offers are threshold-independent; both corners have identical offered path pairs. This is not 1029 fresh full-pipeline runs."
+    },
+    {
+      "stage": "zero FP separately per author",
+      "qualifying_precision_candidates": 1029
+    },
+    {
+      "stage": "maximal minimum-author complete recall",
+      "value": 0.058823529411764705,
+      "tied_candidates": 1029
+    },
+    {
+      "stage": "larger cosine",
+      "selected": 0.98,
+      "tied_candidates": 21
+    },
+    {
+      "stage": "larger margin",
+      "selected": 0.2,
+      "tied_candidates": 1
+    },
+    {
+      "stage": "IS-6 acceptance",
+      "result": "FAIL",
+      "reason": "Neither author reaches complete recall >= 0.9; unsupported multilingual frames and measured below-floor translation chunks remain blockers."
+    }
+  ]
+}
