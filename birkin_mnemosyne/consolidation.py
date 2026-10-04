@@ -131,9 +131,8 @@ class Consolidation:
             for entry in self.dex.entries().values():
                 if entry["zone"] == ARCHIVE_ZONE:
                     continue
-                fields: dict[str, str | int | float | bool | None | list[str]] = entry
-                relative = str(fields["rel"])
-                title = str(fields["title"])
+                relative = entry["rel"]
+                title = entry["title"]
                 path = self.vault / relative
                 raw = path.read_bytes()
                 parsed, body = frontmatter.parse(raw.decode("utf-8"))
