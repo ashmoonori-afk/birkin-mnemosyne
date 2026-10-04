@@ -15,6 +15,7 @@ import ast
 import hashlib
 import importlib
 import importlib.machinery
+import inspect
 import json
 import os
 import shutil
@@ -303,15 +304,35 @@ def test_misattributed_author_identity_is_rejected(tmp_path):
         protocol.validate_required_authors(root)
 
 
+def compact_available() -> bool:
+    """The same predicate the protocol uses to decide the compact surface exists."""
+    from birkin_mnemosyne import StartupReader
+
+    return "compact" in inspect.signature(StartupReader.read).parameters
+
+
+def sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def test_configured_modes_refuse_pending_product_surfaces_without_fallback(tmp_path):
-    from birkin_mnemosyne import Consolidation
+    from birkin_mnemosyne import Consolidation, StartupReader
 
     legacy = protocol.configured_consolidation(tmp_path, protocol.LEGACY_DETECTION_MODE)
     assert isinstance(legacy, Consolidation)
     with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
         protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
-    with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
-        protocol.configured_startup(tmp_path, protocol.COMPACT_STARTUP_MODE)
+    if not compact_available():
+        with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
+            protocol.configured_startup(tmp_path, protocol.COMPACT_STARTUP_MODE)
+    else:
+        root = startup_fixture(tmp_path / "startup")
+        paths = ["MODE.md", "profile/soul.md", "registry.json"]
+        reader = protocol.configured_startup(root, protocol.COMPACT_STARTUP_MODE)
+        real = StartupReader(root)
+        context = reader.read(paths).context
+        assert context == real.read(paths, compact=True).context
+        assert context != real.read(paths).context
     with pytest.raises(protocol.FrozenInputError, match="unknown startup mode"):
         protocol.configured_startup(tmp_path, "invented-mode")
 
@@ -324,8 +345,11 @@ def test_configured_modes_refuse_pending_product_surfaces_without_fallback(tmp_p
 
 def test_declared_modes_report_pending_surfaces_and_legacy_evidence():
     modes = protocol.declared_modes()
-    assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["available"] is False
-    assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["pending"]["delivered_by"] == "round4 T6"
+    if not compact_available():
+        assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["available"] is False
+        assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["pending"]["delivered_by"] == "round4 T6"
+    else:
+        assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["available"] is True
     assert modes["detection"][protocol.SEMANTIC_DETECTION_MODE]["available"] is False
     assert modes["detection"][protocol.LEGACY_DETECTION_MODE]["available"] is True
     assert "future" in modes["scope"]
@@ -594,10 +618,22 @@ def payload_context(payload: dict[str, Any], root: Path, paths: list[str]) -> st
 
 def test_probe_compact_refuses_absent_product_surface_without_relabelling(tmp_path):
     root = startup_fixture(tmp_path)
-    result = run_probe("compact", root, ["MODE.md", "profile/soul.md", "registry.json"])
-    assert result.returncode != 0
-    assert "read(paths, compact=True)" in result.stderr
-    assert "refusing to relabel" in result.stderr
+    paths = ["MODE.md", "profile/soul.md", "registry.json"]
+    result = run_probe("compact", root, paths)
+    if not compact_available():
+        assert result.returncode != 0
+        assert "read(paths, compact=True)" in result.stderr
+        assert "refusing to relabel" in result.stderr
+        return
+    from birkin_mnemosyne import StartupReader
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout.splitlines()[-1])
+    assert payload["mode"] == "compact"
+    assert payload["product_imported"] is True
+    real = StartupReader(root)
+    assert payload["context_sha256"] == sha256_text(real.read(paths, compact=True).context)
+    assert payload["context_sha256"] != sha256_text(real.read(paths).context)
 
 
 def test_probe_reports_alternating_paired_observations_with_a_median(tmp_path):
@@ -606,6 +642,7 @@ def test_probe_reports_alternating_paired_observations_with_a_median(tmp_path):
     orders: list[list[str]] = []
     compact_failures: list[int] = []
     full_values: list[float] = []
+    compact_values: list[float] = []
     for index in range(4):
         order = ("full", "compact") if index % 2 == 0 else ("compact", "full")
         orders.append(list(order))
@@ -613,12 +650,19 @@ def test_probe_reports_alternating_paired_observations_with_a_median(tmp_path):
             result = run_probe(mode, root, paths)
             if mode == "compact":
                 compact_failures.append(result.returncode)
+                if result.returncode == 0:
+                    compact_values.append(
+                        json.loads(result.stdout.splitlines()[-1])["load_read_ms"])
             elif result.returncode == 0:
                 full_values.append(json.loads(result.stdout.splitlines()[-1])["load_read_ms"])
 
     assert orders == [["full", "compact"], ["compact", "full"],
                       ["full", "compact"], ["compact", "full"]]
-    assert set(compact_failures) == {2}, "compact must fail explicitly, never silently succeed"
+    if not compact_available():
+        assert set(compact_failures) == {2}, "compact must fail explicitly, never silently succeed"
+    else:
+        assert set(compact_failures) == {0}
+        assert len(compact_values) == 4 and statistics.median(compact_values) > 0
     assert len(full_values) == 4 and statistics.median(full_values) > 0
 
 

@@ -564,6 +564,17 @@ def _accepts_compact(read: Callable[[Sequence[str]], _StartupBundle]) -> TypeGua
     return "compact" in inspect.signature(read).parameters
 
 
+class _CompactFormatRead(Protocol):
+    """A bound ``StartupReader.read`` that also accepts ``compact_format``."""
+
+    def __call__(self, paths: Sequence[str], *, compact: bool,
+                 compact_format: str) -> _StartupBundle: ...
+
+
+def _accepts_compact_format(read: _CompactRead) -> TypeGuard[_CompactFormatRead]:
+    return "compact_format" in inspect.signature(read).parameters
+
+
 class _SemanticFactory(Protocol):
     """A ``Consolidation`` constructor that accepts the future semantic keywords."""
 
@@ -631,12 +642,15 @@ def configured_startup(root: Path, mode: str = LEGACY_STARTUP_MODE) -> _StartupR
 
         class CompactReader(StartupReader):
             @override
-            def read(self, paths: Sequence[str]) -> _StartupBundle:
+            def read(self, paths: Sequence[str], *, compact: bool = True,
+                     compact_format: str = "v2") -> _StartupBundle:
                 base_read = super().read
                 if not _accepts_compact(base_read):
                     pending = PENDING_PRODUCT_SURFACES["compact-startup"]
                     return _pending(pending["surface"], pending["delivered_by"])(self.root)
-                return base_read(paths, compact=True)
+                if _accepts_compact_format(base_read):
+                    return base_read(paths, compact=compact, compact_format=compact_format)
+                return base_read(paths, compact=compact)
 
         return CompactReader(root)
     raise FrozenInputError(f"unknown startup mode {mode!r}")

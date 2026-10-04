@@ -437,12 +437,21 @@ def test_compact_child_uses_the_compact_surface_or_reports_absence(tmp_path):
         assert out["surface"] == "StartupReader.read(compact=True)"
         return
     vault = _vault(tmp_path, 6)
-    out = probe.run_child(["run", "compact", str(vault)], probe.child_env(offline=True))
     from birkin_mnemosyne import StartupReader
 
+    # The child appends to handoff.md in its changed_note phase, so every
+    # parent-side context is computed around the child run.
     reader = StartupReader(vault)
     compact = reader.read(["MODE.md"], compact=True).context
     legacy = reader.read(["MODE.md"], compact=False).context
+    out = probe.run_child(["run", "compact", str(vault)], probe.child_env(offline=True))
+    changed = StartupReader(vault).read(["MODE.md"], compact=True).context
+    phases = out["phases"]
+    assert phases["first_unencoded_vault"]["context_sha256"] == probe.digest(compact)
+    assert phases["warm_vault"]["context_sha256"] == probe.digest(compact)
+    assert phases["changed_note"]["context_sha256"] == probe.digest(changed)
+    assert phases["changed_note"]["context_sha256"] != probe.digest(compact)
+    # the top-level digest reports the first (pre-mutation) compact bundle
     assert out["context_sha256"] == probe.digest(compact)
     assert out["context_sha256"] != probe.digest(legacy)
     assert out["context_bytes"] == len(compact.encode("utf-8"))
