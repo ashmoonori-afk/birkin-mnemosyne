@@ -1,2 +1,11 @@
 benchmarks/round3/frozen_*.json text eol=lf
 benchmarks/round3/SHA256SUMS.txt text eol=lf
+benchmarks/round3/run.py text eol=lf
+benchmarks/round3/answerer.py text eol=lf
+benchmarks/round3/startup_answerer.py text eol=lf
+benchmarks/round3/_probe.py text eol=lf
+benchmarks/retrieval/queries_claude-fable-5.1.json text eol=lf
+benchmarks/retrieval/queries_gpt-6.1-sol.json text eol=lf
+benchmarks/retrieval/bench_retrieval.py text eol=lf
+benchmarks/retrieval/retrieval_corpus.py text eol=lf
+benchmarks/retrieval/_probe.py text eol=lf

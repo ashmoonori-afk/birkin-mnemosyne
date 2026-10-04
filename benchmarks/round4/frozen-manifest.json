@@ -1,0 +1,132 @@
+{
+  "manifest_version": 1,
+  "plan": ".omo/plans/round4-close-gaps.md",
+  "plan_sha256": "6bc553e0d69caf215cb7850a1bbd9531e00c2231324c94dc1cc36c69fed530b4",
+  "bootstrap": ".omo/evidence/round4-frozen-manifest.json",
+  "bootstrap_captured_head": "4244768c9afcc14001a59af6e39151e96a43bc2a",
+  "bootstrap_captured_tree": "e8cf59cfdc030c94af83d74d6502d55f51d40ded",
+  "bootstrap_captured_by": "Native PowerShell Get-FileHash SHA256; question and gold contents not inspected",
+  "hash_contract": {
+    "raw": "The declared raw_sha256 is the already-pinned canonical Git blob SHA256 under explicit LF checkout attributes. Original Windows working-byte hashes remain unchanged in bootstrap_raw_sha256.",
+    "git_blob": "The declared git_blob_sha256 must equal SHA256 of the tracked HEAD blob read by Git. Working bytes must match that blob directly or after CRLF-to-LF normalization. A missing Git executable or tracked blob is an integrity failure, not an unchecked pass. BOM and bare CR bytes are preserved.",
+    "normalization": "text=b.replace(CRLF, LF)"
+  },
+  "bootstrap_raw_sha256": {
+    "benchmarks/round3/frozen_claude_consolidation.json": "38a8a6b4b9a7cef12650a394f2ea67134d0d26aba97c3fa4ad50917b2d3685ac",
+    "benchmarks/round3/frozen_claude_identity.json": "998c794dcf80c73cc932b90cc6706d064d870a955ac4e3ef32113ec22f803ce5",
+    "benchmarks/round3/frozen_claude_startup.json": "74a3099bd7016b7801a2f47962efca0e480edf86757e0c41a7ef2a3b31ef2e11",
+    "benchmarks/round3/frozen_sol.json": "8d27cf0d821057426b2f83ddb6308e939a0c5af14ce96f7bc348cf4013c374cd",
+    "benchmarks/round3/frozen_sol_startup.json": "fba3f906867466e04423371ed986804337059276240ff348680f5736576cfc47",
+    "benchmarks/round3/run.py": "f6bc1fca5b4e69ecc14aae36a36f6e0e27ce6c87bd9e6309514e1ad0ce194b59",
+    "benchmarks/round3/answerer.py": "ed1f4bcf58e466217735ec622e863f3193d1d1104897258e2cd524155df4d418",
+    "benchmarks/round3/startup_answerer.py": "d08fc6df6164244f660a2df461b4b0143e4c44b38f77aa168e21e373efa6d487",
+    "benchmarks/round3/_probe.py": "1d1aefe5cfaf1ca41297173fe1c9ea84ff9047756f0ab04cd3d95da4ae64a8bf",
+    "benchmarks/retrieval/queries_claude-fable-5.1.json": "cb16104f8c92b48dd97f6a4f1fecda64e5fce8ec926cf9031cbc75865bd1b2eb",
+    "benchmarks/retrieval/queries_gpt-6.1-sol.json": "397e088a5bb458df4bd96260ff464169e0b002ded98b934459c9504ef307181c",
+    "benchmarks/retrieval/bench_retrieval.py": "3a5ed8b08afd8c8207d0d343abb0bd12592d88f913dfa93e4a2123c0ae14128e",
+    "benchmarks/retrieval/retrieval_corpus.py": "a849678ceea134a36b8d54a056f0b19c59002e4d421deef081e226ceebd92cf8",
+    "benchmarks/retrieval/_probe.py": "c446898b8f15c5d69216d6affbafe3609d1ce1e06838dcefa800e442f7c9da72"
+  },
+  "required_files": {
+    "benchmarks/round3/frozen_claude_consolidation.json": {
+      "raw_sha256": "38a8a6b4b9a7cef12650a394f2ea67134d0d26aba97c3fa4ad50917b2d3685ac",
+      "git_blob_sha256": "38a8a6b4b9a7cef12650a394f2ea67134d0d26aba97c3fa4ad50917b2d3685ac",
+      "role": "frozen question set: claude-opus-5-5 consolidation"
+    },
+    "benchmarks/round3/frozen_claude_identity.json": {
+      "raw_sha256": "998c794dcf80c73cc932b90cc6706d064d870a955ac4e3ef32113ec22f803ce5",
+      "git_blob_sha256": "998c794dcf80c73cc932b90cc6706d064d870a955ac4e3ef32113ec22f803ce5",
+      "role": "frozen question set: claude-opus-5-5 identity excerpts"
+    },
+    "benchmarks/round3/frozen_claude_startup.json": {
+      "raw_sha256": "74a3099bd7016b7801a2f47962efca0e480edf86757e0c41a7ef2a3b31ef2e11",
+      "git_blob_sha256": "74a3099bd7016b7801a2f47962efca0e480edf86757e0c41a7ef2a3b31ef2e11",
+      "role": "frozen question set: claude-opus-5-5 complete startup"
+    },
+    "benchmarks/round3/frozen_sol.json": {
+      "raw_sha256": "8d27cf0d821057426b2f83ddb6308e939a0c5af14ce96f7bc348cf4013c374cd",
+      "git_blob_sha256": "8d27cf0d821057426b2f83ddb6308e939a0c5af14ce96f7bc348cf4013c374cd",
+      "role": "frozen question set: gpt-6.1-sol consolidation and identity"
+    },
+    "benchmarks/round3/frozen_sol_startup.json": {
+      "raw_sha256": "fba3f906867466e04423371ed986804337059276240ff348680f5736576cfc47",
+      "git_blob_sha256": "fba3f906867466e04423371ed986804337059276240ff348680f5736576cfc47",
+      "role": "frozen question set: gpt-6.1-sol complete startup"
+    },
+    "benchmarks/round3/run.py": {
+      "raw_sha256": "7bdeb1eeaebb50fd6a046a72ebd4002df36e2fd3f2991ce5f2c4bdb82b8f5425",
+      "git_blob_sha256": "7bdeb1eeaebb50fd6a046a72ebd4002df36e2fd3f2991ce5f2c4bdb82b8f5425",
+      "role": "immutable measurement/scoring functions (bound as globals while scoring)"
+    },
+    "benchmarks/round3/answerer.py": {
+      "raw_sha256": "09c1bf477732ede088c04761962fb762d5d3ffc0c99af5f755bcef7c9c1ba756",
+      "git_blob_sha256": "09c1bf477732ede088c04761962fb762d5d3ffc0c99af5f755bcef7c9c1ba756",
+      "role": "immutable context-only consolidation answerer"
+    },
+    "benchmarks/round3/startup_answerer.py": {
+      "raw_sha256": "661fb564cba68ada4296ab13247852d2006ce31c3dda7f988b31310ab2213a4d",
+      "git_blob_sha256": "661fb564cba68ada4296ab13247852d2006ce31c3dda7f988b31310ab2213a4d",
+      "role": "immutable context-only startup answerer and document decoder"
+    },
+    "benchmarks/round3/_probe.py": {
+      "raw_sha256": "3327c93f764383609eb753725ae48ac2851946f75c3ed332042a851335c25331",
+      "git_blob_sha256": "3327c93f764383609eb753725ae48ac2851946f75c3ed332042a851335c25331",
+      "role": "legacy fresh-process probe; captures stay legacy and unmodified"
+    },
+    "benchmarks/retrieval/queries_claude-fable-5.1.json": {
+      "raw_sha256": "8d4482bed608c67dbd1d9ab8efe13019eb7c957963e9f13f11100e7f619ee389",
+      "git_blob_sha256": "8d4482bed608c67dbd1d9ab8efe13019eb7c957963e9f13f11100e7f619ee389",
+      "role": "frozen recall queries: claude-fable-5.1 (reported, not silently omitted)"
+    },
+    "benchmarks/retrieval/queries_gpt-6.1-sol.json": {
+      "raw_sha256": "2d0181cdba04478970726f8637d6b9c4431b753846409bcb4587bdf62137a904",
+      "git_blob_sha256": "2d0181cdba04478970726f8637d6b9c4431b753846409bcb4587bdf62137a904",
+      "role": "frozen recall queries: gpt-6.1-sol"
+    },
+    "benchmarks/retrieval/bench_retrieval.py": {
+      "raw_sha256": "13b9e8ecbd6661784ef3c4c3be6f557c43c4b290f8341e963cf8ca57bc2134fe",
+      "git_blob_sha256": "13b9e8ecbd6661784ef3c4c3be6f557c43c4b290f8341e963cf8ca57bc2134fe",
+      "role": "immutable retrieval scorer (rank_metrics, gold_rank, percentile)"
+    },
+    "benchmarks/retrieval/retrieval_corpus.py": {
+      "raw_sha256": "361be2a3d725ecf13ff7aa49be82d34ce489dd49a7a05f7424749478e2ec0cb4",
+      "git_blob_sha256": "361be2a3d725ecf13ff7aa49be82d34ce489dd49a7a05f7424749478e2ec0cb4",
+      "role": "inline claude-opus-5.5 queries live in this module, so the whole module is frozen"
+    },
+    "benchmarks/retrieval/_probe.py": {
+      "raw_sha256": "cd209e67fc107397edbaa4e492d51cdd64ee4ef99e3db06626b1475e4cb46304",
+      "git_blob_sha256": "cd209e67fc107397edbaa4e492d51cdd64ee4ef99e3db06626b1475e4cb46304",
+      "role": "peak-RSS helper shared by the legacy and round4 fresh probes"
+    }
+  },
+  "required_authors": {
+    "gpt-6.1-sol": {"consolidation": ["benchmarks/round3/frozen_sol.json"],
+                     "identity": ["benchmarks/round3/frozen_sol.json"],
+                     "startup": ["benchmarks/round3/frozen_sol_startup.json"]},
+    "anthropic-subscription/claude-opus-5-5": {
+      "consolidation": ["benchmarks/round3/frozen_claude_consolidation.json"],
+      "identity": ["benchmarks/round3/frozen_claude_identity.json"],
+      "startup": ["benchmarks/round3/frozen_claude_startup.json"]}
+  },
+  "author_identity": {
+    "benchmarks/round3/frozen_sol.json": "gpt-6.1-sol",
+    "benchmarks/round3/frozen_sol_startup.json": "gpt-6.1-sol",
+    "benchmarks/round3/frozen_claude_consolidation.json": "anthropic-subscription/claude-opus-5-5",
+    "benchmarks/round3/frozen_claude_startup.json": "anthropic-subscription/claude-opus-5-5",
+    "benchmarks/round3/frozen_claude_identity.json": "anthropic-subscription/claude-opus-5-5"
+  },
+  "required_recall_authors": ["claude-opus-5.5", "gpt-6.1-sol", "claude-fable-5.1"],
+  "required_recall_slices": ["exact", "para", "mixed"],
+  "slices_validated_at": "locked-evaluation (round4 T15); the T1 protocol check validates integrity and required inputs only",
+  "legacy_probe_modes": ["startup", "full"],
+  "round4_probe_modes": ["full", "compact"],
+  "authoritative_timing": {
+    "probe": "benchmarks/round4/_startup_probe.py",
+    "observations_per_author_and_mode": 10,
+    "order": "alternating full/compact per observation",
+    "statistic": "median load_read_ms per author and mode",
+    "full": "fresh raw-byte acquisition, decoding and the legacy spaced files JSON; no product import",
+    "compact": "first product import, construction, fresh complete closure, verification and serialization inside the timer",
+    "note": "original round3 subprocess captures remain legacy-mode evidence and are never relabeled"
+  }
+}
