@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import _thread
 import json
 import re
-import threading
 from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
-from .identity_reader import parse_sections
+from ._startup_root_order import root_payload
+from .startup_compact import compact_payload
 from .startup_coverage import (
     BlockRecord,
     Coverage,
@@ -23,6 +23,7 @@ from .startup_coverage import (
 )
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+BundleFormat: TypeAlias = Literal["v1", "v2", "file-root-order/3"]
 _json: Callable[[str], JsonValue] = json.loads
 
 
@@ -101,6 +102,10 @@ def _references(path: str, text: str) -> tuple[str, ...]:
 
 
 def _blocks(path: str, data: bytes) -> list[BlockRecord]:
+    from datetime import datetime
+
+    from .identity_reader import parse_sections
+
     text = data.decode("utf-8")
     lines = text.splitlines(keepends=True)
     offsets = [0]
@@ -196,27 +201,34 @@ class StartupReader:
 
     def __init__(self, root: str | Path) -> None:
         self.root: Path = Path(root).resolve()
-        self._lock: threading.RLock = threading.RLock()
-        self._key: tuple[tuple[str, str], ...] = ()
-        self._context: str = ""
+        self._lock: _thread.RLock = _thread.RLock()
+        self._cache: dict[BundleFormat, tuple[tuple[tuple[str, bytes], ...], str]] = {}
 
     def _sources(self, paths: Sequence[str]) -> dict[str, bytes]:
         if not paths or isinstance(paths, str):
             raise StartupError("supply a nonempty list of startup paths")
         pending = [self.root / path for path in paths]
         sources: dict[str, bytes] = {}
+        resolved: set[Path] = set()
+        total = 0
         while pending:
-            path = pending.pop(0).resolve()
+            candidate = pending.pop(0)
+            if candidate in resolved:
+                continue
+            path = candidate.resolve()
             if not path.is_relative_to(self.root):
                 raise StartupError("required startup file is outside the configured root")
             relative = path.relative_to(self.root).as_posix()
             if relative in sources:
+                resolved.add(candidate)
                 continue
+            resolved.update((candidate, path))
             if len(sources) >= 64:
                 raise StartupError("startup bundle exceeds the 64-file budget")
             with path.open("rb") as handle:
                 data = handle.read(1_048_577)
-            if len(data) > 1_048_576 or sum(len(v) for v in sources.values()) + len(data) > 2_097_152:
+            total += len(data)
+            if len(data) > 1_048_576 or total > 2_097_152:
                 raise StartupError("startup bundle exceeds its complete-read byte budget")
             text = data.decode("utf-8")
             sources[relative] = data
@@ -224,13 +236,17 @@ class StartupReader:
                 pending.append(path.parent / reference)
         return sources
 
-    def read(self, paths: Sequence[str]) -> StartupBundle:
-        """Return all material or raise; verify final context against fresh source bytes."""
-        with self._lock:
-            sources = self._sources(paths)
-            key = tuple((path, digest(data)) for path, data in sources.items())
-            hit = key == self._key and bool(self._context)
-            if not hit:
+    def _context(self, sources: dict[str, bytes], format: BundleFormat) -> tuple[str, bool]:
+        key = tuple(sources.items())
+        cached = self._cache.get(format)
+        if cached is not None and cached[0] == key:
+            return cached[1], True
+        match format:
+            case "v2":
+                context = compact_payload(sources)
+            case "file-root-order/3":
+                context = root_payload(sources)
+            case "v1":
                 files: list[FileRecord] = [{
                     "path": path, "sha256": digest(data), "bytes": len(data),
                     "lines": len(data.decode("utf-8").splitlines(keepends=True)),
@@ -239,12 +255,32 @@ class StartupReader:
                 payload: StartupPayload = {
                     "version": 1, "complete": True, "files": files, "blocks": blocks,
                 }
-                self._context = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-                self._key = key
-            coverage = verify_context(self._context, sources)
+                context = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        self._cache[format] = key, context
+        return context, False
+
+    def read(
+        self, paths: Sequence[str], *, compact: bool = False, compact_format: str = "v2",
+    ) -> StartupBundle:
+        """Return all material or raise; verify final context against fresh source bytes."""
+        with self._lock:
+            format: BundleFormat = "v1"
+            if compact:
+                match compact_format:
+                    case "v2":
+                        format = "v2"
+                    case "file-root-order/3":
+                        format = "file-root-order/3"
+                    case _:
+                        raise StartupError("unsupported compact startup format")
+            elif compact_format != "v2":
+                raise StartupError("compact_format requires compact=True")
+            sources = self._sources(paths)
+            context, hit = self._context(sources, format)
+            coverage = verify_context(context, sources)
             if not coverage.complete:
                 raise StartupError("returned startup context failed byte/line coverage")
-            return StartupBundle(self._context, coverage, hit)
+            return StartupBundle(context, coverage, hit)
 
     def verify(self, context: str, paths: Sequence[str]) -> Coverage:
         """Independently read the requested closure; reject altered/missing/foreign blocks."""
@@ -253,7 +289,10 @@ class StartupReader:
             coverage = verify_context(context, sources)
             if not coverage.complete:
                 return coverage
-            expected = self.read(paths).context
+            payload = _json(context)
+            if isinstance(payload, dict) and (payload.get("version") == 2 or "version" not in payload):
+                return coverage
+            expected, _ = self._context(sources, "v1")
             if _json(context) != _json(expected):
                 return Coverage(False, coverage.files, coverage.lines, coverage.bytes,
                                 ("derived-index-or-order",))

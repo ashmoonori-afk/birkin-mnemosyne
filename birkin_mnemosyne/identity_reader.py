@@ -8,13 +8,12 @@ excluded from section ranking; full reads preserve every source byte.
 from __future__ import annotations
 
 import hashlib
-import re
 import threading
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
-from .mnemosyne import bm25_scores, tokenize
+from ._startup_syntax import parse_spans
 
 
 class IdentityReadError(ValueError):
@@ -66,6 +65,8 @@ class IdentityReader:
         return path
 
     def _load(self, relative: str, force_refresh: bool) -> _Document:
+        from .mnemosyne import tokenize
+
         path = self._path(relative)
         with self._lock:
             try:
@@ -122,6 +123,8 @@ class IdentityReader:
         force_refresh: bool = False, include_preamble: bool = True,
     ) -> ReadResult:
         """Return ranked whole sections with ancestry; no-match has empty context."""
+        from .mnemosyne import bm25_scores, tokenize
+
         document = self._load(path, force_refresh)
         scores = bm25_scores(
             tokenize(query), document.postings, document.lengths,
@@ -181,56 +184,11 @@ def _context(path: str, revision: str, sections: tuple[Section, ...]) -> str:
 def parse_sections(text: str, *, startup_labels: bool = False) -> tuple[Section, ...]:
     """Partition exact spans; bare startup TOP NOTE labels act as level-2 headings."""
     lines = text.splitlines(keepends=True)
-    syntax_lines = list(lines)
-    if syntax_lines:
-        syntax_lines[0] = syntax_lines[0].removeprefix("\ufeff")
-    start = 0
-    if syntax_lines and syntax_lines[0].strip() == "---":
-        close = next((i for i in range(1, len(lines))
-                      if lines[i].strip() == "---"), None)
-        if close is not None:
-            start = close + 1
-    headings: list[tuple[int, int, str]] = []
-    fence = ""
-    width = 0
-    i = start
-    while i < len(lines):
-        line = syntax_lines[i].rstrip("\r\n")
-        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
-        if marker:
-            run, rest = marker.groups()
-            if not fence:
-                fence, width = run[0], len(run)
-            elif run[0] == fence and len(run) >= width and not rest.strip():
-                fence = ""
-            i += 1
-            continue
-        if fence:
-            i += 1
-            continue
-        atx = re.match(r"^ {0,3}(#{1,6})(?:[ \t]+(.+?)|[ \t]*)$", line)
-        if atx:
-            title = re.sub(r"[ \t]+#+[ \t]*$", "", atx.group(2) or "")
-            headings.append((i, len(atx.group(1)), title))
-        elif startup_labels and re.match(r"^ {0,3}TOP NOTE\b", line, re.IGNORECASE):
-            headings.append((i, 2, line.strip()))
-        elif i + 1 < len(lines) and line.strip():
-            underline = re.fullmatch(r" {0,3}(=+|-+)[ \t]*", lines[i + 1].rstrip("\r\n"))
-            if underline:
-                headings.append((i, 1 if underline.group(1)[0] == "=" else 2,
-                                 line.strip()))
-                i += 1
-        i += 1
-    if not headings or headings[0][0] > start:
-        headings.insert(0, (start, 0, "Preamble"))
     ancestors: list[tuple[int, str]] = []
     occurrences: Counter[tuple[str, ...]] = Counter()
     result: list[Section] = []
-    for position, (begin, level, heading) in enumerate(headings):
-        end = headings[position + 1][0] if position + 1 < len(headings) else len(lines)
+    for begin, end, heading, level in parse_spans(text, startup_labels=startup_labels):
         content = "".join(lines[begin:end])
-        if not content.strip():
-            continue
         while ancestors and ancestors[-1][0] >= level:
             _ = ancestors.pop()
         ancestry = tuple(title for _, title in ancestors)
