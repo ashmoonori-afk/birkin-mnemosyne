@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Protocol
 
-from ._assertion_witness import AssertionWitness
+from ._assertion_witness import SUBJECT_FUNCTIONS, AssertionWitness
 from .semantic import model_dir
 
 if TYPE_CHECKING:
@@ -67,11 +67,6 @@ class Assertion:
     predicate: str
     argument: str
 
-    @property
-    def topic(self) -> str:
-        return f"{self.subject} {self.argument}"
-
-
 def _assertions(witness: AssertionWitness) -> tuple[Assertion, ...]:
     """Only admit single finite-verb frames with literal subject and argument.
 
@@ -79,7 +74,9 @@ def _assertions(witness: AssertionWitness) -> tuple[Assertion, ...]:
     Sentence cosine cannot substitute for these matching assertion anchors.
     """
     result: list[Assertion] = []
-    for clause in sorted(witness.clauses):
+    for clause in witness.prose:
+        if len(clause) > 400:
+            continue
         text = clause.rstrip(".!?")
         words = list(_WORDS.finditer(text))
         for word in words[1:-1]:
@@ -87,7 +84,8 @@ def _assertions(witness: AssertionWitness) -> tuple[Assertion, ...]:
             subject_words = subject.split()
             if subject_words and subject_words[0] in {"the", "a", "an"}:
                 subject_words = subject_words[1:]
-            if not 1 <= len(subject_words) <= 3:
+            if not subject_words or SUBJECT_FUNCTIONS.intersection(subject_words) or \
+                    any(_WORDS.fullmatch(part) is None for part in subject_words):
                 continue
             if word.group() in _VERB:
                 argument = text[word.end():].strip()
@@ -125,7 +123,7 @@ class SemanticQuestions:
             self._model = StaticModel(self._path)
             self._encode(["The amber relay retains audit records."])
             self.identity = hashlib.sha256(json.dumps(
-                ("assertion-frame-v1", configuration.cosine, configuration.margin,
+                ("assertion-neighbor-v2", configuration.cosine, configuration.margin,
                  str(self._path), self._assets,
                  hashlib.sha256((self._path / "meta.json").read_bytes()).hexdigest()),
                 separators=(",", ":"),
@@ -158,18 +156,23 @@ class SemanticQuestions:
         missing = list(dict.fromkeys(t for t in texts if t and t not in self._vectors))
         if not missing:
             return
-        vectors = self._model.encode(missing)
-        if vectors.shape != (len(missing), self._model.dim):
-            raise ValueError("prepared encoder produced an invalid shape")
-        flat = array("f", vectors.tobytes())
-        width = self._model.dim
-        for index, text in enumerate(missing):
-            vector = tuple(flat[index * width:(index + 1) * width])
-            norm = math.sqrt(sum(value * value for value in vector))
-            if not norm or not math.isfinite(norm) or \
-                    not all(math.isfinite(value) for value in vector):
-                raise ValueError("prepared encoder produced invalid or zero vectors")
-            self._vectors[text] = tuple(value / norm for value in vector)
+        for offset in range(0, len(missing), 128):
+            batch = missing[offset:offset + 128]
+            try:
+                vectors = self._model.encode(batch)
+                if vectors.shape != (len(batch), self._model.dim):
+                    raise ValueError("prepared encoder produced an invalid shape")
+                flat = array("f", vectors.tobytes())
+                width = self._model.dim
+                for index, text in enumerate(batch):
+                    vector = tuple(flat[index * width:(index + 1) * width])
+                    norm = math.sqrt(sum(value * value for value in vector))
+                    if not norm or not math.isfinite(norm) or \
+                            not all(math.isfinite(value) for value in vector):
+                        raise ValueError("prepared encoder produced invalid or zero vectors")
+                    self._vectors[text] = tuple(value / norm for value in vector)
+            finally:
+                self._model.release()
         self.encoded_chunks += len(missing)
 
     def _cosine(self, first: str, second: str) -> float:
@@ -193,22 +196,31 @@ class SemanticQuestions:
     def evidence(
         self, witnesses: Sequence[AssertionWitness],
     ) -> dict[tuple[int, int], float] | None:
-        """Require aligned anchors, semantic predicates and a topic margin.
+        """Compare matches with supported different-subject/attribute neighbors.
 
-        The margin compares predicate agreement with each predicate's affinity
-        to the shared topic. It is not a nearest-neighbor gap: unrelated notes
-        cannot change whether an assertion pair qualifies.
+        Use the strongest competing clause cosine from either endpoint. Genuine
+        matches sharing both anchors never enter the denominator. With no such
+        neighbor, literal aligned frames supply the independent witness instead.
         """
         self.encoded_chunks = 0
         if not self.current():
             return None
         try:
             assertions = [_assertions(w) for w in witnesses]
-            texts = [w.body for w in witnesses]
+            texts: list[str] = []
             for group in assertions:
                 for assertion in group:
-                    texts.extend((assertion.clause, assertion.predicate, assertion.topic))
+                    texts.extend((assertion.clause, assertion.predicate))
             self._encode(texts)
+            competing: dict[Assertion, float | None] = {}
+            supported = list(dict.fromkeys(a for group in assertions for a in group))
+            for assertion in supported:
+                competing[assertion] = max((
+                    self._cosine(assertion.clause, neighbor.clause)
+                    for neighbor in supported
+                    if (assertion.subject, assertion.argument) !=
+                       (neighbor.subject, neighbor.argument)
+                ), default=None)
             result: dict[tuple[int, int], float] = {}
             frames: dict[tuple[str, str], list[tuple[int, Assertion]]] = {}
             for index, group in enumerate(assertions):
@@ -219,13 +231,13 @@ class SemanticQuestions:
                             continue
                         cosine = self._cosine(assertion.clause, other.clause)
                         predicate = self._cosine(assertion.predicate, other.predicate)
-                        topic = max(
-                            self._cosine(assertion.predicate, assertion.topic),
-                            self._cosine(other.predicate, other.topic),
-                        )
+                        neighbors = [value for value in
+                                     (competing[assertion], competing[other])
+                                     if value is not None]
+                        margin = cosine - max(neighbors) if neighbors else None
                         if cosine >= self.configuration.cosine and \
                                 predicate > 0 and \
-                                predicate - topic >= self.configuration.margin:
+                                (margin is None or margin >= self.configuration.margin):
                             pair = (other_index, index)
                             result[pair] = max(result.get(pair, -1.0), cosine)
                     frames.setdefault(key, []).append((index, assertion))

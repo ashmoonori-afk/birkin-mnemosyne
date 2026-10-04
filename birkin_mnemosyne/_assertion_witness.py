@@ -13,13 +13,19 @@ _VALUE: Final = re.compile(
 )
 _VALUE_POSITION: Final = re.compile(
     r"(?:[:=<>]|\b(?:is|are|was|were|be|after|before|within|at|on|by|than|of|to|for"
-    + r"|uses|has|contains|costs|lasts|takes))\s*(?:[$\u20ac\u00a3\u00a5]\s*)?$"
+    + r"|uses|has|contains|holds|weighs|measures|equals|costs|lasts|takes))"
+    + r"\s*(?:[$\u20ac\u00a3\u00a5]\s*)?$"
+)
+_CATEGORICAL: Final = re.compile(
+    r"^((?:[^\W\d_]+\s+){1,7}"
+    + r"(?:color|colour|material|mode|status|type|code|name|address)"
+    + r"\s+(?:is|are|was|were)\s+)[^\W_]+[.!?]?$"
 )
 _NEGATED: Final = re.compile(
     r"\b(is|are|was|were|does|do|did|can|could|will|would|should|must|may|might)"
     + r"\s+not\b"
 )
-_SUBJECT_FUNCTIONS: Final = frozenset(
+SUBJECT_FUNCTIONS: Final = frozenset(
     (
         "i me my mine we us our ours you your yours he him his she her hers "
         + "it its they them their theirs this that these those who which whose "
@@ -41,6 +47,8 @@ class AssertionWitness:
     clauses: frozenset[str]
     quantities: frozenset[tuple[str, str]]
     negated: frozenset[str]
+    categorical: frozenset[str]
+    prose: tuple[str, ...]
 
 
 def _normalize(text: str) -> str:
@@ -68,17 +76,25 @@ def assertion_witness(body: str) -> AssertionWitness:
     clauses: set[str] = set()
     quantities: set[tuple[str, str]] = set()
     negated: set[str] = set()
+    categorical: set[str] = set()
     for part in re.split(r"(?<=[.!?])\s+|\n\s*\n", "\n".join(prose)):
         clause = _normalize(part)
         words = [match.group() for match in _WORDS.finditer(clause)]
+        category = _CATEGORICAL.fullmatch(clause)
+        if category and not SUBJECT_FUNCTIONS.intersection(
+            match.group() for match in _WORDS.finditer(category[1])
+        ):
+            # Only an explicit attribute with one atomic value is masked.
+            # A bare subject ("the cistern is red/heavy") is not an attribute.
+            categorical.add(category[1])
         declared = False
         for index, word in enumerate(words[1:-1], start=1):
             subject = words[:index]
             if subject[0] in {"the", "a", "an"}:
                 subject = subject[1:]
             if (1 <= len(subject) <= 3
-                    and not _SUBJECT_FUNCTIONS.intersection(subject)
-                    and word not in _SUBJECT_FUNCTIONS
+                    and not SUBJECT_FUNCTIONS.intersection(subject)
+                    and word not in SUBJECT_FUNCTIONS
                     and _PREDICATE.fullmatch(word)):
                 declared = True
                 break
@@ -96,7 +112,10 @@ def assertion_witness(body: str) -> AssertionWitness:
                     quantities.add((prefix, clause[value.end():]))
     return AssertionWitness(
         _normalize(body), frozenset(clauses),
-        frozenset(quantities), frozenset(negated),
+        frozenset(quantities), frozenset(negated), frozenset(categorical),
+        tuple(_normalize(part) for part in re.split(
+            r"(?<=[.!?])\s+|(?<=[。！？])\s*|\n\s*\n", "\n".join(prose),
+        ) if part.strip()),
     )
 
 
@@ -107,6 +126,7 @@ def lexical_reason(
     if first.body and first.body == second.body:
         return "duplicate"
     if first.clauses & second.clauses or first.quantities & second.quantities or \
+            first.categorical & second.categorical or \
             first.negated & second.clauses or second.negated & first.clauses:
         return "overlap-or-conflict"
     return None
