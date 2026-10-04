@@ -19,6 +19,8 @@ from birkin_mnemosyne.memory import VaultMemory
     ("Relay 12 has a cache limit of 1ms.", "Relay 12 has a cache limit of 2ms."),
     ("The Orion relay may broadcast.", "The Orion relay may not broadcast."),
     ("The harbor gate opens on 2026-10-01.", "The harbor gate opens on 2026-10-02."),
+    ("The north cistern holds 120 liters.", "The north cistern holds 180 liters."),
+    ("The north cistern material is steel.", "The north cistern material is copper."),
 ])
 def test_supported_changed_assertions_are_offered(
     tmp_path: Path, first: str, second: str,
@@ -57,6 +59,11 @@ def test_supported_changed_assertions_are_offered(
     ),
     ("Relay 12 broadcasts status every evening.", "Relay 18 broadcasts status every evening."),
     ("Relay 12 cache limit: 1ms.", "Relay 18 cache limit: 2ms."),
+    ("The north cistern holds 120 liters.", "The south cistern holds 180 liters."),
+    ("The north cistern holds 120 liters.", "The north cistern holds 180 gallons."),
+    ("The north cistern material is steel.", "The north cistern color is copper."),
+    ("The north cistern material is steel.", "The south cistern material is copper."),
+    ("The north cistern is red.", "The north cistern is heavy."),
     (
         "The sample collector logs water levels each Monday. "
         + "We improve steadily, we improve together.",
