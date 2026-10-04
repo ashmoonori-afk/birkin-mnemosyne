@@ -9,9 +9,10 @@ hard-delete a file: forgetting is the curation gate's ``archive`` op.
 from __future__ import annotations
 
 import re
-from dataclasses import asdict
+from collections.abc import Callable
+from dataclasses import asdict as _dataclass_dict
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, TypeAlias, TypeVar
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -25,11 +26,35 @@ from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
 from .identity_reader import IdentityReader, IdentityReadError
 from .kibitzer import KibitzerAdapter
-from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
-from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug, tokenize
+from .memory import VaultMemory, VersionMismatchError
+from .memory import is_expired as _is_expired
+from .memory import snippet as _snippet
+from .mnemosyne import (
+    ARCHIVE_ZONE,
+    ZONE_RE,
+    IndexEntry,
+    JsonInput,
+    JsonValue,
+    SearchHit,
+    expansion_weights,
+    json_int,
+    slug,
+    tokenize,
+)
 from .review_journal import ReviewError
 from .startup import StartupError, StartupReader
 from .vault_lock import LOCK_FILE, VaultLock
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+
+    JsonResponse: TypeAlias = dict[str, JsonInput]
+else:
+    # Keep HEAD's open-object MCP schema; recursive aliases are static-only.
+    JsonResponse = dict[str, TypeVar("ResponseValue")]
+
+asdict: Callable[[DataclassInstance], dict[str, JsonInput]] = _dataclass_dict
+_parse_frontmatter: Callable[[str], tuple[dict[str, JsonValue], str]] = frontmatter.parse
 
 __all__ = ["LOCK_FILE", "VaultLock", "create_server"]
 
@@ -129,11 +154,11 @@ def _zone_name(zone: str | None) -> str | None:
         return ARCHIVE_ZONE
     if not ZONE_RE.fullmatch(z):
         raise ToolError(f"invalid zone {zone!r} (want lowercase letters, "
-                        "digits and hyphens, max 32, or 'inbox')")
+                        + "digits and hyphens, max 32, or 'inbox')")
     return z
 
 
-def _outcome(out: CurationOutcome) -> dict[str, Any]:
+def _outcome(out: CurationOutcome) -> JsonResponse:
     return {"dry_run": out.dry_run, "archive_cap": out.archive_cap,
             "accepted": out.accepted, "dropped": out.dropped,
             "effected": out.effected, "plan_ops": out.plan_ops}
@@ -152,17 +177,17 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     server = MCPServer(name="birkin-mnemosyne", version=__version__,
                        instructions=INSTRUCTIONS)
 
-    def _require_note(note: str) -> dict[str, Any]:
+    def _require_note(note: str) -> IndexEntry:
         meta = dex.note_meta(slug(note))
         if meta is None:
             raise ToolError(f"no note {note!r} (slug {slug(note)!r}); "
-                            "use memory_search or memory_list")
+                            + "use memory_search or memory_list")
         return meta
 
-    def _read(meta: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    def _read(meta: IndexEntry | SearchHit) -> tuple[dict[str, JsonValue], str]:
         text = (vault / meta["rel"]).read_text(encoding="utf-8",
                                                errors="replace")
-        return frontmatter.parse(text)
+        return _parse_frontmatter(text)
 
     @server.tool(annotations=_READ)
     def memory_search(
@@ -174,18 +199,18 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         include_archive: bool = False,
         synonyms: Annotated[ExpansionTerms, Field(
             description="4-8 close synonyms or other wordings of the query's "
-            "key words, in the query's language; not words already in it")
+            + "key words, in the query's language; not words already in it")
         ] = None,
         keywords: Annotated[ExpansionTerms, Field(
             description="4-8 keywords for the topic in the user's other "
-            "working language(s), e.g. English for a Korean query")] = None,
+            + "working language(s), e.g. English for a Korean query")] = None,
         related: Annotated[ExpansionTerms, Field(
             description="4-8 looser terms a note answering the question "
-            "might contain (broader, narrower or associated)")] = None,
+            + "might contain (broader, narrower or associated)")] = None,
         note_line: Annotated[str | None, Field(
             max_length=300, description="one short sentence written like a "
-            "line of a note that would answer the question")] = None,
-    ) -> dict[str, Any]:
+            + "line of a note that would answer the question")] = None,
+    ) -> JsonResponse:
         """Search memory notes (BM25 + usage decay + zone priority).
 
         Matching is lexical. The optional synonyms / keywords / related /
@@ -201,7 +226,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             ("related", related), ("note_line", note_line)) if value}
         terms = tokenize(query)
         terms += list(expansion_weights(expansions, terms))
-        results = []
+        results: list[JsonValue] = []
         for h in dex.search(query, limit=limit, zone=_zone_name(zone),
                             include_archive=include_archive,
                             expansions=expansions or None):
@@ -222,7 +247,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_get_note(
         note: Annotated[str, Field(min_length=1, max_length=200,
                                    description="note slug or title")],
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Read one note in full (frontmatter + body) and its version.
 
         Reading marks the note as used, which strengthens it in future
@@ -234,7 +259,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             raise ToolError(f"cannot read note: {exc}") from exc
         dex.record_access(slug(note))
         try:
-            version = int(fm.get("version") or 0)
+            version = json_int(fm.get("version") or 0)
         except (TypeError, ValueError):
             version = 0
         return {"slug": slug(note), "title": meta["title"],
@@ -249,13 +274,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_list(
         zone: Annotated[str | None, Field(
             description="only this zone ('inbox' = vault root, "
-            "'_archive' = forgotten notes)")] = None,
+            + "'_archive' = forgotten notes)")] = None,
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=500)] = 50,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """List notes (newest first) with slug, title, type and zone."""
         z = _zone_name(zone)
-        notes = []
+        notes: list[dict[str, str]] = []
         for s, e in dex.entries().items():
             if _is_expired(e):
                 continue
@@ -277,8 +302,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                                    description="Markdown body")],
         mode: Annotated[Literal["create", "append", "replace"], Field(
             description="create: new note only (default, refuses to "
-            "overwrite); append: add to an existing note; replace: "
-            "overwrite an existing note's body, requires expected_version")
+            + "overwrite); append: add to an existing note; replace: "
+            + "overwrite an existing note's body, requires expected_version")
         ] = "create",
         note_type: NoteType | None = None,
         tags: Annotated[list[str] | None, Field(max_length=20)] = None,
@@ -295,7 +320,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         ttl_days: Annotated[int | None, Field(ge=1, le=3650)] = None,
         confidence: Annotated[float | None, Field(ge=0.0, le=1.0)] = None,
         expected_version: Annotated[int | None, Field(ge=0)] = None,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Store a memory note (Markdown with frontmatter).
 
         Safe by default: mode="create" never overwrites an existing note.
@@ -319,28 +344,29 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             if existing is not None:
                 fm, _ = _read(existing)
                 try:
-                    current = int(fm.get("version") or 0)
+                    current = json_int(fm.get("version") or 0)
                 except (TypeError, ValueError):
                     current = 0
             if mode == "create" and existing is not None:
                 raise ToolError(
                     f"note {s!r} already exists (version {current}). Use "
-                    "mode='append', or mode='replace' with "
-                    f"expected_version={current} after reading it.")
+                    + "mode='append', or mode='replace' with "
+                    + f"expected_version={current} after reading it.")
             if mode != "create" and existing is None:
                 raise ToolError(f"no note {s!r} to {mode}; use mode='create'")
             if mode == "replace" and expected_version is None:
                 raise ToolError("mode='replace' requires expected_version "
-                                "(the version from memory_get_note)")
+                                + "(the version from memory_get_note)")
+            stored_type: str = note_type or "topic"
             if existing is not None:
-                note_type = note_type or existing["type"]
+                stored_type = note_type or existing["type"]
                 clean_tags = clean_tags or existing["tags"]
                 if confidence is None:
                     confidence = existing["confidence"]
             duplicates = mem.near_duplicates(title, body)
             try:
                 path = mem.write_note(
-                    title, body, note_type=note_type or "topic",
+                    title, body, note_type=stored_type,
                     tags=clean_tags, links=clean_links, source=clean_source,
                     append=mode == "append", ttl_days=ttl_days,
                     polarity=polarity, zone=new_zone,
@@ -350,9 +376,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 raise ToolError(f"{exc}; re-read with memory_get_note") from exc
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
-            fm, _ = frontmatter.parse(path.read_text(encoding="utf-8"))
+            fm, _ = _parse_frontmatter(path.read_text(encoding="utf-8"))
         return {"slug": s, "path": path.relative_to(vault).as_posix(),
-                "version": int(fm.get("version") or 0),
+                "version": json_int(fm.get("version") or 0),
                 "created": existing is None,
                 "near_duplicates": [{"slug": d, "similarity": sim}
                                     for d, sim in duplicates]}
@@ -361,10 +387,10 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_related(
         note: Annotated[str, Field(min_length=1, max_length=200)],
         limit: Annotated[int, Field(ge=1, le=20)] = 5,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Mechanical link candidates for a note (similar, not yet linked).
         Decide yourself which are genuinely related."""
-        _require_note(note)
+        _ = _require_note(note)
         return {"candidates": [
             {"slug": h["slug"], "title": h["title"],
              "zone": h["zone"] or "inbox", "summary": h["summary"]}
@@ -377,7 +403,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         confirm: Annotated[bool, Field(
             description="false (default) = dry run; true = archive now")
         ] = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Forget a note by moving it to the _archive zone (never deleted;
         undo with memory_restore). Runs the curation safety gate: protected
         notes (negative polarity, identity/preference types, filed + linked
@@ -397,7 +423,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_restore(
         note: Annotated[str, Field(min_length=1, max_length=200)],
         zone: Annotated[str, Field(description="target zone")] = "inbox",
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Move a forgotten note out of _archive into a zone (default inbox)."""
         target = _zone_name(zone)
         if target == ARCHIVE_ZONE:
@@ -406,7 +432,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             meta = _require_note(note)
             if meta["zone"] != ARCHIVE_ZONE:
                 raise ToolError(f"note {slug(note)!r} is not archived "
-                                f"(zone {meta['zone'] or 'inbox'!r})")
+                                + f"(zone {meta['zone'] or 'inbox'!r})")
             try:
                 path = dex.rezone(slug(note), target or "")
             except ValueError as exc:
@@ -415,7 +441,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 "path": path.relative_to(vault).as_posix()}
 
     @server.tool(annotations=_READ)
-    def memory_curation_catalog() -> dict[str, Any]:
+    def memory_curation_catalog() -> JsonResponse:
         """Everything needed to write a CurationPlan: active notes (slug,
         zone, type, polarity, summary, links, related candidates), existing
         zones and mechanically stale notes. Then call memory_curate."""
@@ -423,19 +449,19 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         return {"plan_version": PLAN_VERSION, **catalog,
                 "ops_help": {
                     "rezone": "{op, slug, zone}: file a note into a topical "
-                              "zone; the executor links notes co-placed in "
-                              "a touched zone",
+                              + "zone; the executor links notes co-placed in "
+                              + "a touched zone",
                     "link": "{op, a, b}: two related notes",
                     "supersede": "{op, stale, by}: stale is replaced by `by`",
                     "archive": "{op, slug}: soft-forget an obsolete note "
-                               "(capped per call; protected notes refused)"}}
+                               + "(capped per call; protected notes refused)"}}
 
     @server.tool(annotations=_mutating("Curate", destructive=True))
     def memory_curate(
         plan: CurationPlan,
         apply: Annotated[bool, Field(
             description="false (default) = dry run; true = apply")] = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Validate a CurationPlan/1 with the deterministic safety gate and
         optionally apply it. Unknown slugs, bad zones, protected notes and
         archives over the per-call cap are dropped with a reason; nothing is
@@ -447,7 +473,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     @server.tool(annotations=_READ)
     def memory_review_questions(
         limit: Annotated[int, Field(ge=1, le=100)] = 20,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Find possible duplicate/overlapping/conflicting notes without edits.
 
         Present each question with the host's ask-user-questions tool. Do not
@@ -465,7 +491,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         question_id: str, choice: Choice,
         merged_body: str = "", survivor: Literal["first", "second"] = "first",
         confirm: bool = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Apply one explicit USER answer; dry-run unless confirm=true.
 
         current-first/second keeps that note; drop-first/second archives it.
@@ -492,7 +518,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     @server.tool(annotations=_mutating("Undo review answer", destructive=True))
     def memory_review_undo(
         transaction_id: str, confirm: bool = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Restore byte-exact originals only if every post-image is unchanged."""
         if not confirm:
             return {"dry_run": True, "transaction_id": transaction_id}
@@ -509,7 +535,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         query: str = "", anchor: str = "", revision: str = "",
         limit: Annotated[int, Field(ge=1, le=10)] = 3,
         force_refresh: bool = False, include_children: bool = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Read SOUL/AGENTS files under the configured identity root.
 
         catalog returns heading/anchor/line metadata, not full bodies. search
@@ -547,7 +573,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         surfaced: list[str] | None = None,
         exclude_paths: list[str] | None = None,
         force_refresh: bool = False,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Kibitzer-shaped live candidates, not autonomous resident nudges.
 
         Lower score is better, excerpt <=200 UTF-16 units. Description and body
@@ -565,7 +591,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         return {"selector": "mnemosyne-bm25", "snapshot": "live",
                 "candidates": [asdict(candidate) for candidate in candidates]}
     @server.tool(annotations=_READ)
-    def memory_startup_read(paths: Annotated[list[str], Field(min_length=1, max_length=64)]) -> dict[str, Any]:
+    def memory_startup_read(paths: Annotated[list[str], Field(min_length=1, max_length=64)]) -> JsonResponse:
         """Complete session-start MODE/handoff/profile/JSON reading, not excerpts.
 
         All original bytes/lines are represented in lossless must-read blocks
@@ -584,7 +610,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     @server.tool(annotations=_READ)
     def memory_startup_verify(
         paths: Annotated[list[str], Field(min_length=1, max_length=64)], context: str,
-    ) -> dict[str, Any]:
+    ) -> JsonResponse:
         """Re-read the requested closure and independently verify returned context."""
         try:
             coverage = startup.verify(context, paths)
@@ -610,7 +636,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.prompt(name="curate_vault",
                    description="Reorganize the memory vault safely "
-                   "through memory_curate")
+                   + "through memory_curate")
     def curate_vault() -> str:
         return CURATE_PREFACE + build_plan_prompt(mechanical_catalog(dex))
 

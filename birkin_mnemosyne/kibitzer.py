@@ -9,16 +9,21 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import threading
 from collections import Counter
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from html import escape
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 from . import frontmatter
-from .mnemosyne import bm25_scores, tokenize
+from ._recall_admission import addresses_agent as _addresses_agent
+from ._recall_admission import decision_commentary as _decision_commentary
+from ._recall_paths import allowed_path as _allowed
+from ._recall_paths import deep_winners, scan_paths
+from .mnemosyne import Mnemosyne, bm25_scores, tokenize
 from .vault_lock import VaultLock
 
 _SECRET = re.compile(
@@ -28,42 +33,6 @@ _SECRET = re.compile(
     + r"|\b(?:password|api[_-]?key|token|secret)\s*[:=]\s*[\"']?[^\s\"']{8,})",
     re.IGNORECASE,
 )
-
-
-def _addresses_agent(hint: str) -> bool:
-    """Independently implement the documented address/imperative restrictions."""
-    words = re.findall(r"\b[a-z]+(?:['’][a-z]+)?\b", hint.casefold())
-    if set(words) & {"you", "your", "yours", "yourself"}:
-        return True
-    openings = {
-        "never", "always", "ensure", "verify", "check", "run", "use", "read",
-        "stop", "avoid", "remember", "keep", "prefer", "skip", "consider",
-        "don't", "don’t",
-    }
-    if words and (words[0] in openings or words[:2] in (
-        ["do", "not"], ["make", "sure"],
-    )):
-        return True
-    ending = hint.rstrip(" \t.!?")
-    return ending.endswith((
-        "세요", "십시오", "십시요", "하라", "해라", "합니다", "지 마", "지 마라",
-    )) or re.search("하지\\s*마", hint) is not None
-
-
-def _decision_commentary(hint: str) -> bool:
-    """Reject decisions about whether to nudge, rather than stored observations."""
-    text = " ".join(hint.casefold().split())
-    if any(phrase in text for phrase in (
-        "no stored memory", "clears the bar", "not relevant", "no relevant",
-    )):
-        return True
-    if not ({"memory", "memories"} & set(re.findall(r"\w+", text))):
-        return False
-    return any(phrase in text for phrase in (
-        "is unrelated to", "are unrelated to", "is not about", "are not about",
-        "does not cover", "do not cover", "does not address", "do not address",
-        "does not pertain", "do not pertain",
-    )) or ("not the" in text and any(p in text for p in ("covers ", "cover ")))
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,12 +63,21 @@ class Admission:
 
 
 @dataclass(frozen=True, slots=True)
+class _ParsedDocument:
+    document: RecallDocument
+    expiry: str
+    terms: dict[str, int]
+    length: int
+
+
+@dataclass(frozen=True, slots=True)
 class _Snapshot:
     fingerprint: tuple[tuple[str, int, int, int], ...]
     day: date
     documents: tuple[RecallDocument, ...]
     postings: dict[str, dict[str, int]]
     lengths: dict[str, int]
+    parsed: dict[str, _ParsedDocument]
 
 
 def utf16_length(text: str) -> int:
@@ -111,18 +89,8 @@ def _clip(text: str, units: int) -> str:
     return text.encode("utf-16-le")[:units * 2].decode("utf-16-le", errors="ignore")
 
 
-def _allowed(path: str) -> bool:
-    parts = PurePosixPath(path).parts
-    return bool(parts) and not PurePosixPath(path).is_absolute() and \
-        not PureWindowsPath(path).drive and \
-        not any(p in {".", ".."} or p.startswith(".") for p in parts) and \
-        parts[0].casefold() not in {"system", "_archive"} and \
-        "\\" not in path and not re.search(r"[\x00-\x1f\ud800-\udfff\ufffe\uffff]", path)
-
-
-def _excerpt(body: str, query: str) -> str:
+def _excerpt(body: str, terms: Collection[str]) -> str:
     plain = " ".join(body.split())
-    terms = sorted(set(tokenize(query)), key=len, reverse=True)
     folded = plain.casefold()
     positions = [folded.find(t) for t in terms if len(t) > 1 and t in folded]
     # Window is in Python characters; final budget is in UTF-16 units.
@@ -131,54 +99,84 @@ def _excerpt(body: str, query: str) -> str:
 
 
 class KibitzerAdapter:
-    """Mutable snapshot cache; lexical index reuses the stdlib core tokenizer."""
+    """Mutable fresh snapshot and owned stdlib core index, with description fallback."""
 
     def __init__(self, vault: str | Path) -> None:
         self.vault: Path = Path(vault).resolve()
         self._cache: _Snapshot | None = None
         self._lock: threading.RLock = threading.RLock()
+        self._core: Mnemosyne = Mnemosyne(self.vault, semantic=False)
 
     def _snapshot(self, force_refresh: bool) -> _Snapshot:
+        # Windows ctime is creation time, not a content-change fingerprint.
+        # Same-size edits can preserve every stat value; read content each time.
+        force_refresh = force_refresh or sys.platform == "win32"
         with VaultLock(self.vault).hold(), self._lock:
-            paths = sorted(p for p in self.vault.rglob("*.md")
-                           if _allowed(p.relative_to(self.vault).as_posix()) and
-                           p.resolve().is_relative_to(self.vault))
-            fingerprints: list[tuple[str, int, int, int]] = []
-            for path in paths:
-                stat = path.stat()
-                fingerprints.append((path.relative_to(self.vault).as_posix(),
-                                     stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size))
-            signature = tuple(fingerprints)
+            fingerprints = scan_paths(self.vault)
+            signature = tuple(sorted(fingerprints))
+            deep = deep_winners(fingerprints)
             day = datetime.now(timezone.utc).astimezone().date()
             if self._cache is not None and self._cache.fingerprint == signature and \
                     self._cache.day == day and not force_refresh:
+                # A core TTL scan cannot discover deep paths. Keep those targeted
+                # entries alive without changing the core's shallow scan contract.
+                if deep:
+                    self._core.refresh()
+                    for relative in deep:
+                        self._core.note_written(self.vault / relative)
                 return self._cache
             documents: list[RecallDocument] = []
             postings: dict[str, dict[str, int]] = {}
             lengths: dict[str, int] = {}
-            for path in paths:
-                parsed, body = frontmatter.parse(path.read_text(encoding="utf-8"))
-                meta: dict[str, str | int | float | bool | None | list[str]] = parsed
-                expiry = meta.get("expires_at")
-                if expiry:
+            parsed_documents: dict[str, _ParsedDocument] = {}
+            previous = {fingerprint[0]: fingerprint for fingerprint in
+                        self._cache.fingerprint} if self._cache is not None else {}
+            changed = {fingerprint[0] for fingerprint in signature
+                       if force_refresh or previous.get(fingerprint[0]) != fingerprint}
+            # Core refresh removes deleted/renamed entries but compares only mtime/size.
+            # Explicit writes below must follow it, including preserved-stat edits.
+            self._core.refresh_content(
+                self.vault / relative for relative, _, _, _ in fingerprints
+                if relative in changed
+            )
+            # Targeted writes drop/reinsert postings; a sorted path order would
+            # change the core's lexical shortlist when scores tie before boosts.
+            for relative, _, _, _ in fingerprints:
+                path = self.vault / relative
+                if relative in changed:
+                    meta, body = frontmatter.parse(path.read_text(encoding="utf-8"))
+                    body = _SECRET.sub("[redacted]", body)
+                    title = str(meta.get("title") or path.stem)
+                    description = str(meta.get("description") or
+                                      f"{title}: {' '.join(body.split())[:160]}")
+                    description = _SECRET.sub("[redacted]", description)
+                    terms = tokenize(description + " " + body)
+                    cached = _ParsedDocument(
+                        RecallDocument(relative, description, body),
+                        str(meta.get("expires_at") or ""), dict(Counter(terms)), len(terms),
+                    )
+                else:
+                    assert self._cache is not None
+                    cached = self._cache.parsed[relative]
+                parsed_documents[relative] = cached
+                if cached.expiry:
                     try:
-                        expiry_day = date.fromisoformat(str(expiry))
+                        expiry_day = date.fromisoformat(cached.expiry)
                     except ValueError:
                         expiry_day = day  # Malformed expiry remains visible, as in core.
                     if expiry_day < day:
                         continue
-                body = _SECRET.sub("[redacted]", body)
-                title = str(meta.get("title") or path.stem)
-                description = str(meta.get("description") or
-                                  f"{title}: {' '.join(body.split())[:160]}")
-                description = _SECRET.sub("[redacted]", description)
-                relative = path.relative_to(self.vault).as_posix()
-                documents.append(RecallDocument(relative, description, body))
-                terms = tokenize(description + " " + body)
-                lengths[relative] = len(terms)
-                for term, count in Counter(terms).items():
+                documents.append(cached.document)
+                lengths[relative] = cached.length
+                for term, count in cached.terms.items():
                     postings.setdefault(term, {})[relative] = count
-            self._cache = _Snapshot(signature, day, tuple(documents), postings, lengths)
+            # Core discovery is root + one zone; retain deeper adapter discoveries
+            # after refresh, in their original discovery order.
+            for relative in deep:
+                self._core.note_written(self.vault / relative)
+            self._cache = _Snapshot(signature, day, tuple(sorted(documents, key=lambda d: d.path)),
+                                    postings, lengths,
+                                    parsed_documents)
             return self._cache
 
     def documents(self, *, force_refresh: bool = False) -> tuple[RecallDocument, ...]:
@@ -191,22 +189,36 @@ class KibitzerAdapter:
         force_refresh: bool = False,
     ) -> tuple[RecallCandidate, ...]:
         """Exclude before cap; lower score is better, excerpts <=200 UTF-16 units."""
-        snapshot = self._snapshot(force_refresh)
-        scores = bm25_scores(
-            tokenize(query), snapshot.postings, snapshot.lengths,
-            sum(snapshot.lengths.values()) / max(1, len(snapshot.lengths)),
-            len(snapshot.documents),
-        )
-        excluded = {*surfaced, *exclude_paths}
-        ranked = sorted(
-            (doc for doc in snapshot.documents
-             if doc.path not in excluded and scores.get(doc.path, 0) > 0),
-            key=lambda doc: (-scores[doc.path], doc.path),
-        )[:max(0, limit)]
-        return tuple(RecallCandidate(
-            doc.path, doc.description, _excerpt(doc.body, query),
-            1 / (1 + scores[doc.path]),
-        ) for doc in ranked)
+        with VaultLock(self.vault).hold(), self._lock:
+            snapshot = self._snapshot(force_refresh)
+            terms = tokenize(query)
+            excluded = {*surfaced, *exclude_paths}
+            eligible = {doc.path: doc for doc in snapshot.documents
+                        if doc.path not in excluded}
+            # Do not let the core's result limit consume caller-excluded slots.
+            hits = self._core.search(
+                query, limit=sys.maxsize,
+            )
+            ranked: list[tuple[RecallDocument, float]] = []
+            for hit in hits:
+                relative = hit["rel"]
+                score = hit["score"]
+                if relative in eligible:
+                    ranked.append((eligible[relative], score))
+            if not ranked:
+                scores = bm25_scores(
+                    terms, snapshot.postings, snapshot.lengths,
+                    sum(snapshot.lengths.values()) / max(1, len(snapshot.lengths)),
+                    len(snapshot.documents),
+                )
+                ranked = sorted(
+                    ((doc, scores[doc.path]) for doc in eligible.values()
+                     if scores.get(doc.path, 0) > 0),
+                    key=lambda item: (-item[1], item[0].path),
+                )
+            return tuple(RecallCandidate(
+                doc.path, doc.description, _excerpt(doc.body, terms), 1 / (1 + score),
+            ) for doc, score in ranked[:max(0, limit)])
 
     def export(self, destination: str | Path) -> tuple[str, ...]:
         """Export described notes to a separate explicit root; never overwrite files."""

@@ -44,13 +44,30 @@ import threading
 import time
 import unicodedata
 import zlib
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict, TypeGuard
 
 from . import frontmatter
 from .atomic import atomic_write, atomic_write_bytes
+
+if TYPE_CHECKING:
+    from typing import NotRequired
+
+    from .semantic import SemanticIndex
+
+_JsonValue: TypeAlias = str | int | float | bool | None | \
+    list["_JsonValue"] | dict[str, "_JsonValue"]
+# Read-only twin of _JsonValue: Sequence/Mapping are covariant, so callers can
+# pass dict[str, list[str]] where the invariant list/dict aliases would refuse.
+_JsonInput: TypeAlias = str | int | float | bool | None | \
+    Sequence["_JsonInput"] | Mapping[str, "_JsonInput"]
+_read_json: Callable[[str | bytes], _JsonValue] = json.loads
+JsonValue: TypeAlias = _JsonValue
+JsonInput: TypeAlias = _JsonInput
+_JsonKey: TypeAlias = str | int | float | bool | None
+_Dynamics: TypeAlias = dict[str, _JsonValue] | dict[_JsonKey, _JsonValue]
 
 log = logging.getLogger(__name__)
 
@@ -172,7 +189,10 @@ def tokenize(text: str) -> list[str]:
     """
     toks: list[str] = []
     norm = unicodedata.normalize("NFKC", text).casefold()
-    for cjk, hangul, word in _RUN_RE.findall(norm):
+    for match in _RUN_RE.finditer(norm):
+        cjk = match.group(1) or ""
+        hangul = match.group(2) or ""
+        word = match.group(3) or ""
         if word:
             folded = word if word.isascii() else "".join(map(_fold_char, word))
             toks.append(folded)
@@ -199,7 +219,7 @@ def _script(token: str) -> str:
     return "" if token.isdigit() else "latin"
 
 
-def expansion_weights(expansions: Mapping[str, Any],
+def expansion_weights(expansions: Mapping[str, _JsonInput],
                       literal: Iterable[str]) -> dict[str, float]:
     """{token: weight} for the terms a caller adds to a query at search time.
 
@@ -215,14 +235,19 @@ def expansion_weights(expansions: Mapping[str, Any],
         weight = EXPANSION_WEIGHTS.get(tier)
         if weight is None:
             raise ValueError(f"unknown expansion tier {tier!r} "
-                             f"(want one of {sorted(EXPANSION_WEIGHTS)})")
+                             + f"(want one of {sorted(EXPANSION_WEIGHTS)})")
         if value is None:
             continue
-        parts = [value] if isinstance(value, str) else value
-        if (not isinstance(parts, (list, tuple))
-                or not all(isinstance(p, str) for p in parts)):
+        parts: list[str] | None = None
+        if isinstance(value, str):
+            parts = [value]
+        elif isinstance(value, (list, tuple)):
+            texts = [p for p in value if isinstance(p, str)]
+            if len(texts) == len(value):
+                parts = texts
+        if parts is None:
             raise ValueError(f"expansion tier {tier!r} must be a string or a "
-                             "list of strings")
+                             + "list of strings")
         for t in tokenize(" ".join(parts)):
             if t not in lit and weight > out.get(t, 0.0):
                 out[t] = weight
@@ -270,7 +295,7 @@ def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
     return scores
 
 
-def _parse_dt(raw: Any) -> datetime | None:
+def _parse_dt(raw: _JsonValue) -> datetime | None:
     if not raw:
         return None
     try:
@@ -280,28 +305,72 @@ def _parse_dt(raw: Any) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def default_dynamics(created: str | None = None) -> dict[str, Any]:
+def _to_float(value: _JsonValue) -> float:
+    """``float(value)`` for a JSON value, with the TypeError float() raises."""
+    if isinstance(value, (str, int, float)):
+        return float(value)
+    raise TypeError("float() argument must be a string or a real number, "
+                    + f"not {type(value).__name__!r}")
+
+
+def _to_int(value: _JsonValue) -> int:
+    """``int(value)`` for a JSON value, with the TypeError int() raises."""
+    if isinstance(value, (str, int, float)):
+        return int(value)
+    raise TypeError("int() argument must be a string, a bytes-like object "
+                    + f"or a real number, not {type(value).__name__!r}")
+
+
+json_float = _to_float
+json_int = _to_int
+
+
+def _copy_dynamics(value: _JsonValue) -> _Dynamics:
+    """Copy JSON telemetry with the same dict-constructor semantics as HEAD."""
+    if isinstance(value, dict):
+        return dict(value)
+    if not isinstance(value, (list, str)):
+        raise TypeError(f"'{type(value).__name__}' object is not iterable")
+    copied: dict[_JsonKey, _JsonValue] = {}
+    for index, item in enumerate(value):
+        if not isinstance(item, (list, str, dict)):
+            raise TypeError(f"cannot convert dictionary update sequence element #{index} "
+                            + "to a sequence")
+        pair = list(item)
+        if len(pair) != 2:
+            raise ValueError(f"dictionary update sequence element #{index} has length "
+                             + f"{len(pair)}; 2 is required")
+        key, field = pair
+        if isinstance(key, (list, dict)):
+            raise TypeError(f"unhashable type: '{type(key).__name__}'")
+        copied[key] = field
+    return copied
+
+
+def default_dynamics(created: str | None = None) -> dict[str, _JsonValue]:
     dt = _parse_dt(created) or datetime.now(timezone.utc)
     return {"strength": 1.0, "stability": STABILITY_INIT,
             "access_count": 0, "last_access": dt.isoformat()}
 
 
-def effective_strength(dyn: dict[str, Any], now: datetime) -> float:
+def effective_strength(dyn: Mapping[str, _JsonValue] | Mapping[_JsonKey, _JsonValue],
+                       now: datetime) -> float:
     """Ebbinghaus retention: ``strength · exp(−days/stability)``, floored.
 
     Unparseable ``last_access`` fails open (no decay) — a note must never
     become unreachable because of a corrupt timestamp.
     """
-    strength = float(dyn.get("strength", 1.0))
+    strength = _to_float(dyn.get("strength", 1.0))
     last = _parse_dt(dyn.get("last_access"))
     if last is None:
         return max(EFF_FLOOR, min(strength, STRENGTH_CAP))
     days = max(0.0, (now - last).total_seconds() / 86400.0)
-    stability = max(1e-6, float(dyn.get("stability", STABILITY_INIT)))
+    stability = max(1e-6, _to_float(dyn.get("stability", STABILITY_INIT)))
     return max(EFF_FLOOR, strength * math.exp(-days / stability))
 
 
-def potentiate(dyn: dict[str, Any], now: datetime) -> dict[str, Any]:
+def potentiate(dyn: Mapping[str, _JsonValue] | Mapping[_JsonKey, _JsonValue],
+               now: datetime) -> dict[str, _JsonValue]:
     """Hebbian reinforcement on access; returns a NEW dict.
 
     Deviations from mempalace's +0.05/+0.1 additive constants are deliberate:
@@ -312,19 +381,19 @@ def potentiate(dyn: dict[str, Any], now: datetime) -> dict[str, Any]:
     """
     last = _parse_dt(dyn.get("last_access"))
     hours = ((now - last).total_seconds() / 3600.0) if last else SPACING_HOURS
-    stability = float(dyn.get("stability", STABILITY_INIT))
+    stability = _to_float(dyn.get("stability", STABILITY_INIT))
     if hours >= SPACING_HOURS:
         stability = min(STABILITY_CAP, stability * STABILITY_GROWTH)
     return {
         "strength": min(STRENGTH_CAP,
-                        float(dyn.get("strength", 1.0)) + STRENGTH_STEP),
+                        _to_float(dyn.get("strength", 1.0)) + STRENGTH_STEP),
         "stability": stability,
-        "access_count": int(dyn.get("access_count", 0)) + 1,
+        "access_count": _to_int(dyn.get("access_count", 0)) + 1,
         "last_access": now.isoformat(),
     }
 
 
-def decayed_ema(ema: float, last_hit: str | None, today: date) -> float:
+def decayed_ema(ema: float, last_hit: _JsonValue, today: date) -> float:
     """Zone EMA decayed lazily by ``0.9^days`` since it was last bumped."""
     if not last_hit:
         return float(ema)
@@ -337,19 +406,43 @@ def decayed_ema(ema: float, last_hit: str | None, today: date) -> float:
 
 # -- note parsing -------------------------------------------------------------
 
-def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
+class IndexEntry(TypedDict):
+    title: str
+    rel: str
+    zone: str
+    type: str
+    tags: list[str]
+    links: list[str]
+    created: NotRequired[str]
+    updated: str
+    confidence: float
+    polarity: str
+    expires_at: NotRequired[str | None]
+    summary: str
+    mtime: float
+    size: int
+    doclen: NotRequired[int]
+    terms: NotRequired[dict[str, int]]
+
+
+_IndexEntry: TypeAlias = IndexEntry
+script = _script
+
+
+def _note_entry(path: Path, rel: str) -> _IndexEntry | None:
     """Parse one note file into an index entry (module-level for testability)."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
         st = path.stat()
     except OSError:
         return None
-    meta, body = frontmatter.parse(text)
+    parsed_meta, body = frontmatter.parse(text)
+    meta: dict[str, _JsonValue] = parsed_meta
     title = str(meta.get("title") or path.stem)
     raw_tags = meta.get("tags")
     tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else []
     try:
-        confidence = float(meta.get("confidence", 0.5))
+        confidence = _to_float(meta.get("confidence", 0.5))
     except (TypeError, ValueError):
         confidence = 0.5
     terms: dict[str, int] = {}
@@ -387,7 +480,38 @@ def _doc_length(terms: dict[str, int]) -> int:
                if len(t) > 1 or _script(t) != "cjk")
 
 
-def _encode_index(notes: dict[str, dict[str, Any]]) -> bytes:
+def _is_index_notes(value: _JsonValue) -> TypeGuard[dict[str, _IndexEntry]]:
+    """Accept persisted entries only after checking every consumed field shape."""
+    if not isinstance(value, dict):
+        return False
+    for entry in value.values():
+        if not isinstance(entry, dict):
+            return False
+        if not all(isinstance(entry.get(key), str) for key in (
+            "title", "rel", "zone", "type", "updated", "polarity", "summary",
+        )):
+            return False
+        if "created" in entry and not isinstance(entry["created"], str):
+            return False
+        for key in ("tags", "links"):
+            items = entry.get(key)
+            if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
+                return False
+        if not all(isinstance(entry.get(key), (int, float)) for key in ("confidence", "mtime")):
+            return False
+        if not isinstance(entry.get("size"), int):
+            return False
+        if "doclen" in entry and not isinstance(entry["doclen"], int):
+            return False
+        if "expires_at" in entry and not isinstance(entry["expires_at"], (str, type(None))):
+            return False
+        terms = entry.get("terms", {})
+        if not isinstance(terms, dict) or not all(isinstance(count, int) for count in terms.values()):
+            return False
+    return True
+
+
+def _encode_index(notes: dict[str, _IndexEntry]) -> bytes:
     """The index cache: compact UTF-8 JSON, DEFLATE-compressed (zlib level 1).
     Measured at 10k notes: 15.8 MB of plain JSON becomes 3.3 MB; a
     delta+varint posting format reached 5.5 MB with slower saves and loads."""
@@ -396,12 +520,12 @@ def _encode_index(notes: dict[str, dict[str, Any]]) -> bytes:
     return zlib.compress(raw.encode("utf-8"), 1)
 
 
-def _decode_index(blob: bytes) -> dict[str, dict[str, Any]]:
-    data = json.loads(zlib.decompress(blob))
-    if data.get("version") != INDEX_VERSION:
+def _decode_index(blob: bytes) -> dict[str, _IndexEntry]:
+    data = _read_json(zlib.decompress(blob))
+    if not isinstance(data, dict) or data.get("version") != INDEX_VERSION:
         return {}
     notes = data.get("notes")
-    return notes if isinstance(notes, dict) else {}
+    return notes if _is_index_notes(notes) else {}
 
 
 def _shared_ranks(ranking: list[tuple[str, float]]) -> dict[str, int]:
@@ -437,7 +561,7 @@ def _mostly_cjk(text: str) -> bool:
         1 for c in letters if _CJK_CHAR.match(c)) >= len(letters)
 
 
-def _entry_expired(entry: dict[str, Any], today: date) -> bool:
+def _entry_expired(entry: _IndexEntry, today: date) -> bool:
     raw = entry.get("expires_at")
     if not raw:
         return False
@@ -449,6 +573,35 @@ def _entry_expired(entry: dict[str, Any], today: date) -> bool:
 
 # -- engine -------------------------------------------------------------------
 
+class _DynState(TypedDict):
+    notes: dict[str, _JsonValue]
+    zones: dict[str, _JsonValue]
+
+
+class SearchHit(TypedDict):
+    slug: str
+    title: str
+    zone: str
+    rel: str
+    type: str
+    summary: str
+    polarity: str
+    updated: str
+    links: list[str]
+    score: float
+
+
+_Hit: TypeAlias = SearchHit
+
+
+class _StaleEntry(TypedDict):
+    slug: str
+    title: str
+    zone: str
+    last_access: str | int
+    eff: float
+
+
 class Mnemosyne:
     """Index + dynamics over one vault directory. Thread-safe via one RLock.
 
@@ -457,19 +610,19 @@ class Mnemosyne:
     memory read/write (it self-heals on the next refresh).
     """
 
-    def __init__(self, vault: Path, semantic: bool | None = None):
+    def __init__(self, vault: Path, semantic: bool | None = None) -> None:
         """``semantic``: None = the core ranking, unless
         ``MNEMOSYNE_SEMANTIC=1`` asks for the optional semantic mode; True =
         request it (warns and stays on the core when it is unavailable);
         False = core only."""
-        self.vault = Path(vault)
-        self._semantic_mode = semantic
-        self._sem: Any = None
-        self._lock = threading.RLock()
-        self._notes: dict[str, dict[str, Any]] | None = None
-        self._dyn: dict[str, Any] | None = None
+        self.vault: Path = Path(vault)
+        self._semantic_mode: bool | None = semantic
+        self._sem: SemanticIndex | Literal[False] | None = None
+        self._lock: threading.RLock = threading.RLock()
+        self._notes: dict[str, _IndexEntry] | None = None
+        self._dyn: _DynState | None = None
         self._postings: dict[str, dict[str, int]] = {}
-        self._avgdl = 0.0
+        self._avgdl: float = 0.0
         self._scanned_at: float | None = None   # _clock() of the last vault scan
 
     # -- persistence --------------------------------------------------------
@@ -496,13 +649,16 @@ class Mnemosyne:
         self._load_dynamics()
 
     def _load_dynamics(self) -> None:
-        dyn: dict[str, Any] = {"notes": {}, "zones": {}}
+        dyn: _DynState = {"notes": {}, "zones": {}}
         try:
-            raw = json.loads(self._dyn_path.read_text(encoding="utf-8"))
-            if isinstance(raw.get("notes"), dict):
-                dyn["notes"] = raw["notes"]
-            if isinstance(raw.get("zones"), dict):
-                dyn["zones"] = raw["zones"]
+            raw = _read_json(self._dyn_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                notes = raw.get("notes")
+                zones = raw.get("zones")
+                if isinstance(notes, dict):
+                    dyn["notes"] = notes
+                if isinstance(zones, dict):
+                    dyn["zones"] = zones
         except (OSError, json.JSONDecodeError, AttributeError):
             pass
         self._dyn = dyn
@@ -532,7 +688,7 @@ class Mnemosyne:
         for t in (entry or {}).get("terms", {}):
             post = self._postings.get(t)
             if post:
-                post.pop(s, None)
+                _ = post.pop(s, None)
                 if not post:
                     del self._postings[t]
 
@@ -549,11 +705,14 @@ class Mnemosyne:
         Duplicate slugs across zones keep the newest file (shouldn't happen
         through the library's own write path, but a user can hand-copy files)."""
         out: dict[str, tuple[str, float, int]] = {}
+        root = self.vault.resolve()
 
         def add(name: str, full: str, rel: str) -> None:
             if not name.endswith(".md"):
                 return
             try:
+                if not Path(full).resolve().is_relative_to(root):
+                    return
                 st = os.stat(full)
             except OSError:
                 return
@@ -573,6 +732,8 @@ class Mnemosyne:
                 add(e.name, e.path, e.name)
             elif e.is_dir():
                 try:
+                    if not Path(e.path).resolve().is_relative_to(root):
+                        continue
                     sub = list(os.scandir(e.path))
                 except OSError:
                     continue
@@ -608,8 +769,40 @@ class Mnemosyne:
                     continue
                 if e:
                     self._drop_postings(s)
-                self._notes[s] = entry
-                self._add_postings(s, entry["terms"])
+                self._notes[s] = entry.copy()
+                self._add_postings(s, entry.get("terms", {}))
+                changed = True
+            if changed:
+                self._recompute_avgdl()
+                self._save_index()
+
+    def refresh_content(self, paths: Iterable[Path]) -> None:
+        """Refresh supplied winning notes even when their stat values match.
+
+        Unchanged indexed content keeps its postings position. Parse every
+        supplied winner but persist at most once for the complete batch.
+        """
+        with self._lock:
+            self.refresh()
+            assert self._notes is not None
+            changed = False
+            root = self.vault.resolve()
+            for path in paths:
+                try:
+                    relative = path.relative_to(self.vault).as_posix()
+                    _ = path.resolve().relative_to(root)
+                except (OSError, ValueError):
+                    continue
+                identifier = path.stem
+                current = self._notes.get(identifier)
+                if current is None or current.get("rel") != relative:
+                    continue
+                entry = _note_entry(path, relative)
+                if entry is None or entry == current:
+                    continue
+                self._drop_postings(identifier)
+                self._notes[identifier] = entry.copy()
+                self._add_postings(identifier, entry.get("terms", {}))
                 changed = True
             if changed:
                 self._recompute_avgdl()
@@ -633,7 +826,9 @@ class Mnemosyne:
             assert self._notes is not None
             try:
                 rel = path.relative_to(self.vault).as_posix()
-            except ValueError:
+                if not path.resolve().is_relative_to(self.vault.resolve()):
+                    return
+            except (OSError, ValueError):
                 return
             entry = _note_entry(path, rel)
             if entry is None:
@@ -641,14 +836,14 @@ class Mnemosyne:
             s = path.stem
             if s in self._notes:
                 self._drop_postings(s)
-            self._notes[s] = entry
-            self._add_postings(s, entry["terms"])
+            self._notes[s] = entry.copy()
+            self._add_postings(s, entry.get("terms", {}))
             self._recompute_avgdl()
             self._save_index()
 
     # -- accessors -------------------------------------------------------------
 
-    def entries(self) -> dict[str, dict[str, Any]]:
+    def entries(self) -> dict[str, _IndexEntry]:
         """A snapshot copy of all index entries. Callers iterate this while
         other threads may refresh/rezone, so never hand out the live dict
         (entry dicts themselves are replaced, not mutated, on update)."""
@@ -656,11 +851,11 @@ class Mnemosyne:
             self.refresh()
             return dict(self._notes or {})
 
-    def note_meta(self, s: str) -> dict[str, Any] | None:
+    def note_meta(self, s: str) -> _IndexEntry | None:
         with self._lock:
             self.refresh()
             e = (self._notes or {}).get(s)
-            return dict(e) if e else None
+            return e.copy() if e else None
 
     def resolve_rel(self, s: str) -> str | None:
         with self._lock:
@@ -668,18 +863,18 @@ class Mnemosyne:
             e = (self._notes or {}).get(s)
             return e["rel"] if e else None
 
-    def dynamics_of(self, s: str) -> dict[str, Any]:
+    def dynamics_of(self, s: str) -> _Dynamics:
         with self._lock:
             if self._dyn is None:
                 self._load()
             assert self._dyn is not None
             dyn = self._dyn["notes"].get(s)
             if dyn:
-                return dict(dyn)
-            e = (self._notes or {}).get(s) or {}
-            return default_dynamics(e.get("created") or None)
+                return _copy_dynamics(dyn)
+            e = (self._notes or {}).get(s)
+            return default_dynamics(e.get("created") if e else None)
 
-    def set_dynamics(self, s: str, dyn: dict[str, Any]) -> None:
+    def set_dynamics(self, s: str, dyn: Mapping[str, _JsonValue]) -> None:
         """Overwrite one note's dynamics (maintenance/test seam)."""
         with self._lock:
             if self._dyn is None:
@@ -709,13 +904,22 @@ class Mnemosyne:
                     return
             self._dyn["notes"][s] = potentiate(self.dynamics_of(s), now)
             z = e["zone"]
-            zs = self._dyn["zones"].get(z) or {}
+            zs = self._zone_state(z)
             today = now.date()
-            ema = decayed_ema(float(zs.get("ema", 0.0)),
+            ema = decayed_ema(_to_float(zs.get("ema", 0.0)),
                               zs.get("last_hit"), today) + 1.0
             self._dyn["zones"][z] = {"ema": ema,
                                      "last_hit": today.isoformat()}
             self._save_dynamics()
+
+    def _zone_state(self, zone: str) -> dict[str, _JsonValue]:
+        assert self._dyn is not None
+        rec = self._dyn["zones"].get(zone)
+        if not rec:
+            return {}
+        if isinstance(rec, dict):
+            return rec
+        raise AttributeError(f"'{type(rec).__name__}' object has no attribute 'get'")
 
     def zone_priorities(self, today: date | None = None) -> dict[str, float]:
         """Normalized [0,1] priority per zone present in the vault."""
@@ -729,15 +933,15 @@ class Mnemosyne:
             zones = {e["zone"] for e in self._notes.values()}
             raw: dict[str, float] = {}
             for z in zones:
-                zs = self._dyn["zones"].get(z) or {}
-                raw[z] = decayed_ema(float(zs.get("ema", 0.0)),
+                zs = self._zone_state(z)
+                raw[z] = decayed_ema(_to_float(zs.get("ema", 0.0)),
                                      zs.get("last_hit"), today)
             mx = max(raw.values(), default=0.0)
             return {z: (v / mx if mx > 0 else 0.0) for z, v in raw.items()}
 
     # -- retrieval ------------------------------------------------------------
 
-    def _semantic_index(self) -> Any:
+    def _semantic_index(self) -> SemanticIndex | None:
         """The SemanticIndex, or None when disabled/unavailable (decided once)."""
         if self._sem is None:
             from . import semantic
@@ -749,7 +953,7 @@ class Mnemosyne:
                 self._sem = False
             elif not semantic.available():
                 log.warning("semantic search requested but the [semantic] "
-                            "extra is not installed; using BM25 only")
+                            + "extra is not installed; using BM25 only")
                 self._sem = False
             else:
                 self._sem = semantic.SemanticIndex(self.vault)
@@ -760,7 +964,7 @@ class Mnemosyne:
         if sem is None:
             return []
         try:
-            sem.sync(self.entries())
+            sem.sync({s: dict(entry) for s, entry in self.entries().items()})
             return sem.search(query, FUSE_DEPTH)
         except (ImportError, OSError, RuntimeError, ValueError) as exc:
             # model download/load or encoding failed: keep serving BM25
@@ -775,7 +979,8 @@ class Mnemosyne:
         Han/kana run, are derived from other units, so they do not count; a
         Han/kana character that stands alone in the query does."""
         norm = unicodedata.normalize("NFKC", query).casefold()
-        alone = {cjk for cjk, _, _ in _RUN_RE.findall(norm) if len(cjk) == 1}
+        alone = {cjk for match in _RUN_RE.finditer(norm)
+                 if len(cjk := match.group(1) or "") == 1}
         posts = [self._postings.get(t, {}) for t in set(terms)
                  if not t.endswith(STEM_MARK)
                  and (len(t) > 1 or _script(t) != "cjk" or t in alone)]
@@ -786,8 +991,8 @@ class Mnemosyne:
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
                now: datetime | None = None,
-               expansions: Mapping[str, Any] | None = None
-               ) -> list[dict[str, Any]]:
+               expansions: Mapping[str, _JsonInput] | None = None
+               ) -> list[_Hit]:
         """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only.
 
         ``expansions`` widens the query at search time without touching the
@@ -827,7 +1032,7 @@ class Mnemosyne:
             pri = self.zone_priorities(today=now.date())
             # TTL is a user-facing calendar date -> LOCAL today, matching
             # memory._is_expired (render/list/purge) so no path disagrees.
-            expiry_today = date.today()
+            expiry_today = datetime.now().astimezone().date()
 
             def boost(s: str) -> float:
                 eff = effective_strength(self.dynamics_of(s), now)
@@ -898,23 +1103,24 @@ class Mnemosyne:
             cands = sorted(base.items(), key=lambda kv: (
                 kv[0] not in pinned, -kv[1],
                 bm_order.get(kv[0], unranked)))[:CAND]
-            hits: list[dict[str, Any]] = []
+            ranked: list[tuple[tuple[bool, float, int, str], _Hit]] = []
             for s, bm in cands:
                 if not visible(s):
                     continue
                 e = notes[s]
                 score = bm if sem_ranked else bm * boost(s)
-                hits.append({"slug": s, "title": e["title"], "zone": e["zone"],
-                             "rel": e["rel"], "type": e["type"],
-                             "summary": e["summary"], "links": e["links"],
-                             "polarity": e["polarity"], "score": score,
-                             "updated": e["updated"]})
-            hits.sort(key=lambda h: (h["slug"] in pinned, h["score"],
-                                     -bm_order.get(h["slug"], unranked),
-                                     h["updated"]), reverse=True)
-            return hits[:limit]
+                ranked.append(((s in pinned, score,
+                                -bm_order.get(s, unranked), e["updated"]),
+                               {"slug": s, "title": e["title"],
+                                "zone": e["zone"], "rel": e["rel"],
+                                "type": e["type"], "summary": e["summary"],
+                                "links": e["links"],
+                                "polarity": e["polarity"], "score": score,
+                                "updated": e["updated"]}))
+            ranked.sort(key=lambda pair: pair[0], reverse=True)
+            return [hit for _, hit in ranked[:limit]]
 
-    def related(self, s: str, limit: int = RELATED_LIMIT) -> list[dict[str, Any]]:
+    def related(self, s: str, limit: int = RELATED_LIMIT) -> list[_Hit]:
         """Mechanical link candidates for one note (A-MEM step 1): BM25 with
         the note's own top terms, excluding itself and already-linked notes.
         The LLM (Morpheus) judges which candidates become real links."""
@@ -929,27 +1135,30 @@ class Mnemosyne:
         hits = self.search(" ".join(top_terms), limit=limit + len(linked))
         return [h for h in hits if h["slug"] not in linked][:limit]
 
-    def stale(self, now: datetime | None = None) -> list[dict[str, Any]]:
+    def stale(self, now: datetime | None = None) -> list[_StaleEntry]:
         """Notes past the archive tier (eff < STALE_EFF and unused >
         STALE_DAYS). ``identity`` never goes stale (it is the always-rendered
         L0 and render does not count as access); ``_archive`` already is."""
         now = now or datetime.now(timezone.utc)
         today = now.date()
-        out: list[dict[str, Any]] = []
+        out: list[_StaleEntry] = []
         for s, e in self.entries().items():
             if e["zone"] in (ARCHIVE_ZONE, IDENTITY_ZONE):
                 continue
             if _entry_expired(e, today):
                 continue
             dyn = self.dynamics_of(s)
-            last = _parse_dt(dyn.get("last_access"))
+            last_access = dyn.get("last_access", "")
+            last = _parse_dt(last_access)
             if last is None:
                 continue
+            # JSON ISO dates can also be basic-format integers (e.g. 20200101).
+            assert isinstance(last_access, (str, int))
             days = (now - last).total_seconds() / 86400.0
             eff = effective_strength(dyn, now)
             if eff < STALE_EFF and days > STALE_DAYS:
                 out.append({"slug": s, "title": e["title"], "zone": e["zone"],
-                            "last_access": dyn.get("last_access", ""),
+                            "last_access": last_access,
                             "eff": eff})
         out.sort(key=lambda x: x["last_access"])
         return out
@@ -965,7 +1174,7 @@ class Mnemosyne:
         z = "" if zone in ("", "inbox") else str(zone)
         if z and z != ARCHIVE_ZONE and not ZONE_RE.fullmatch(z):
             raise ValueError(f"invalid zone name {zone!r} "
-                             "(want ^[a-z0-9][a-z0-9-]{{0,31}}$)")
+                             + "(want ^[a-z0-9][a-z0-9-]{{0,31}}$)")
         from .vault_lock import VaultLock
 
         with VaultLock(self.vault).hold(), self._lock:
@@ -979,7 +1188,7 @@ class Mnemosyne:
             if (z and z != ARCHIVE_ZONE and z not in existing
                     and len(existing) >= MAX_ZONES):
                 raise ValueError(f"zone cap reached ({MAX_ZONES}); "
-                                 "re-use an existing zone")
+                                 + "re-use an existing zone")
             old = self.vault / e["rel"]
             new_dir = (self.vault / z) if z else self.vault
             new = new_dir / f"{s}.md"
