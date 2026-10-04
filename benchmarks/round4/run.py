@@ -650,6 +650,10 @@ def configured_startup(root: Path, mode: str = LEGACY_STARTUP_MODE) -> _StartupR
                     return _pending(pending["surface"], pending["delivered_by"])(self.root)
                 if _accepts_compact_format(base_read):
                     return base_read(paths, compact=compact, compact_format=compact_format)
+                if compact_format != "v2":
+                    raise FrozenInputError(
+                        f"compact format {compact_format!r} is not supported by this base " +
+                        "reader. Refusing instead of silently returning the default format.")
                 return base_read(paths, compact=compact)
 
         return CompactReader(root)

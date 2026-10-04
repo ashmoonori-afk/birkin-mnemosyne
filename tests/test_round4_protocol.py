@@ -343,6 +343,34 @@ def test_configured_modes_refuse_pending_product_surfaces_without_fallback(tmp_p
         monkeypatch.setattr(protocol, "THRESHOLDS_PATH", tmp_path / "missing-thresholds.json")
         with pytest.raises(protocol.FrozenInputError, match="thresholds are missing"):
             protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
+
+        from birkin_mnemosyne import VaultMemory, semantic
+
+        thresholds = {"cosine": 0.9, "margin": 0.05}
+        locked = tmp_path / "locked-thresholds.json"
+        locked.write_text(json.dumps({"locked": True, "thresholds": thresholds}),
+                          encoding="utf-8")
+        monkeypatch.setattr(protocol, "THRESHOLDS_PATH", locked)
+        vault = tmp_path / "semantic-vault"
+        memory = VaultMemory({"vault_path": str(vault)})
+        memory.write_note("First policy", "Review every release before publishing.",
+                          source="chat:first")
+        memory.write_note("Second policy", "Review every release before publishing.",
+                          source="chat:second")
+        built = protocol.configured_consolidation(vault, protocol.SEMANTIC_DETECTION_MODE)
+        assert isinstance(built, Consolidation)
+        direct = Consolidation(vault, semantic=True, thresholds=thresholds)
+        assert built.configuration_id != ""
+        assert built.configuration_id == direct.configuration_id
+        assert built.semantic_status != "lexical"
+        if semantic.prepared():
+            questions = built.questions()
+            assert built.semantic_status == "ready"
+            assert len(questions) >= 1
+        else:
+            with pytest.raises(protocol.FrozenInputError,
+                               match="semantic question pipeline is not ready"):
+                built.questions()
     if not compact_available():
         with pytest.raises(protocol.FrozenInputError, match="not available on this base"):
             protocol.configured_startup(tmp_path, protocol.COMPACT_STARTUP_MODE)
@@ -373,6 +401,10 @@ def test_declared_modes_report_pending_surfaces_and_legacy_evidence():
         assert modes["startup"][protocol.COMPACT_STARTUP_MODE]["available"] is True
     semantic = modes["detection"][protocol.SEMANTIC_DETECTION_MODE]
     assert semantic["available"] is semantic_available()
+    if not semantic_available():
+        assert modes["detection"][protocol.SEMANTIC_DETECTION_MODE]["available"] is False
+    else:
+        assert modes["detection"][protocol.SEMANTIC_DETECTION_MODE]["available"] is True
     assert modes["detection"][protocol.LEGACY_DETECTION_MODE]["available"] is True
     assert "future" in modes["scope"]
 
@@ -409,6 +441,28 @@ def test_selected_compact_mode_reaches_the_public_reader(monkeypatch, tmp_path):
     assert bindings["StartupReader"](tmp_path).read(["MODE.md"]) == "actual-public-result"
     assert calls == [("init", tmp_path), ("read", ["MODE.md"], True)]
     assert protocol.declared_modes()["startup"][protocol.COMPACT_STARTUP_MODE]["available"]
+
+
+def test_compact_reader_refuses_format_the_base_cannot_honor(monkeypatch, tmp_path):
+    import birkin_mnemosyne
+
+    calls = []
+
+    class Reader:
+        def __init__(self, root):
+            self.root = root
+
+        def read(self, paths, *, compact=False):
+            calls.append((paths, compact))
+            return "actual-public-result"
+
+    monkeypatch.setattr(birkin_mnemosyne, "StartupReader", Reader)
+    reader = protocol.configured_startup(tmp_path, protocol.COMPACT_STARTUP_MODE)
+    with pytest.raises(protocol.FrozenInputError, match="'v3'"):
+        reader.read(["MODE.md"], compact_format="v3")
+    assert calls == []
+    assert reader.read(["MODE.md"], compact_format="v2") == "actual-public-result"
+    assert calls == [(["MODE.md"], True)]
 
 
 @pytest.mark.parametrize("status", ["ready", "unavailable"])
