@@ -86,10 +86,29 @@ def test_manifest_accepts_author_metadata_without_dropping_fields(tmp_path: Path
         "hash_contract": {"normalization": "text=b.replace(CRLF, LF)"},
         "slices_validated_at": "locked-evaluation",
         "provenance": {"opaque": True},
+        "bootstrap_raw_sha256": {"opaque.bin": "0" * 64},
     }
     path = tmp_path / "manifest.json"
     _ = path.write_text(json.dumps(document), encoding="utf-8")
     assert protocol.load_manifest(path) == document
+
+
+@pytest.mark.parametrize("bootstrap", [None, False, [], {"opaque.bin": 3}])
+def test_manifest_rejects_invalid_bootstrap_metadata(
+    tmp_path: Path, bootstrap: protocol.JsonValue,
+) -> None:
+    document: dict[str, protocol.JsonValue] = {
+        "required_files": {"opaque.bin": {"role": "opaque"}},
+        "required_authors": {"model": {"startup": ["opaque.bin"]}},
+        "author_identity": {"opaque.bin": "model"},
+        "hash_contract": {"normalization": "text=b.replace(CRLF, LF)"},
+        "slices_validated_at": "locked-evaluation",
+        "bootstrap_raw_sha256": bootstrap,
+    }
+    path = tmp_path / "manifest.json"
+    _ = path.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(protocol.FrozenInputError):
+        protocol.load_manifest(path)
 
 
 def same_length_mutation(data: bytes) -> bytes:
@@ -439,8 +458,12 @@ def test_manifest_declares_eol_guard_and_all_required_inputs():
     manifest = manifest_dict()
     assert manifest["hash_contract"]["normalization"] == \
         "text=b.replace(CRLF, LF)"
-    assert manifest["required_files"]["benchmarks/retrieval/_probe.py"]["raw_sha256"] == \
+    bootstrap = manifest.get("bootstrap_raw_sha256")
+    assert bootstrap is not None
+    assert bootstrap["benchmarks/retrieval/_probe.py"] == \
         "c446898b8f15c5d69216d6affbafe3609d1ce1e06838dcefa800e442f7c9da72"
+    assert manifest["required_files"]["benchmarks/retrieval/_probe.py"]["raw_sha256"] == \
+        "cd209e67fc107397edbaa4e492d51cdd64ee4ef99e3db06626b1475e4cb46304"
     for relative in ("benchmarks/round3/run.py", "benchmarks/round3/_probe.py",
                      "benchmarks/round3/answerer.py", "benchmarks/round3/startup_answerer.py",
                      "benchmarks/retrieval/bench_retrieval.py"):

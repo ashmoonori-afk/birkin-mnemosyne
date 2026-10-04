@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import TypedDict
 
@@ -18,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from benchmarks.round4 import qa
+
+_parse_fixture_json: Callable[[str], qa.JsonValue] = json.loads
 
 
 class _FixtureNote(TypedDict):
@@ -118,6 +121,13 @@ def _document(*, sol_pairs=None, claude_pairs=None, sol_extra=None,
     }
 
 
+def _json_document(document: _FixtureDocument) -> dict[str, qa.JsonValue]:
+    """The fixture document as the JSON object the protocol functions accept."""
+    value = _parse_fixture_json(json.dumps(document))
+    assert isinstance(value, dict)
+    return value
+
+
 # --------------------------------------------------------------------------- #
 # Real practice file
 # --------------------------------------------------------------------------- #
@@ -137,14 +147,54 @@ def test_shipped_practice_validates():
     assert qa.validate_practice(document)["authors"]
 
 
+def test_validated_reports_preserve_nested_pair_metadata() -> None:
+    document = _parse_fixture_json(json.dumps(_document()))
+    assert isinstance(document, dict)
+    authors = document["authors"]
+    assert isinstance(authors, list)
+    author = authors[0]
+    assert isinstance(author, dict)
+    pairs = author["pairs"]
+    assert isinstance(pairs, list)
+    pair = pairs[0]
+    assert isinstance(pair, dict)
+    pair["extension"] = {"sources": ["synthetic"], "flags": [True, None]}
+    before = json.dumps(document, sort_keys=True)
+
+    report = qa.validate_practice(document)
+
+    row = next(item for item in report["authors"] if item["author"] == qa.SOL_AUTHOR)
+    assert row["pairs"] == pairs
+    assert row["positives"] == {"tuning": 1, "validation": 1}
+    assert row["negatives"] == {"tuning": 1, "validation": 1}
+    assert qa.author_pairs(document, qa.SOL_AUTHOR)[0] == pair
+    assert json.dumps(document, sort_keys=True) == before
+
+
 @pytest.mark.parametrize("author_index", [0, 1])
-def test_claimed_source_digest_cannot_hide_changed_note_text(tmp_path, author_index):
+def test_claimed_source_digest_cannot_hide_changed_note_text(
+    tmp_path: Path, author_index: int,
+) -> None:
     document = qa.load_practice()
-    document["authors"][author_index]["pairs"][0]["notes"][0]["body"] += " modified"
+    authors = document["authors"]
+    assert isinstance(authors, list)
+    author = authors[author_index]
+    assert isinstance(author, dict)
+    pairs = author["pairs"]
+    assert isinstance(pairs, list)
+    pair = pairs[0]
+    assert isinstance(pair, dict)
+    notes = pair["notes"]
+    assert isinstance(notes, list)
+    note = notes[0]
+    assert isinstance(note, dict)
+    body = note["body"]
+    assert isinstance(body, str)
+    note["body"] = body + " modified"
     path = tmp_path / "modified-practice.json"
-    path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    _ = path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
     with pytest.raises(qa.ProtocolError, match="author-pairs-digest-drift"):
-        qa.load_practice(path)
+        _ = qa.load_practice(path)
 
 
 def test_check_practice_cli_emits_counts_and_digest_only(capsys):
@@ -166,28 +216,28 @@ def test_missing_claude_author_fails_closed(tmp_path):
     document = _document()
     document["authors"][1]["author"] = "unknown/model"
     with pytest.raises(qa.ProtocolError, match="claude-opus-5-5"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_wrong_claude_digest_fails_closed():
     document = _document()
     document["authors"][1]["source_sha256"] = "0" * 64
     with pytest.raises(qa.ProtocolError, match="delivered"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_false_source_blind_rejected():
     document = _document()
     document["authors"][0]["source_blind"] = False
     with pytest.raises(qa.ProtocolError, match="source-blind"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_wrong_license_rejected():
     document = _document()
     document["authors"][1]["license"] = "MIT"
     with pytest.raises(qa.ProtocolError, match="CC0-1.0"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_duplicate_json_members_rejected(tmp_path):
@@ -204,11 +254,38 @@ def test_malformed_json_rejected(tmp_path):
         qa.load_practice(path)
 
 
+@pytest.mark.parametrize("document", [None, False, [], "invalid"])
+def test_non_object_practice_json_is_rejected(
+    tmp_path: Path, document: qa.JsonValue,
+) -> None:
+    path = tmp_path / "practice.json"
+    _ = path.write_text(json.dumps(document), encoding="utf-8")
+    with pytest.raises(qa.ProtocolError):
+        _ = qa.load_practice(path)
+
+
+@pytest.mark.parametrize("config", [
+    None, False, [], "invalid",
+    {"locked": False, "thresholds": {"min_cosine": 0.9}},
+    {"locked": True, "thresholds": None},
+    {"locked": True, "thresholds": []},
+    {"locked": True, "thresholds": {}},
+])
+def test_invalid_semantic_config_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, config: qa.JsonValue,
+) -> None:
+    path = tmp_path / "thresholds.json"
+    _ = path.write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setattr(qa, "THRESHOLDS_PATH", path)
+    with pytest.raises(qa.ProtocolError):
+        _ = qa.semantic_thresholds()
+
+
 def test_sol_provenance_must_say_practice_not_held_out():
     document = _document()
     document["authors"][0]["authoring"] = "independent held-out evaluation set"
     with pytest.raises(qa.ProtocolError, match="not held-out"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 # --------------------------------------------------------------------------- #
@@ -219,7 +296,7 @@ def test_duplicate_pair_id_rejected():
     document = _document()
     document["authors"][1]["pairs"][1]["id"] = document["authors"][1]["pairs"][0]["id"]
     with pytest.raises(qa.ProtocolError, match="duplicate pair id"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_duplicate_topic_group_id_rejected():
@@ -227,14 +304,14 @@ def test_duplicate_topic_group_id_rejected():
     document["authors"][1]["topic_groups"].append(
         _FixtureTopic(**document["authors"][1]["topic_groups"][0]))
     with pytest.raises(qa.ProtocolError, match="duplicate topic group ids"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_empty_note_body_rejected():
     document = _document()
     document["authors"][0]["pairs"][0]["notes"][0]["body"] = "   "
     with pytest.raises(qa.ProtocolError, match="note body"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_pair_requires_two_notes():
@@ -242,7 +319,7 @@ def test_pair_requires_two_notes():
     document["authors"][0]["pairs"][0]["notes"] = [
         document["authors"][0]["pairs"][0]["notes"][0]]
     with pytest.raises(qa.ProtocolError, match="exactly two notes"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_empty_inventory_rejected():
@@ -254,7 +331,7 @@ def test_empty_inventory_rejected():
         g for g in document["authors"][1]["topic_groups"] if g["partition"] == "tuning"
     ]
     with pytest.raises(qa.ProtocolError, match="no positive pairs|no negative pairs"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 # --------------------------------------------------------------------------- #
@@ -266,21 +343,21 @@ def test_topic_group_crossing_partitions_rejected():
     # Same topic id used for a tuning and a validation pair.
     document["authors"][0]["pairs"][1]["topic_group"] = "s-topic-t"
     with pytest.raises(qa.ProtocolError):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_pair_partition_must_match_topic_group():
     document = _document()
     document["authors"][0]["pairs"][0]["partition"] = "validation"
     with pytest.raises(qa.ProtocolError, match="disagrees with its topic group"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 def test_unknown_topic_group_rejected():
     document = _document()
     document["authors"][0]["pairs"][0]["topic_group"] = "does-not-exist"
     with pytest.raises(qa.ProtocolError, match="not declared"):
-        qa.validate_practice(dict(document))
+        qa.validate_practice(_json_document(document))
 
 
 # --------------------------------------------------------------------------- #
@@ -290,20 +367,30 @@ def test_unknown_topic_group_rejected():
 def test_tuning_report_rejects_validation_rows():
     document = _document()
     with pytest.raises(qa.ProtocolError, match="non-tuning pair"):
-        qa.tuning_report(dict(document), {qa.SOL_AUTHOR: [{"id": "s-v", "label": True}]})
+        _ = qa.tuning_report(_json_document(document), {qa.SOL_AUTHOR: [{"id": "s-v", "label": True}]})
+
+
+@pytest.mark.parametrize("pair_id", [None, True, 7, [], {}])
+def test_tuning_report_rejects_nonstring_pair_identifiers(pair_id: qa.JsonValue) -> None:
+    document = _parse_fixture_json(json.dumps(_document()))
+    assert isinstance(document, dict)
+    row: dict[str, qa.JsonValue] = {"id": pair_id, "related": True}
+
+    with pytest.raises(qa.ProtocolError):
+        _ = qa.tuning_report(document, {qa.SOL_AUTHOR: [row]})
 
 
 def test_tuning_report_rejects_note_text():
     document = _document()
     with pytest.raises(qa.ProtocolError, match="must not carry note text"):
-        qa.tuning_report(
-            dict(document), {qa.SOL_AUTHOR: [{"id": "s-t", "body": "leaked"}]})
+        _ = qa.tuning_report(
+            _json_document(document), {qa.SOL_AUTHOR: [{"id": "s-t", "body": "leaked"}]})
 
 
 def test_tuning_report_accepts_tuning_labels_only():
     document = _document()
     report = qa.tuning_report(
-        dict(document), {qa.SOL_AUTHOR: [{"id": "s-t", "related": True}]})
+        _json_document(document), {qa.SOL_AUTHOR: [{"id": "s-t", "related": True}]})
     author = next(a for a in report["authors"] if a["author"] == qa.SOL_AUTHOR)
     assert author["outcomes"] == [{"id": "s-t", "related": True}]
     # Validation pairs never appear in a tuning report.
@@ -311,9 +398,26 @@ def test_tuning_report_accepts_tuning_labels_only():
     assert "s-v" not in serialized
 
 
+def test_tuning_report_preserves_nested_label_counts() -> None:
+    document = _parse_fixture_json(json.dumps(_document()))
+    assert isinstance(document, dict)
+    outcome: dict[str, qa.JsonValue] = {
+        "id": "s-t", "related": True,
+        "counts": {"tp": 1, "fp": 0},
+        "labels": [True, False, None],
+    }
+    before = json.dumps(outcome, sort_keys=True)
+
+    report = qa.tuning_report(document, {qa.SOL_AUTHOR: [outcome]})
+
+    author = next(row for row in report["authors"] if row["author"] == qa.SOL_AUTHOR)
+    assert author["outcomes"] == [outcome]
+    assert json.dumps(outcome, sort_keys=True) == before
+
+
 def test_selection_plan_omits_validation_bodies():
     document = _document()
-    plan = qa.tuning_selection_plan(dict(document), qa.CLAUDE_AUTHOR)
+    plan = qa.tuning_selection_plan(_json_document(document), qa.CLAUDE_AUTHOR)
     assert plan["tuning_topic_groups"] == ["c-topic-t", "cn-topic-t"]
     assert plan["validation_topic_groups"] == ["c-topic-v", "cn-topic-v"]
     assert plan["cosine_grid"][0] == 0.5 and plan["cosine_grid"][-1] == 0.98
@@ -325,9 +429,25 @@ def test_selection_plan_omits_validation_bodies():
 # Pair inventory and accounting
 # --------------------------------------------------------------------------- #
 
+def test_authored_pair_key_preserves_direction_and_note_bytes() -> None:
+    pair: dict[str, qa.JsonValue] = {
+        "notes": [
+            {"title": "Zulu", "body": "\ufeffOriginal\r\nfinal \U0001f680"},
+            {"title": "Alpha", "body": "  Keep surrounding spaces.  "},
+        ],
+    }
+
+    keys = qa.order_key_of(pair)
+
+    assert keys == (
+        "Zulu\x1f\ufeffOriginal\r\nfinal \U0001f680",
+        "Alpha\x1f  Keep surrounding spaces.  ",
+    )
+
+
 def test_unordered_inventory_is_orientation_independent():
     document = _document()
-    inventory = qa.unordered_pair_inventory(dict(document))
+    inventory = qa.unordered_pair_inventory(_json_document(document))
     keys = list(inventory[qa.SOL_AUTHOR])
     assert all(isinstance(key, tuple) and len(key) == 2 for key in keys)
     assert len(keys) == 4
@@ -335,32 +455,50 @@ def test_unordered_inventory_is_orientation_independent():
 
 def test_pair_accounting_counts_tp_fp_fn():
     document = _document()
-    keys = list(qa.unordered_pair_inventory(dict(document))[qa.SOL_AUTHOR])
+    keys = list(qa.unordered_pair_inventory(_json_document(document))[qa.SOL_AUTHOR])
     positives = [k for k in keys if qa.unordered_pair_inventory(
-        dict(document))[qa.SOL_AUTHOR][k]["related"]]
+        _json_document(document))[qa.SOL_AUTHOR][k]["related"]]
     negatives = [k for k in keys if not qa.unordered_pair_inventory(
-        dict(document))[qa.SOL_AUTHOR][k]["related"]]
+        _json_document(document))[qa.SOL_AUTHOR][k]["related"]]
     offered = [positives[0], negatives[0]]
-    counts = qa.pair_accounting(dict(document), qa.SOL_AUTHOR, offered)
+    counts = qa.pair_accounting(_json_document(document), qa.SOL_AUTHOR, offered)
     assert counts == {"tp": 1, "fp": 1, "fn": 1, "abstained": 1}
+
+
+def test_offered_pair_counts_deduplicate_reversed_pairs() -> None:
+    document = _parse_fixture_json(json.dumps(_document()))
+    assert isinstance(document, dict)
+    inventory = qa.ordered_pair_inventory(document, qa.SOL_AUTHOR)
+    positive = min(inventory["positives"])
+    negative = min(inventory["negatives"])
+    offered = [
+        positive, (positive[1], positive[0]),
+        negative, (negative[1], negative[0]),
+    ]
+
+    counts = qa.count_offered(inventory, offered)
+
+    assert counts == {"tp": 1, "fp": 1, "fn": 1, "abstained": 1}
+    assert counts == qa.pair_accounting(document, qa.SOL_AUTHOR, offered)
+    assert inventory["entries"] == qa.unordered_pair_inventory(document)[qa.SOL_AUTHOR]
 
 
 def test_pair_accounting_rejects_foreign_pair():
     document = _document()
     with pytest.raises(qa.ProtocolError, match="not in the authored inventory"):
-        qa.pair_accounting(dict(document), qa.SOL_AUTHOR, [("x\x1fy", "z\x1fw")])
+        qa.pair_accounting(_json_document(document), qa.SOL_AUTHOR, [("x\x1fy", "z\x1fw")])
 
 
 def test_pair_accounting_scope_limits_denominator():
     document = _document()
-    keys = list(qa.unordered_pair_inventory(dict(document))[qa.SOL_AUTHOR])
+    keys = list(qa.unordered_pair_inventory(_json_document(document))[qa.SOL_AUTHOR])
     scope = [keys[0]]
-    counts = qa.pair_accounting(dict(document), qa.SOL_AUTHOR, [], scope=scope)
+    counts = qa.pair_accounting(_json_document(document), qa.SOL_AUTHOR, [], scope=scope)
     assert counts["fn"] == 1
 
 
 def test_capped_recall_is_not_complete_recall():
-    totals = {"tp": 25, "fp": 0, "fn": 5, "abstained": 5}
+    totals: qa._PairCounts = {"tp": 25, "fp": 0, "fn": 5, "abstained": 5}
     # 30 positives: the public cap of 20 binds (20/30), while the MCP cap of 100
     # does not, so recall@100 is the complete recall of tp/(tp+fn) = 25/30.
     assert qa._capped_recall(totals, qa.PUBLIC_QUESTION_CAP) == round(20 / 30, 4)
@@ -378,6 +516,7 @@ def test_recall_capture_scenarios_cover_required_shapes():
         assert case["result"] == "OBSERVED"
         assert case["product_quality_claimed"] is False
         assert case["cleanup_absent"] is True
+        assert "cleanup_root" in case
         assert not Path(case["cleanup_root"]).exists()
         for cap, capture in case["captures"].items():
             counts = capture["counts"]
@@ -393,6 +532,8 @@ def test_recall_scenarios_are_real_executions_not_declarations():
     by_case = {case["case"]: case for case in captures}
 
     crowded = by_case["crowded-neighborhood"]
+    assert crowded["result"] == "OBSERVED"
+    assert "exceeds_threshold" in crowded
     assert crowded["exceeds_threshold"] is True
     assert crowded["notes"] > qa.CROWDED_NEIGHBORHOOD_MIN
     # 40 notes yield 780 unordered pairs, all authored positive.
@@ -400,6 +541,8 @@ def test_recall_scenarios_are_real_executions_not_declarations():
     assert set(crowded["captures"]) == {"10000", "20", "100"}
 
     translations = by_case["multiple-translations"]
+    assert "variants" in translations
+    assert "distinct" in translations
     assert translations["variants"] == ["en", "ko", "ja"]
     assert translations["distinct"] is True
     assert translations["notes"] == 3
@@ -526,6 +669,7 @@ def test_empty_real_discovery_cannot_manufacture_true_positives(monkeypatch):
              for index in range(8)]
     result = qa._capture_questions(notes, set(combinations(range(8), 2)))
     assert limits == [10_000, 20, 100]
+    assert result["result"] == "OBSERVED"
     assert result["positives"] == 28
     for capture in result["captures"].values():
         assert capture["offered"] == 0
@@ -657,7 +801,7 @@ def test_semantic_questions_use_original_titles_config_and_actual_cap_calls(
                for semantic, received in constructors)
     if final_status == "unavailable":
         assert result["result"] == "PENDING"
-        assert result["semantic_status"] == "unavailable"
+        assert result.get("semantic_status") == "unavailable"
         assert limits == [10_000]
         return
     assert result["result"] == "PASS"
@@ -735,6 +879,34 @@ _MIXED_PRECISION_DATES = (
 
 def _source(text: str) -> dict[str, bytes]:
     return {"f.md": text.encode("utf-8")}
+
+
+def test_natural_closure_accepts_a_noncanonical_root(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    root.mkdir()
+    alias_base = tmp_path / "alias"
+    alias_base.mkdir()
+    _ = (root / "MODE.md").write_bytes(b"MUST READ: inside.md\n")
+    _ = (root / "inside.md").write_bytes(b"Required fact.\r\n")
+
+    observed = qa._natural_closure(alias_base / ".." / "vault", ["MODE.md"])
+
+    assert observed == {
+        "MODE.md": b"MUST READ: inside.md\n",
+        "inside.md": b"Required fact.\r\n",
+    }
+
+
+def test_natural_closure_still_refuses_escape_from_an_aliased_root(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    root.mkdir()
+    alias_base = tmp_path / "alias"
+    alias_base.mkdir()
+    _ = (root / "MODE.md").write_bytes(b"MUST READ: ../outside.md\n")
+    _ = (tmp_path / "outside.md").write_bytes(b"Outside fact.\n")
+
+    with pytest.raises(qa.ProtocolError, match="escaped the configured root"):
+        qa._natural_closure(alias_base / ".." / "vault", ["MODE.md"])
 
 
 def test_homogeneous_note_dates_reorder_and_supersede():
@@ -991,6 +1163,7 @@ def test_independently_correct_compact_reader_passes(monkeypatch):
     result = qa.startup_scenario(compact=True)
     assert result["result"] == "PASS"
     oracle = result["observed"]["order_state_oracle"]
+    assert isinstance(oracle, dict)
     assert oracle["initial_match"] is True and oracle["fresh_match"] is True
     assert oracle["expected_initial"] == [{"path": "handoff.md", "superseded": [0]}]
 
@@ -1014,10 +1187,10 @@ def test_kibitzer_scenario_checks_every_contract_truthfully(monkeypatch):
     # Exact authored-note total and the support bound are both observed.
     assert observed["vault_notes"] == 160
     assert observed["supported_note_limit"] == qa._KIBITZER_SUPPORT == 1000
-    # A genuine description-only hit, a tag-only miss and an absent miss.
+    # A description-only fallback, independently supported core tag and absent miss.
     assert observed["description_only_hit"] is True
     assert observed["description_only_core_misses"] is True
-    assert observed["tag_only_no_hit"] is True
+    assert observed["tag_only_core_hit"] is True
     assert observed["absent_no_hit"] is True
     # Root-system excluded while a nested reference/system note stays visible.
     assert observed["root_system_excluded"] is True
@@ -1043,6 +1216,38 @@ def test_kibitzer_scenario_checks_every_contract_truthfully(monkeypatch):
     assert not owned_roots[0].exists()
 
 
+def test_kibitzer_tag_only_regression_is_in_the_aggregate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from birkin_mnemosyne.kibitzer import KibitzerAdapter, RecallCandidate
+
+    original = KibitzerAdapter.select
+
+    def omit_tag_hit(
+        self: KibitzerAdapter, query: str, *, limit: int = 3,
+        surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
+        force_refresh: bool = False,
+    ) -> tuple[RecallCandidate, ...]:
+        return () if query == "tagsentinel" else original(
+            self, query, limit=limit, surfaced=surfaced, exclude_paths=exclude_paths,
+            force_refresh=force_refresh,
+        )
+
+    monkeypatch.setattr(KibitzerAdapter, "select", omit_tag_hit)
+    result = qa.kibitzer_scenario()
+
+    assert result["result"] == "LEGACY-FAIL"
+    regressions = result["observed"]["ordering_regressions"]
+    ordering = result["observed"]["ordering"]
+    assert isinstance(regressions, list) and isinstance(ordering, list)
+    assert "tagsentinel" in regressions
+    tag_row, = [row for row in ordering
+                if isinstance(row, dict) and row["query"] == "tagsentinel"]
+    assert tag_row["actual"] == ["knowledge/tag-carrier.md"]
+    assert tag_row["adapter"] == []
+    assert tag_row["agrees"] is False
+
+
 def test_kibitzer_ranking_regression_is_reported_not_hidden():
     # The historical adapter/core ranking disagreement is preserved as a
     # candidate-vs-actual comparison and reported truthfully: the scenario
@@ -1050,13 +1255,17 @@ def test_kibitzer_ranking_regression_is_reported_not_hidden():
     # pass or crashing the CLI.
     result = qa.kibitzer_scenario()
     observed = result["observed"]
+    ordering = observed["ordering"]
+    assert isinstance(ordering, list)
+    rows = [row for row in ordering if isinstance(row, dict)]
+    assert len(rows) == len(ordering)
     assert result["result"] == (
         "LEGACY-FAIL" if observed["ordering_regressions"] else "LEGACY-PASS")
     assert observed["core_order_matches"] is (
         observed["ordering_regressions"] == [])
-    regressed = [row["query"] for row in observed["ordering"] if not row["agrees"]]
+    regressed = [row["query"] for row in rows if not row["agrees"]]
     assert regressed == observed["ordering_regressions"]
-    for row in observed["ordering"]:
+    for row in rows:
         assert set(row) == {"query", "candidate", "adapter", "actual", "agrees"}
 
 

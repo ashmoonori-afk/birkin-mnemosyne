@@ -1,4 +1,3 @@
-#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
 # dependencies = []
@@ -61,8 +60,227 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable, Mapping, Sequence, Sized
+from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import (
+    TYPE_CHECKING,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypedDict,
+    TypeGuard,
+)
+
+if TYPE_CHECKING:  # type-checker only; product imports stay lazy inside functions
+    from typing import NotRequired
+
+    from birkin_mnemosyne.consolidation import Consolidation as _ConsolidationCls
+    from birkin_mnemosyne.startup import StartupReader as _StartupReaderCls
+
+JsonValue: TypeAlias = (
+    str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
+)
+_json: Callable[[str], JsonValue] = json.loads
+
+
+class _Capacity(TypedDict):
+    notes: int
+    chunks: int
+    total_bytes: int
+    notes_limit: int
+    chunk_limit: int
+    byte_limit: int
+    supported: bool
+
+
+class _CompactCoverage(Protocol):
+    @property
+    def complete(self) -> bool: ...
+
+
+class _CompactBundle(Protocol):
+    @property
+    def context(self) -> str: ...
+
+    @property
+    def coverage(self) -> _CompactCoverage: ...
+
+    @property
+    def cache_hit(self) -> bool: ...
+
+
+class _CompactReader(Protocol):
+    def read(self, paths: Sequence[str], *, compact: bool) -> _CompactBundle: ...
+
+
+class _Surface(Protocol):
+    """Any product class whose callable surface is inspected."""
+
+
+class _QuestionsOwner(Protocol):
+    @property
+    def questions(self) -> Callable[..., Sized | _QuestionsOwner]: ...
+
+
+def _accepts_compact(reader: _StartupReaderCls) -> TypeGuard[_CompactReader]:
+    import inspect
+
+    return "compact" in inspect.signature(reader.read).parameters
+
+
+class _SemanticConsolidation(Protocol):
+    @property
+    def semantic_status(self) -> str: ...
+
+    @property
+    def questions(self) -> Callable[..., Sized]: ...
+
+
+class _SemanticFactory(Protocol):
+    def __call__(self, vault: Path, *, semantic: bool,
+                 thresholds: dict[str, JsonValue]) -> _SemanticConsolidation: ...
+
+
+def _accepts_semantic(cls: type[_ConsolidationCls]) -> TypeGuard[_SemanticFactory]:
+    import inspect
+
+    return {"semantic", "thresholds"} <= set(inspect.signature(cls.__init__).parameters)
+
+
+class _DownloadGuard(TypedDict):
+    status: str
+    cleared: bool
+    detail: NotRequired[str]
+
+
+class _DependencyState(TypedDict):
+    available: bool
+    prepared: bool
+    model_dir: str
+
+
+class _ModelState(_DependencyState):
+    status: str
+
+
+class _EmptySummary(TypedDict):
+    n: Literal[0]
+
+
+class _TimingSummary(TypedDict):
+    n: int
+    min_ms: float
+    median_ms: float
+    max_ms: float
+
+
+_Summary: TypeAlias = _EmptySummary | _TimingSummary
+
+
+class _Scopes(TypedDict):
+    fresh_process: bool
+    prepared_startup: bool
+    includes_first_unencoded_vault: bool
+    separate_vault_states: list[str]
+
+
+class _ModeRecord(TypedDict):
+    mode: str
+    surface: str
+    scopes: _Scopes
+    observations: list[dict[str, JsonValue]]
+    phase_summary: dict[str, _Summary]
+    usable_observations: int
+    bounds_met: bool
+    status: NotRequired[str]
+    reason: NotRequired[JsonValue]
+    reason_status: NotRequired[JsonValue]
+    detail: NotRequired[JsonValue]
+    planned: NotRequired[JsonValue]
+    repeats: NotRequired[int]
+    startup_ms: NotRequired[_Summary]
+    import_ms: NotRequired[_Summary]
+    max_peak_rss_bytes: NotRequired[int | float | None]
+    total_peak_rss_bytes: NotRequired[int | float | None]
+    chunks: NotRequired[int | float | None]
+    semantic_status: NotRequired[str | None]
+    capacity: NotRequired[dict[str, JsonValue]]
+    bytes: NotRequired[int]
+    supported: NotRequired[JsonValue]
+
+
+class _Bounds(TypedDict):
+    startup_ms: int
+    total_peak_rss_bytes: int
+
+
+class _ProbeReport(TypedDict):
+    dependencies: _DependencyState
+    prepared: bool
+    repeats: int
+    offline: bool
+    bounds: _Bounds
+    model_name: str
+    modes: dict[str, _ModeRecord]
+    cleanup: list[dict[str, JsonValue]]
+
+
+class _BackendReport(TypedDict):
+    action: str
+    backend: str
+    surface: str
+    surface_status: JsonValue
+    detector_status: str
+    detector_note: str
+    status: str
+    available: bool
+    prepared: bool
+    model_dir: str
+    readiness: _ModelState
+    cleared: bool
+    detail: NotRequired[str]
+    load_ms: NotRequired[JsonValue]
+    total_peak_rss_bytes: NotRequired[JsonValue]
+    encode: NotRequired[JsonValue]
+    encode_findings: NotRequired[list[str]]
+    vault_removed: NotRequired[bool]
+
+
+class _PrepareReport(TypedDict):
+    action: str
+    was_prepared: bool
+    path: str
+    prepared: bool
+    model_dir: str
+    possibly_converted: bool
+    elapsed_ms: float
+
+
+class _ModelFiles(TypedDict):
+    path: str
+    prepared: bool
+    files_present: list[str]
+
+
+class _ChildCheck(TypedDict):
+    mode: str
+    backend: str
+    vault: str
+    notes: int
+    surface: str
+    detector_status: str
+    surface_status: dict[str, dict[str, str]]
+    capacity: _Capacity
+    numpy_importable: NotRequired[bool]
+    readiness: NotRequired[_ModelState]
+    model: NotRequired[_ModelFiles]
+    load_ms: NotRequired[float | None]
+    encode: NotRequired[dict[str, JsonValue] | None]
+    encode_findings: NotRequired[list[str]]
+    peak_rss_bytes: NotRequired[int | None]
+
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -105,7 +323,7 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def supported(api: Any, attribute: str = "") -> bool:
+def supported(api: type[_Surface], attribute: str = "") -> bool:
     """Whether the planned product surface exists at all.
 
     The compact startup read and the semantic Consolidation integration are
@@ -118,7 +336,8 @@ def supported(api: Any, attribute: str = "") -> bool:
     required = _required(api, attribute)
     if not required:                      # no such planned surface at all
         return False
-    target = api if attribute == "" else getattr(api, attribute, None)
+    target: Callable[..., _Surface] | None = (
+        api if attribute == "" else getattr(api, attribute, None))
     if target is None:
         return False
     try:
@@ -128,8 +347,8 @@ def supported(api: Any, attribute: str = "") -> bool:
     return all(name in parameters for name in required)
 
 
-def _required(api: Any, attribute: str = "") -> tuple[str, ...]:
-    name = getattr(api, "__name__", "") if attribute == "" else attribute
+def _required(api: type[_Surface], attribute: str = "") -> tuple[str, ...]:
+    name: str = getattr(api, "__name__", "") if attribute == "" else attribute
     if attribute == "read" or name == "read":
         return ("compact",)
     if attribute == "questions":
@@ -139,27 +358,37 @@ def _required(api: Any, attribute: str = "") -> tuple[str, ...]:
     return ()
 
 
-def startup_compact_available(reader_cls: Any | None = None) -> bool:
+def startup_compact_available(reader_cls: type[_StartupReaderCls] | None = None) -> bool:
     if reader_cls is None:
-        from birkin_mnemosyne import StartupReader as reader_cls
+        if TYPE_CHECKING:
+            from birkin_mnemosyne.startup import StartupReader as reader_cls
+        else:
+            from birkin_mnemosyne import StartupReader as reader_cls
     return supported(reader_cls, "read")
 
 
-def questions_carry_status(questions: Any) -> bool:
+def questions_carry_status(questions: _QuestionsOwner) -> bool:
     """True when the object owning ``questions()`` can report a ready status."""
     return hasattr(questions, "semantic_status")
 
 
-def consolidation_semantic_available(consolidation_cls: Any | None = None) -> bool:
+def consolidation_semantic_available(
+    consolidation_cls: type[_QuestionsOwner] | None = None,
+) -> bool:
     if consolidation_cls is None:
-        from birkin_mnemosyne import Consolidation as consolidation_cls
+        if TYPE_CHECKING:
+            from birkin_mnemosyne.consolidation import (
+                Consolidation as consolidation_cls,
+            )
+        else:
+            from birkin_mnemosyne import Consolidation as consolidation_cls
     return (supported(consolidation_cls, "__init__")
             and supported(consolidation_cls, "questions"))
 
 
 # -- shared contracts ----------------------------------------------------------
 
-def capacity(notes: int, chunks: int, total_bytes: int) -> dict[str, Any]:
+def capacity(notes: int, chunks: int, total_bytes: int) -> _Capacity:
     """Declared supported input contract; exceeding it refuses, never truncates."""
     return {"notes": notes, "chunks": chunks, "total_bytes": total_bytes,
             "notes_limit": 1000, "chunk_limit": CHUNK_LIMIT, "byte_limit": BYTE_LIMIT,
@@ -167,12 +396,12 @@ def capacity(notes: int, chunks: int, total_bytes: int) -> dict[str, Any]:
             and total_bytes <= BYTE_LIMIT}
 
 
-def finite_positive(value: Any) -> bool:
+def finite_positive(value: JsonValue) -> TypeGuard[int | float]:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and \
         math.isfinite(float(value)) and float(value) > 0
 
 
-def observation_errors(observation: dict[str, Any]) -> list[str]:
+def observation_errors(observation: Mapping[str, JsonValue]) -> list[str]:
     """Why an observation may not enter a bound claim; empty means usable."""
     missing: list[str] = []
     for key in ("load_ms", "peak_rss_bytes", "import_ms"):
@@ -197,14 +426,15 @@ def observation_errors(observation: dict[str, Any]) -> list[str]:
     return missing
 
 
-def _new_product_findings(encode: dict[str, Any]) -> list[str]:
+def _new_product_findings(encode: Mapping[str, JsonValue]) -> list[str]:
     """Refuse an encode that is not finite, not nonzero, or all zeros."""
     findings: list[str] = []
     if encode.get("finite") is not True:
         findings.append("finite")
     if encode.get("nonzero") is not True:
         findings.append("nonzero")
-    if not any(finite_positive(v) for v in encode.get("values", [])):
+    values = encode.get("values")
+    if not isinstance(values, list) or not any(finite_positive(v) for v in values):
         findings.append("values")
     return findings
 
@@ -225,11 +455,11 @@ def write_practice_vault(vault: Path, notes: int) -> Path:
     vault.mkdir(parents=True, exist_ok=True)
     _ = (vault / "MODE.md").write_text(
         "# Boot\nMUST READ: handoff.md\nMUST READ: profile/soul.md\n"
-        "MUST READ: registry.json\npending: capture the release receipt\n",
+        + "MUST READ: registry.json\npending: capture the release receipt\n",
         encoding="utf-8")
     _ = (vault / "handoff.md").write_text(
         "TOP NOTE 2026-09-01\nPort: 4100\n"
-        "TOP NOTE 2026-10-01\nSupersedes: TOP NOTE 2026-09-01\nPort: 4200\n",
+        + "TOP NOTE 2026-10-01\nSupersedes: TOP NOTE 2026-09-01\nPort: 4200\n",
         encoding="utf-8")
     (vault / "profile").mkdir(exist_ok=True)
     _ = (vault / "profile" / "soul.md").write_text(
@@ -276,7 +506,7 @@ def child_env(offline: bool, model_dir: Path | None = None) -> dict[str, str]:
     return env
 
 
-def run_child(args: list[str], env: dict[str, str]) -> dict[str, Any]:
+def run_child(args: list[str], env: dict[str, str]) -> dict[str, JsonValue]:
     proc = subprocess.run([sys.executable, str(Path(__file__).resolve()),
                            "__child", *args],
                           check=False, capture_output=True, text=True,
@@ -284,7 +514,12 @@ def run_child(args: list[str], env: dict[str, str]) -> dict[str, Any]:
     if proc.returncode != 0:
         tail = proc.stderr.strip()[-800:]
         raise RuntimeError(f"probe child failed ({proc.returncode}): {tail}")
-    return json.loads(proc.stdout.strip().splitlines()[-1])
+    reply = _json(proc.stdout.strip().splitlines()[-1])
+    if isinstance(reply, dict):
+        return reply
+    raise ValueError(
+        f"probe child reply must be a JSON object, got {type(reply).__name__}"
+    )
 
 
 # -- readiness -----------------------------------------------------------------
@@ -297,7 +532,7 @@ def _check_prepared(model_dir: Path | None) -> bool:
     return semantic.prepared()
 
 
-def dependency_state(model_dir: Path | None = None) -> dict[str, Any]:
+def dependency_state(model_dir: Path | None = None) -> _DependencyState:
     from birkin_mnemosyne import semantic
 
     scoped = Path(model_dir) if model_dir is not None else semantic.model_dir()
@@ -306,7 +541,7 @@ def dependency_state(model_dir: Path | None = None) -> dict[str, Any]:
             "model_dir": str(scoped)}
 
 
-def check_model(prepared: bool) -> dict[str, Any]:
+def check_model(prepared: bool) -> _ModelState:
     """Ready means: dependencies importable and the compact model converted."""
     from birkin_mnemosyne import semantic
 
@@ -320,19 +555,24 @@ def check_model(prepared: bool) -> dict[str, Any]:
             "model_dir": str(semantic.model_dir())}
 
 
-def _fresh_download_guard(prepared: bool, model_dir: Path | None) -> dict[str, Any]:
+def _fresh_download_guard(prepared: bool) -> _DownloadGuard:
     """Semantic status when the model was absent: never a silent ready claim."""
     if prepared:
         return {"status": "ready", "cleared": True}
     return {"status": "model_not_prepared", "cleared": False,
             "detail": "no compact model present; run --prepare (or an explicit "
-                      "`python -m birkin_mnemosyne.semantic`) before measuring; "
-                      "an absent model is not a pass"}
+                      + "`python -m birkin_mnemosyne.semantic`) before measuring; "
+                      + "an absent model is not a pass"}
 
 
-def _summary(observations: list[dict[str, Any]], key: str) -> dict[str, Any]:
-    values = [float(o[key]) for o in observations
-              if check_key(o.get(key)) and not o.get("defects")]
+def _summary(
+    observations: Sequence[Mapping[str, JsonValue]], key: str,
+) -> _EmptySummary | _TimingSummary:
+    values: list[float] = []
+    for observation in observations:
+        value = observation.get(key)
+        if check_key(value) and not observation.get("defects"):
+            values.append(float(value))
     if not values:
         return {"n": 0}
     return {"n": len(values), "min_ms": round(min(values), 3),
@@ -340,7 +580,7 @@ def _summary(observations: list[dict[str, Any]], key: str) -> dict[str, Any]:
             "max_ms": round(max(values), 3)}
 
 
-def check_key(value: Any) -> bool:
+def check_key(value: JsonValue) -> TypeGuard[int | float]:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and \
         math.isfinite(float(value))
 
@@ -348,19 +588,28 @@ def check_key(value: Any) -> bool:
 PHASES = ("first_unencoded_vault", "warm_vault", "changed_note")
 
 
-def _phase_summary(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+def _phase_summary(
+    attempts: Sequence[Mapping[str, JsonValue]],
+) -> dict[str, _EmptySummary | _TimingSummary]:
     """Per-vault-state timing summary, kept separate from the gate number.
 
     An attempt only contributes to a phase when that phase was actually
     observed with a finite positive elapsed time; a PENDING or partial attempt
     yields ``n: 0`` for the phase rather than a fabricated value.
     """
-    summary: dict[str, Any] = {}
+    summary: dict[str, _EmptySummary | _TimingSummary] = {}
     for phase in PHASES:
-        values = [float(a["phases"][phase]["elapsed_ms"]) for a in attempts
-                  if isinstance(a.get("phases"), dict)
-                  and isinstance(a["phases"].get(phase), dict)
-                  and finite_positive(a["phases"][phase].get("elapsed_ms"))]
+        values: list[float] = []
+        for attempt in attempts:
+            phases = attempt.get("phases")
+            if not isinstance(phases, dict):
+                continue
+            observed = phases.get(phase)
+            if not isinstance(observed, dict):
+                continue
+            elapsed = observed.get("elapsed_ms")
+            if finite_positive(elapsed):
+                values.append(float(elapsed))
         summary[phase] = ({"n": len(values), "min_ms": round(min(values), 3),
                            "median_ms": round(statistics.median(values), 3),
                            "max_ms": round(max(values), 3)}
@@ -370,14 +619,42 @@ def _phase_summary(attempts: list[dict[str, Any]]) -> dict[str, Any]:
 
 # -- measurement ---------------------------------------------------------------
 
+def _number(observation: Mapping[str, JsonValue], key: str) -> int | float:
+    """A measurement already vetted by ``observation_errors``."""
+    value = observation[key]
+    if not finite_positive(value):
+        raise TypeError(f"observation {key!r} must be a finite positive number")
+    return value
+
+
+def _text(observation: Mapping[str, JsonValue], key: str) -> str:
+    """A status string already vetted by ``observation_errors``."""
+    value = observation[key]
+    if not isinstance(value, str):
+        raise TypeError(f"observation {key!r} must be a string")
+    return value
+
+
 def measure_mode(mode: str, vault: Path, model_dir: Path | None, repeats: int,
-                 env: dict[str, str]) -> dict[str, Any]:
-    attempts: list[dict[str, Any]] = []
+                 env: dict[str, str]) -> _ModeRecord:
+    cache_paths = set(scratch_paths(vault))
+    pristine = {path: path.read_bytes() for path in vault.rglob("*")
+                if path.is_file() and path not in cache_paths}
+    attempts: list[dict[str, JsonValue]] = []
     for _ in range(repeats):
+        for path in vault.rglob("*"):
+            if path.is_file() and path not in pristine:
+                path.unlink()
+        for path, data in pristine.items():
+            _ = path.write_bytes(data)
+        initial_digest = vault_digest(vault)
+        initial_cache = sorted(path.name for path in cache_paths if path.exists())
         extra = [str(model_dir)] if model_dir else []
         attempt = run_child(["run", mode, str(vault), *extra], env)
+        attempt["initial_vault_digest"] = initial_digest
+        attempt["initial_cache_artifacts"] = [*initial_cache]
         defects = observation_errors(attempt)
-        attempt["defects"] = defects
+        attempt["defects"] = [*defects]
         attempts.append(attempt)
     usable = [a for a in attempts
               if a.get("status") != "PENDING" and not a["defects"]
@@ -396,18 +673,20 @@ def measure_mode(mode: str, vault: Path, model_dir: Path | None, repeats: int,
                 "import_ms": _summary(attempts, "import_ms"),
                 "phase_summary": _phase_summary(attempts),
                 "usable_observations": 0, "bounds_met": False}
-    result: dict[str, Any] = {
+    result: _ModeRecord = {
         "mode": mode, "repeats": repeats, "usable_observations": len(usable),
         "observations": attempts,
         "phase_summary": _phase_summary(usable),
         "startup_ms": _summary(usable, "load_ms"),
         "import_ms": _summary(usable, "import_ms"),
-        "max_peak_rss_bytes": max((a["peak_rss_bytes"] for a in usable), default=None),
-        "total_peak_rss_bytes": max((a["peak_rss_bytes"] for a in usable),
+        "max_peak_rss_bytes": max((_number(a, "peak_rss_bytes") for a in usable),
+                                  default=None),
+        "total_peak_rss_bytes": max((_number(a, "peak_rss_bytes") for a in usable),
                                     default=None),
         "bounds_met": len(usable) == repeats and bool(usable) and all(
-            not a["defects"] and a["load_ms"] <= MODE_BOUNDS[mode]["startup_ms"]
-            and a["peak_rss_bytes"] <= 150_000_000 for a in attempts),
+            not a["defects"]
+            and _number(a, "load_ms") <= MODE_BOUNDS[mode]["startup_ms"]
+            and _number(a, "peak_rss_bytes") <= 150_000_000 for a in attempts),
         "surface": SURFACES[mode],
         "scopes": {"fresh_process": True,
                    "prepared_startup": mode != "compact",
@@ -415,8 +694,9 @@ def measure_mode(mode: str, vault: Path, model_dir: Path | None, repeats: int,
                    "separate_vault_states": ["first_unencoded_vault", "warm_vault",
                                              "changed_note"]}}
     if mode == "consolidation-semantic":
-        result["chunks"] = max((a["encoded_chunks"] for a in usable), default=None)
-        result["semantic_status"] = max((a["semantic_status"] for a in usable),
+        result["chunks"] = max((_number(a, "encoded_chunks") for a in usable),
+                               default=None)
+        result["semantic_status"] = max((_text(a, "semantic_status") for a in usable),
                                          default=None)
     if len(usable) != repeats:
         result.update({"status": "PENDING", "reason": "incomplete-observations",
@@ -424,13 +704,27 @@ def measure_mode(mode: str, vault: Path, model_dir: Path | None, repeats: int,
     return result
 
 
-def run_probe(args: argparse.Namespace, env: dict[str, str]) -> dict[str, Any]:
+class _ProbeArguments(argparse.Namespace):
+    """Mutable CLI options; argparse fills the same declared defaults."""
+
+    modes: str = ",".join(MODES)
+    repeats: int = 10
+    offline: bool = False
+    prepare: bool = False
+    check: bool = False
+    model_dir: Path | None = None
+    notes: int = NOTE_BOUNDS[0]
+    keep_vaults: bool = False
+    output: Path | None = None
+
+
+def run_probe(args: _ProbeArguments) -> _ProbeReport:
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     unknown = [m for m in modes if m not in MODES]
     if unknown:
         raise SystemExit(f"unknown modes: {unknown}; expected {MODES}")
     dependency = dependency_state(args.model_dir)
-    results: dict[str, Any] = {"dependencies": dependency,
+    results: _ProbeReport = {"dependencies": dependency,
                      "prepared": dependency["prepared"],
                      "repeats": args.repeats, "offline": args.offline,
                      "bounds": {"startup_ms": 1000,
@@ -461,28 +755,31 @@ def run_probe(args: argparse.Namespace, env: dict[str, str]) -> dict[str, Any]:
                                 + ([str(model_dir)] if model_dir else [])
                                 + ["--notes", str(args.notes)], child)
             record = measure_mode(mode, vault, model_dir, args.repeats, child)
-            record["capacity"] = checked["capacity"]
+            checked_capacity = checked["capacity"]
+            if not isinstance(checked_capacity, dict):
+                raise TypeError("probe child capacity must be a JSON object")
+            record["capacity"] = checked_capacity
             record["bytes"] = bytes_total
-            record["supported"] = checked["capacity"]["supported"]
+            record["supported"] = checked_capacity["supported"]
             if record.get("status") == "PENDING":
                 record["supported"] = False
-                record["capacity"]["supported"] = False
+                checked_capacity["supported"] = False
             results["modes"][mode] = record
         residue = [str(p) for p in workspace.rglob("*") if p.is_file()
                    and p.name.startswith(".mnemosyne")]
-        results["cleanup"].append({"residue_files": residue,
+        results["cleanup"].append({"residue_files": [*residue],
                                    "vault_cache_removed": not residue})
         if args.keep_vaults:
             results["cleanup"].append({"workspace_retained": directory})
     results["cleanup"].append({"scoped_env": ["MNEMOSYNE_MODEL_CACHE"],
                                "note": "the user model cache is never "
-                                       "overwritten or re-deleted"})
+                                       + "overwritten or re-deleted"})
     return results
 
 
 # -- backend check (parent) ----------------------------------------------------
 
-def backend_check(model_dir: Path | None) -> dict[str, Any]:
+def backend_check(model_dir: Path | None) -> _BackendReport:
     """Real prepared-model load and finite encode, labelled as a backend check.
 
     The child process guarantees the mmap is released at exit; the encode is
@@ -493,9 +790,13 @@ def backend_check(model_dir: Path | None) -> dict[str, Any]:
     """
     prepared = _check_prepared(model_dir)
     status = check_model(prepared)
-    from birkin_mnemosyne import Consolidation, StartupReader
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.consolidation import Consolidation
+        from birkin_mnemosyne.startup import StartupReader
+    else:
+        from birkin_mnemosyne import Consolidation, StartupReader
 
-    surface_status = {
+    surface_status: dict[str, JsonValue] = {
         "startup_compact": {
             "status": "ready" if startup_compact_available(StartupReader)
             else "PENDING",
@@ -510,15 +811,15 @@ def backend_check(model_dir: Path | None) -> dict[str, Any]:
             "planned": "T11 (consolidation.py)",
             "reason": None if consolidation_semantic_available(Consolidation)
             else "semantic-consolidation-api-absent"}}
-    report: dict[str, Any] = {
+    report: _BackendReport = {
         "action": "check", "backend": "StaticModel",
         "surface": "StaticModel.encode", "surface_status": surface_status,
         "detector_status": "PENDING",
         "detector_note": "backend readiness only; the semantic question detector "
-                         "and its frozen evaluation are future product work",
+                         + "and its frozen evaluation are future product work",
         **status, "readiness": {**status, "model_dir": str(
             Path(model_dir) if model_dir is not None else status["model_dir"])},
-        **_fresh_download_guard(prepared, model_dir)}
+        **_fresh_download_guard(prepared)}
     report["model_dir"] = report["readiness"]["model_dir"]
     vault = Path(tempfile.mkdtemp(prefix="mnemosyne-r4-check-"))
     try:
@@ -530,8 +831,13 @@ def backend_check(model_dir: Path | None) -> dict[str, Any]:
         report["total_peak_rss_bytes"] = out["peak_rss_bytes"]
         report["surface_status"] = out["surface_status"]
         report["encode"] = out["encode"] if prepared else None
-        report["encode_findings"] = (_new_product_findings(out["encode"])
-                                     if prepared else [])
+        if prepared:
+            encoded = out["encode"]
+            if not isinstance(encoded, dict):
+                raise TypeError("probe child encode must be a JSON object")
+            report["encode_findings"] = _new_product_findings(encoded)
+        else:
+            report["encode_findings"] = []
     finally:
         for artifact in scratch_paths(vault):
             artifact.unlink(missing_ok=True)
@@ -549,9 +855,13 @@ def _surface_name(module: str) -> str:
 
 
 def child_check(mode: str, vault: Path, model_dir: Path | None, notes: int) -> None:
-    from birkin_mnemosyne import Consolidation, StartupReader
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.consolidation import Consolidation
+        from birkin_mnemosyne.startup import StartupReader
+    else:
+        from birkin_mnemosyne import Consolidation, StartupReader
 
-    out: dict[str, Any] = {"mode": mode, "backend": mode, "vault": str(vault),
+    out: _ChildCheck = {"mode": mode, "backend": mode, "vault": str(vault),
                  "notes": notes, "surface": _surface_name(mode),
                  "detector_status": "PENDING",
                  "surface_status": {
@@ -564,7 +874,7 @@ def child_check(mode: str, vault: Path, model_dir: Path | None, notes: int) -> N
                          "status": "ready" if consolidation_semantic_available(
                              Consolidation) else "PENDING",
                          "required": "Consolidation(vault, semantic=True, "
-                                     "thresholds=config)",
+                                     + "thresholds=config)",
                          "planned": "T11 (consolidation.py)"}},
                  "capacity": capacity(notes, 1, vault_bytes(vault))}
     out["numpy_importable"] = importable("numpy")
@@ -606,8 +916,10 @@ def vault_bytes(vault: Path) -> int:
     return sum(p.stat().st_size for p in vault.rglob("*.md"))
 
 
-def encode_probe(model_dir: Path) -> dict[str, Any]:
+def encode_probe(model_dir: Path) -> dict[str, JsonValue]:
     """Encode the original practice text once with the real prepared model."""
+    from array import array
+
     import numpy as np
 
     from birkin_mnemosyne.static_model import StaticModel
@@ -618,32 +930,39 @@ def encode_probe(model_dir: Path) -> dict[str, Any]:
     elapsed = (time.perf_counter() - start) * 1000.0
     finite = bool(np.isfinite(vec).all())
     nonzero = bool(np.any(vec))
-    values = [float(v) for v in vec[0][:8].tolist()] if finite else []
+    values: list[JsonValue] = (
+        [float(v) for v in array("d", vec[0, :8].astype(np.float64).tobytes()).tolist()]
+        if finite else [])
     model.release()
     return {"ok": finite and nonzero,
             "finite": finite, "nonzero": nonzero,
             "dtype": str(vec.dtype), "shape": list(vec.shape),
             "values": values,
-            "released": model._table is None,
+            "released": model.released,
             "encode_ms": elapsed,
             "text_bytes": len(PRACTICE_TEXT.encode("utf-8"))}
 
 
 def run_compact(root: Path) -> None:
     start, imported = clock_at_first_import()
-    from birkin_mnemosyne import StartupReader  # the import a real caller pays
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.startup import StartupReader
+    else:
+        from birkin_mnemosyne import StartupReader  # the import a real caller pays
 
     mark = time.perf_counter()
     if not startup_compact_available(StartupReader):
         pending(mode="compact", surface=SURFACES["compact"],
                 reason="compact-read-api-absent", planned="T6 (startup.py)",
                 detail="StartupReader.read must accept compact=True (planned T6 in "
-                       "startup.py); a legacy read is never measured under this label",
+                       + "startup.py); a legacy read is never measured under this label",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
                 first_product_import_ms=(imported - start) * 1000.0)
         return
     reader = StartupReader(root)
+    if not _accepts_compact(reader):
+        raise TypeError("StartupReader.read does not accept compact=True")
     cold_digest = vault_digest(root)
     phase_start = time.perf_counter()
     bundle = reader.read(["MODE.md"], compact=True)
@@ -689,6 +1008,7 @@ def run_compact(root: Path) -> None:
 
 # clock state: both values precede every product import in the child
 _clock: dict[str, float] = {"origin": time.perf_counter(), "first_import": math.inf}
+_import_clock_installed = False
 
 
 def clock_at_first_import() -> tuple[float, float]:
@@ -763,9 +1083,12 @@ def vault_digest(vault: Path) -> str:
     return hasher.hexdigest()
 
 
-def run_consolidation(vault: Path, model_dir: Path) -> None:
+def run_consolidation(vault: Path) -> None:
     start, imported = clock_at_first_import()
-    from birkin_mnemosyne import Consolidation
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.consolidation import Consolidation
+    else:
+        from birkin_mnemosyne import Consolidation
 
     mark = time.perf_counter()
     if not consolidation_semantic_available(Consolidation):
@@ -774,9 +1097,9 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                 reason="semantic-consolidation-api-absent",
                 planned="T11 (consolidation.py)",
                 detail="Consolidation must accept semantic=True and thresholds=<locked "
-                       "config> and expose a ready status (planned T11 in "
-                       "consolidation.py); a lexical or retrieval substitute is never "
-                       "measured under this label",
+                       + "config> and expose a ready status (planned T11 in "
+                       + "consolidation.py); a lexical or retrieval substitute is never "
+                       + "measured under this label",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
                 first_product_import_ms=(imported - start) * 1000.0)
@@ -786,21 +1109,24 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                 surface=SURFACES["consolidation-semantic"],
                 reason="locked-thresholds-absent", planned="T12 (calibrate.py)",
                 detail="Practice-calibrated locked thresholds are required; "
-                       "placeholder values are never passed to the detector",
+                       + "placeholder values are never passed to the detector",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
                 first_product_import_ms=(imported - start) * 1000.0)
         return
-    config = json.loads(THRESHOLDS_PATH.read_text(encoding="utf-8"))
-    thresholds = config.get("thresholds")
-    if config.get("locked") is not True or not isinstance(thresholds, dict) or not thresholds:
+    config = _json(THRESHOLDS_PATH.read_text(encoding="utf-8"))
+    thresholds = config.get("thresholds") if isinstance(config, dict) else None
+    if (not isinstance(config, dict) or config.get("locked") is not True
+            or not isinstance(thresholds, dict) or not thresholds):
         raise ValueError("semantic resource proof requires a locked thresholds config")
     cold_digest = vault_digest(vault)
+    if not _accepts_semantic(Consolidation):
+        raise TypeError("Consolidation does not accept semantic=True and thresholds")
     cons = Consolidation(vault, semantic=True, thresholds=thresholds)
     phase_start = time.perf_counter()
     result = cons.questions()          # first unencoded vault: encodes every note
     cold_ms = (time.perf_counter() - phase_start) * 1000.0
-    phases: dict[str, Any] = {"first_unencoded_vault":
+    phases: dict[str, dict[str, JsonValue]] = {"first_unencoded_vault":
                              {"elapsed_ms": cold_ms, "vault_digest": cold_digest}}
     if not questions_carry_status(cons):
         pending(mode="consolidation-semantic",
@@ -808,7 +1134,7 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                 reason="semantic-status-absent", planned="T11 (consolidation.py)",
                 semantic_status="missing",
                 detail="Consolidation exposes no ready detection status; the semantic "
-                       "resource leg is not proven",
+                       + "resource leg is not proven",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
                 first_product_import_ms=(imported - start) * 1000.0)
@@ -820,13 +1146,14 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                 surface=SURFACES["consolidation-semantic"],
                 reason="semantic-not-ready", semantic_status=status or "missing",
                 detail="the real semantic Consolidation did not report a ready "
-                       "detection status; the resource leg is not proven",
+                       + "detection status; the resource leg is not proven",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
                 first_product_import_ms=(imported - start) * 1000.0)
         return
     raw_questions = getattr(result, "questions", result)
-    questions = raw_questions if isinstance(raw_questions, (list, tuple)) else result
+    questions: Sized = (
+        raw_questions if type(raw_questions) in (list, tuple) else result)
     encoded_chunks = int(getattr(result, "encoded_chunks", 0) or
                          getattr(cons, "encoded_chunks", 0))
 
@@ -838,7 +1165,7 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                            "semantic_status": status}
     if status != "ready":
         pending(mode="consolidation-semantic", surface=SURFACES["consolidation-semantic"],
-                reason="semantic-not-ready", semantic_status=status, phases=phases,
+                reason="semantic-not-ready", semantic_status=status, phases={**phases},
                 detail="Warm discovery did not retain a ready semantic service",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
@@ -861,7 +1188,7 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
                               if hasattr(changed, "__len__") else None}
     if status != "ready":
         pending(mode="consolidation-semantic", surface=SURFACES["consolidation-semantic"],
-                reason="semantic-not-ready", semantic_status=status, phases=phases,
+                reason="semantic-not-ready", semantic_status=status, phases={**phases},
                 detail="Changed-note discovery did not retain a ready semantic service",
                 load_ms=(time.perf_counter() - start) * 1000.0,
                 import_ms=(mark - start) * 1000.0,
@@ -891,7 +1218,7 @@ def run_consolidation(vault: Path, model_dir: Path) -> None:
 
 def pending(*, mode: str, surface: str, reason: str, detail: str,
             load_ms: float, import_ms: float, first_product_import_ms: float,
-            **extra: Any) -> None:
+            **extra: JsonValue) -> None:
     """A mode whose real product surface does not exist yet: explicit PENDING.
 
     The three vault states are declared but remain ``n: 0`` in the phase
@@ -911,28 +1238,39 @@ def pending(*, mode: str, surface: str, reason: str, detail: str,
 def run_child_command(args: argparse.Namespace) -> None:
     """Entry point of the fresh child: parse args, load the RSS helper, then
     start the product clock."""
+    parsed: dict[str, str | int | Path | None] = vars(args)
+    command = parsed["command"]
+    mode = parsed["mode"]
+    target = parsed["target"]
+    model_dir = parsed["model_dir"]
+    notes = parsed["notes"]
+    assert isinstance(command, str)
+    assert isinstance(mode, str)
+    assert isinstance(target, Path)
+    assert model_dir is None or isinstance(model_dir, Path)
+    assert isinstance(notes, int)
     start_child_clock()
     from benchmarks.retrieval._probe import peak_rss_bytes as helper
 
     globals()["peak_rss_bytes"] = helper
     _record_first_import("birkin_mnemosyne")   # the product work is about to start
-    if args.command == "check":
-        child_check(args.mode, args.target, args.model_dir, args.notes)
+    if command == "check":
+        child_check(mode, target, model_dir, notes)
         return
-    if args.mode == "compact":
-        run_compact(args.target)
-    elif args.mode == "kibitzer":
-        run_kibitzer(args.target)
-        for path in scratch_paths(args.target):
+    if mode == "compact":
+        run_compact(target)
+    elif mode == "kibitzer":
+        run_kibitzer(target)
+        for path in scratch_paths(target):
             path.unlink(missing_ok=True)
-    elif args.mode == "consolidation-semantic":
-        if args.model_dir is None:
+    elif mode == "consolidation-semantic":
+        if model_dir is None:
             raise SystemExit("consolidation-semantic requires a model directory")
-        run_consolidation(args.target, args.model_dir)
-        for path in scratch_paths(args.target):
+        run_consolidation(target)
+        for path in scratch_paths(target):
             path.unlink(missing_ok=True)
     else:
-        raise SystemExit(f"unknown run mode {args.mode!r}")
+        raise SystemExit(f"unknown run mode {mode!r}")
 
 
 def peak_rss_bytes() -> int | None:   # replaced by the helper in the child
@@ -960,19 +1298,23 @@ def install_import_clock() -> None:
     directly on ``PathFinder.find_spec`` (the actual product loader); stdlib
     imports never reach the product branches.
     """
+    global _import_clock_installed
     import importlib.machinery
 
-    finder: Any = importlib.machinery.PathFinder
-    if getattr(finder, "probe_clock", False):
+    finder = importlib.machinery.PathFinder
+    if _import_clock_installed:
         return
     original = finder.find_spec
 
-    def find_spec(fullname: str, path: Any = None, target: Any = None) -> Any:
+    def find_spec(
+        fullname: str, path: Sequence[str] | None = None,
+        target: ModuleType | None = None,
+    ) -> ModuleSpec | None:
         _record_first_import(fullname)
         return original(fullname, path, target)
 
     finder.find_spec = staticmethod(find_spec)
-    finder.probe_clock = True
+    _import_clock_installed = True
     for name in ("birkin_mnemosyne", "numpy", "safetensors", "huggingface_hub"):
         if name in sys.modules:
             _record_first_import(name)
@@ -995,26 +1337,28 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=(
                                          argparse.RawDescriptionHelpFormatter))
-    _ = parser.add_argument("--modes", default=",".join(MODES))
-    _ = parser.add_argument("--repeats", type=int, default=10)
+    _ = parser.add_argument("--modes", default=_ProbeArguments.modes)
+    _ = parser.add_argument("--repeats", type=int, default=_ProbeArguments.repeats)
     _ = parser.add_argument("--offline", action="store_true")
     _ = parser.add_argument("--prepare", action="store_true")
     _ = parser.add_argument("--check", action="store_true")
-    _ = parser.add_argument("--model-dir", type=Path, default=None)
-    _ = parser.add_argument("--notes", type=int, default=NOTE_BOUNDS[0])
+    _ = parser.add_argument("--model-dir", type=Path, default=_ProbeArguments.model_dir)
+    _ = parser.add_argument("--notes", type=int, default=_ProbeArguments.notes)
     _ = parser.add_argument("--keep-vaults", action="store_true")
-    _ = parser.add_argument("--output", type=Path, default=None)
-    args = parser.parse_args()
+    _ = parser.add_argument("--output", type=Path, default=_ProbeArguments.output)
+    args = _ProbeArguments()
+    _ = parser.parse_args(namespace=args)
     if args.repeats < 1:
         raise SystemExit("--repeats must be >= 1")
 
+    report: _PrepareReport | _BackendReport | _ProbeReport
     if args.prepare:
         from birkin_mnemosyne import semantic
 
         before = semantic.prepared()
         start = time.perf_counter()
         prepared_path = semantic.prepare()
-        report: dict[str, Any] = {
+        report = {
             "action": "prepare", "was_prepared": before, "path": str(prepared_path),
             "prepared": semantic.prepared(), "model_dir": str(semantic.model_dir()),
             "possibly_converted": not before,
@@ -1022,12 +1366,12 @@ def main() -> None:
     elif args.check:
         report = backend_check(args.model_dir)
     else:
-        report = run_probe(args, child_env(args.offline, args.model_dir))
+        report = run_probe(args)
     text = json.dumps(report, indent=2, ensure_ascii=True)
     print(text)
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(text + "\n", encoding="utf-8")
+        _ = args.output.write_text(text + "\n", encoding="utf-8")
 
 
 install_import_clock()

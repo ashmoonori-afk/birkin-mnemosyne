@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Fresh-process startup probe for round 4: explicit ``full`` or ``compact``.
 
 Run one mode per brand-new interpreter:

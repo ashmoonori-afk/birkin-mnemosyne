@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Round-4 immutable evaluation protocol: integrity guard and explicit modes.
 
 ``--check-inputs-only`` is the integrity gate. It hashes the frozen inputs and
@@ -33,9 +32,33 @@ import hashlib
 import inspect
 import json
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Final, Literal, NoReturn, TypeAlias, TypedDict, TypeGuard
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    Literal,
+    NoReturn,
+    Protocol,
+    TypeAlias,
+    TypedDict,
+    TypeGuard,
+    TypeVar,
+)
+
+if TYPE_CHECKING:  # type-checker only; product imports stay lazy inside functions
+    from typing_extensions import override
+
+    from birkin_mnemosyne.consolidation import Consolidation as _Consolidation
+    from birkin_mnemosyne.consolidation import Question as _Question
+    from birkin_mnemosyne.startup import StartupBundle as _StartupBundle
+    from birkin_mnemosyne.startup import StartupReader as _StartupReader
+else:
+    _Method = TypeVar("_Method", bound=Callable[..., object])
+
+    def override(method: _Method) -> _Method:
+        """Runtime stand-in for ``typing.override`` (Python 3.12+); marks nothing."""
+        return method
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -113,6 +136,7 @@ class _ManifestFields(TypedDict):
 
 class FrozenManifest(_ManifestFields, total=False):
     manifest_version: int
+    bootstrap_raw_sha256: dict[str, str]
     required_recall_authors: list[str]
     required_recall_slices: list[str]
 
@@ -271,7 +295,7 @@ def verify_declared_blob(
         return {"checked": True, "object_id": object_id, "normalized_sha256": current,
                 "checkout_form": "working-eol"}
     raise FrozenInputError(
-        f"{relative}: raw_sha256 matches, but the Git-normalized bytes (object {object_id}) " +
+        f"frozen input drifted: {relative}: the Git-normalized bytes (object {object_id}) " +
         f"differ from the pinned blob content (object {declared})")
 
 
@@ -309,6 +333,12 @@ def _manifest_shape(value: dict[str, JsonValue]) -> TypeGuard[FrozenManifest]:
         return False
     if not isinstance(value.get("slices_validated_at"), str):
         return False
+    if "bootstrap_raw_sha256" in value:
+        bootstrap = value["bootstrap_raw_sha256"]
+        if not isinstance(bootstrap, dict) or not all(
+            isinstance(checksum, str) for checksum in bootstrap.values()
+        ):
+            return False
     for slices in authors.values():
         if not isinstance(slices, dict):
             return False
@@ -356,8 +386,9 @@ def verify_file(
 ) -> _VerifiedFile:
     """Check one declared file against the two independently declared hashes.
 
-    Two declarations are pinned up front: ``raw_sha256`` (the captured
-    working-copy bytes) and ``git_blob_sha256`` (the tracked Git blob).
+    Two declarations are pinned up front: ``raw_sha256`` (the canonical
+    LF checkout bytes) and ``git_blob_sha256`` (the tracked Git blob).
+    Original Windows working-byte hashes remain separate bootstrap provenance.
     Accepting either alone would let a rewrite satisfy the contract by
     copying a recomputed value, so both must independently reproduce the file:
     the raw form matches the declared raw bytes, or the Git content-normalized
@@ -367,6 +398,7 @@ def verify_file(
     if not path.is_file():
         raise FrozenInputError(f"required frozen file is missing: {relative}")
     data = path.read_bytes()
+    _ = verify_declared_blob(relative, meta, data)
     actual_raw = raw_sha256(data)
     actual_blob = blob_sha256(data)
     declared_raw = meta.get("raw_sha256")
@@ -379,7 +411,6 @@ def verify_file(
         raise FrozenInputError(
             f"frozen input drifted: {relative} raw={actual_raw} " +
             f"declared_raw={declared_raw} blob={actual_blob} declared_blob={declared_blob}")
-    _ = verify_declared_blob(relative, meta, data)
     return {"path": relative, "matched": matched, "bytes": len(data),
             "raw_sha256": actual_raw, "git_blob_sha256": actual_blob}
 
@@ -464,7 +495,11 @@ def _validate_payloads(manifest: FrozenManifest, root: Path | None = None) -> li
 
 def declared_modes() -> DeclaredModes:
     """The startup and detection modes the locked evaluation must provide."""
-    from birkin_mnemosyne import Consolidation, StartupReader
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.consolidation import Consolidation
+        from birkin_mnemosyne.startup import StartupReader
+    else:
+        from birkin_mnemosyne import Consolidation, StartupReader
 
     compact_available = "compact" in inspect.signature(StartupReader.read).parameters
     semantic_available = {"semantic", "thresholds"} <= set(
@@ -519,34 +554,47 @@ def check_inputs(manifest_path: Path = DEFAULT_MANIFEST, root: Path | None = Non
     }
 
 
-class _EngineBinding:
-    """Temporarily bind the immutable runner's engine constructors, then restore.
+class _CompactRead(Protocol):
+    """A bound ``StartupReader.read`` that accepts the future ``compact`` keyword."""
 
-    The wrapper never replaces a scoring or answer function. Only the engine
-    globals listed here are swapped while the untouched scorer runs, so it can
-    measure an explicitly named implementation instead of the legacy default.
-    """
-
-    def __init__(self) -> None:
-        from benchmarks.round3 import run as frozen_runner
-
-        self._runner = frozen_runner
-        self._original: dict[str, Any] = {}
-
-    def apply(self, bindings: dict[str, Any]) -> None:
-        self._original = {name: getattr(self._runner, name) for name in bindings}
-        for name, value in bindings.items():
-            setattr(self._runner, name, value)
-
-    def restore(self) -> None:
-        for name, value in self._original.items():
-            setattr(self._runner, name, value)
+    def __call__(self, paths: Sequence[str], *, compact: bool) -> _StartupBundle: ...
 
 
-def _legacy_startup_engine() -> Callable[[Path], Any]:
-    from birkin_mnemosyne import StartupReader
+def _accepts_compact(read: Callable[[Sequence[str]], _StartupBundle]) -> TypeGuard[_CompactRead]:
+    return "compact" in inspect.signature(read).parameters
 
-    def engine(root: Path) -> Any:
+
+class _SemanticFactory(Protocol):
+    """A ``Consolidation`` constructor that accepts the future semantic keywords."""
+
+    def __call__(self, vault: Path, *, semantic: bool,
+                 thresholds: dict[str, JsonValue]) -> _Consolidation: ...
+
+
+def _accepts_semantic(cls: type[_Consolidation]) -> TypeGuard[_SemanticFactory]:
+    return {"semantic", "thresholds"} <= set(inspect.signature(cls.__init__).parameters)
+
+
+class _SemanticReporting(Protocol):
+    semantic_status: str
+
+
+def _reports_semantic_status(value: _Consolidation) -> TypeGuard[_SemanticReporting]:
+    return hasattr(value, "semantic_status")
+
+
+class _ScoreBindings(TypedDict):
+    StartupReader: Callable[[Path], _StartupReader]
+    Consolidation: Callable[[Path], _Consolidation]
+
+
+def _legacy_startup_engine() -> Callable[[Path], _StartupReader]:
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.startup import StartupReader
+    else:
+        from birkin_mnemosyne import StartupReader
+
+    def engine(root: Path) -> _StartupReader:
         return StartupReader(root)
 
     return engine
@@ -562,7 +610,7 @@ def _pending(surface: str, task: str) -> Callable[[Path], NoReturn]:
     return engine
 
 
-def configured_startup(root: Path, mode: str = LEGACY_STARTUP_MODE) -> Any:
+def configured_startup(root: Path, mode: str = LEGACY_STARTUP_MODE) -> _StartupReader:
     """Build the explicitly named startup implementation for ``mode``.
 
     ``compact`` delegates to the future public
@@ -572,28 +620,39 @@ def configured_startup(root: Path, mode: str = LEGACY_STARTUP_MODE) -> Any:
     if mode == LEGACY_STARTUP_MODE:
         return _legacy_startup_engine()(root)
     if mode == COMPACT_STARTUP_MODE:
-        from birkin_mnemosyne import StartupReader
+        if TYPE_CHECKING:
+            from birkin_mnemosyne.startup import StartupReader
+        else:
+            from birkin_mnemosyne import StartupReader
 
         if "compact" not in inspect.signature(StartupReader.read).parameters:
             pending = PENDING_PRODUCT_SURFACES["compact-startup"]
             return _pending(pending["surface"], pending["delivered_by"])(root)
 
         class CompactReader(StartupReader):
-            def read(self, paths):
-                return super().read(paths, compact=True)
+            @override
+            def read(self, paths: Sequence[str]) -> _StartupBundle:
+                base_read = super().read
+                if not _accepts_compact(base_read):
+                    pending = PENDING_PRODUCT_SURFACES["compact-startup"]
+                    return _pending(pending["surface"], pending["delivered_by"])(self.root)
+                return base_read(paths, compact=True)
 
         return CompactReader(root)
     raise FrozenInputError(f"unknown startup mode {mode!r}")
 
 
-def configured_consolidation(root: Path, mode: str = LEGACY_DETECTION_MODE) -> Any:
+def configured_consolidation(root: Path, mode: str = LEGACY_DETECTION_MODE) -> _Consolidation:
     """Build the explicitly named detection implementation for ``mode``.
 
     ``semantic`` delegates to the future public
     ``Consolidation(root, semantic=True, thresholds=locked_config)`` with a
     required ready status and is refused until T11/T12 exist.
     """
-    from birkin_mnemosyne import Consolidation
+    if TYPE_CHECKING:
+        from birkin_mnemosyne.consolidation import Consolidation
+    else:
+        from birkin_mnemosyne import Consolidation
 
     if mode == LEGACY_DETECTION_MODE:
         return Consolidation(root)
@@ -612,12 +671,16 @@ def configured_consolidation(root: Path, mode: str = LEGACY_DETECTION_MODE) -> A
             raise FrozenInputError("semantic scoring requires locked practice thresholds")
 
         class SemanticConsolidation(Consolidation):
-            def questions(self, *args, **kwargs):
-                result = super().questions(*args, **kwargs)
-                if getattr(self, "semantic_status", None) != "ready":
+            @override
+            def questions(self, limit: int = 20) -> tuple[_Question, ...]:
+                result = super().questions(limit)
+                if not (_reports_semantic_status(self) and self.semantic_status == "ready"):
                     raise FrozenInputError("semantic question pipeline is not ready")
                 return result
 
+        if not _accepts_semantic(SemanticConsolidation):
+            pending = PENDING_PRODUCT_SURFACES["semantic-consolidation"]
+            return _pending(pending["surface"], pending["delivered_by"])(root)
         return SemanticConsolidation(root, semantic=True, thresholds=thresholds)
     raise FrozenInputError(f"unknown detection mode {mode!r}")
 
@@ -689,7 +752,7 @@ def round4_probe(root: Path, paths: list[str], mode: str) -> Round4ProbeResult:
     return {**payload, "probe": relative_key(probe), "legacy": False}
 
 
-def score_bindings(startup_mode: str, detection_mode: str) -> dict[str, Any]:
+def score_bindings(startup_mode: str, detection_mode: str) -> _ScoreBindings:
     """The engine-constructor globals the locked evaluation may bind per mode.
 
     The startup scorer's fresh subprocesses stay legacy; this binding is only

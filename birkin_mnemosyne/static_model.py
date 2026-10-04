@@ -33,9 +33,12 @@ import sys
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
 MAX_PIECE_CHARS = 24          # longer pieces are too rare to matter
 MAX_TOKENS = 512              # as model2vec's default encode()
@@ -129,13 +132,19 @@ class StaticModel:
         self._ids = np.load(path / "ids.npy")
         self._scores = np.load(path / "scores.npy")
         self._scale = np.load(path / "scale.npy")
-        self._table: Any = None
+        self._table: npt.NDArray[np.int8] | None = None
         self._word = lru_cache(maxsize=65536)(self._segment)
 
-    def _rows(self) -> Any:
-        if self._table is None:
-            self._table = np.load(self.path / "emb_int8.npy", mmap_mode="r")
-        return self._table
+    def _rows(self) -> npt.NDArray[np.int8]:
+        table = self._table
+        if table is None:
+            table = np.load(self.path / "emb_int8.npy", mmap_mode="r")
+            self._table = table
+        return table
+
+    @property
+    def released(self) -> bool:
+        return self._table is None
 
     def release(self) -> None:
         """Unmap the table so pages touched by a bulk encode leave RSS."""
@@ -178,7 +187,7 @@ class StaticModel:
             ids.extend(self._word(_WORD_MARK + word))
         return ids[:MAX_TOKENS]
 
-    def encode(self, texts: list[str]) -> Any:
+    def encode(self, texts: list[str]) -> npt.NDArray[np.float32]:
         rows = self._rows()
         out = np.zeros((len(texts), self.dim), dtype=np.float32)
         for k, text in enumerate(texts):

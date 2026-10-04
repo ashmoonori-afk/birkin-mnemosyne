@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -153,6 +154,8 @@ def test_pending_attempt_never_enters_ready_resource_evidence(monkeypatch, tmp_p
     attempts = iter((ready, unavailable))
     monkeypatch.setattr(probe, "run_child", lambda *args: dict(next(attempts)))
     result = probe.measure_mode("consolidation-semantic", tmp_path, None, 2, {})
+    assert "status" in result and "chunks" in result
+    assert "semantic_status" in result and "startup_ms" in result
     assert result["status"] == "PENDING"
     assert result["usable_observations"] == 1
     assert result["bounds_met"] is False
@@ -172,6 +175,41 @@ def test_observation_requires_finite_positive_measurements():
     assert probe.observation_errors({**good, "load_ms": float("inf")}) == ["load_ms"]
     assert probe.observation_errors({**good, "peak_rss_bytes": 0}) == ["peak_rss_bytes"]
     assert probe.observation_errors({**good, "import_ms": -1.0}) == ["import_ms"]
+
+
+def test_repetitions_restore_pristine_bytes_and_discard_derived_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    note = vault / "policy.md"
+    cache = vault / ".mnemosyne-index.json"
+    added = vault / "added.md"
+    _ = note.write_bytes(b"Original policy.\r\n")
+    _ = cache.write_bytes(b"preflight cache")
+    starts: list[tuple[bytes, bool, bool]] = []
+    transitions: list[bool] = []
+
+    def changing_child(
+        args: list[str], _env: dict[str, str],
+    ) -> dict[str, str | int | float]:
+        assert Path(args[2]) == vault
+        starts.append((note.read_bytes(), cache.exists(), added.exists()))
+        _ = note.write_bytes(b"Changed policy.\n")
+        _ = cache.write_bytes(b"derived cache")
+        _ = added.write_bytes(b"Child-added policy.\n")
+        transitions.append(note.read_bytes() != b"Original policy.\r\n")
+        return {
+            "mode": "kibitzer", "load_ms": 1.0, "import_ms": 0.5,
+            "peak_rss_bytes": 1_000_000, "candidates": 1,
+        }
+
+    monkeypatch.setattr(probe, "run_child", changing_child)
+
+    _ = probe.measure_mode("kibitzer", vault, None, 2, {})
+
+    assert starts == [(b"Original policy.\r\n", False, False)] * 2
+    assert transitions == [True, True]
 
 
 def test_observation_requires_the_mode_specific_evidence_key():
@@ -196,15 +234,45 @@ def test_observation_requires_the_mode_specific_evidence_key():
 
 
 def test_new_product_findings_refuse_a_nonfinite_or_zero_value():
-    def findings(**over: object) -> list[str]:
-        base: dict[str, object] = {"finite": True, "nonzero": True, "dtype": "float32",
-                                   "shape": [1, 256], "values": [0.5]}
+    def findings(**over: probe.JsonValue) -> list[str]:
+        base: dict[str, probe.JsonValue] = {
+            "finite": True, "nonzero": True, "dtype": "float32",
+            "shape": [1, 256], "values": [0.5],
+        }
         return probe._new_product_findings({**base, **over})
 
     assert findings() == []
     assert findings(finite=False) == ["finite"]
     assert findings(nonzero=False) == ["nonzero"]
     assert findings(values=[0.0, 0.0]) == ["values"]
+
+
+@pytest.mark.parametrize("values", [None, True, 7, "not-a-vector"])
+def test_encode_findings_reject_nonlist_values(
+    values: probe.JsonValue, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = tmp_path / "model"
+    model.mkdir()
+    _ = (model / "meta.json").write_text("{}", encoding="utf-8")
+    encode: dict[str, probe.JsonValue] = {
+        "finite": True, "nonzero": True, "values": values,
+    }
+
+    def child_observation(
+        _args: list[str], _env: dict[str, str],
+    ) -> dict[str, probe.JsonValue]:
+        return {
+            "load_ms": 1.0, "peak_rss_bytes": 1_000_000,
+            "surface_status": {}, "encode": encode,
+        }
+
+    monkeypatch.setattr(probe, "run_child", child_observation)
+
+    report = probe.backend_check(model)
+
+    assert "encode_findings" in report and "vault_removed" in report
+    assert report["encode_findings"] == ["values"]
+    assert report["vault_removed"] is True
 
 
 # -- capacity ------------------------------------------------------------------
@@ -225,6 +293,52 @@ def test_capacity_boundaries_refuse_instead_of_truncating(notes, chunks, total_b
 
 
 # -- vault fixture + fresh child modes -----------------------------------------
+
+@pytest.mark.parametrize("arguments", [[], ["run"], ["run", "kibitzer"]])
+def test_child_cli_refuses_missing_required_positions(arguments: list[str]) -> None:
+    process = subprocess.run(
+        [
+            sys.executable, str(ROOT / "benchmarks" / "round4" / "resource_probe.py"),
+            "__child", *arguments,
+        ],
+        capture_output=True, text=True, check=False, timeout=10,
+    )
+
+    assert process.returncode == 2
+    assert process.stdout == ""
+
+
+def _fake_child_stdout(monkeypatch: pytest.MonkeyPatch, stdout: str) -> None:
+    def fake_run(
+        command: list[str], *, check: bool, capture_output: bool, text: bool,
+        env: dict[str, str], cwd: str,
+    ) -> subprocess.CompletedProcess[str]:
+        assert command[-3:] == ["run", "compact", "vault"]
+        assert not check and capture_output and text
+        assert env == {} and cwd == str(ROOT)
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(probe.subprocess, "run", fake_run)
+
+
+@pytest.mark.parametrize("reply", ["[1, 2]", "null", "7", '"text"', "true"])
+def test_run_child_rejects_non_object_json_reply(
+    monkeypatch: pytest.MonkeyPatch, reply: str,
+) -> None:
+    _fake_child_stdout(monkeypatch, f"noise\n{reply}\n")
+
+    with pytest.raises(ValueError):
+        _ = probe.run_child(["run", "compact", "vault"], {})
+
+
+def test_run_child_keeps_nested_object_from_last_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {"a": [1, 2.5, None, {"b": [True, "x"]}], "meta": {"k": None}}
+    _fake_child_stdout(monkeypatch, "{\"ignored\": 1}\n" + json.dumps(payload) + "\n")
+
+    assert probe.run_child(["run", "compact", "vault"], {}) == payload
+
 
 def _vault(tmp_path: Path, notes: int = 160) -> Path:
     return probe.write_practice_vault(tmp_path / "vault", notes)
@@ -264,6 +378,21 @@ def _vault2(tmp_path: Path, notes: int) -> Path:
     return probe.write_practice_vault(tmp_path / f"v{notes}", notes)
 
 
+def _object(value: probe.JsonValue) -> dict[str, probe.JsonValue]:
+    assert isinstance(value, dict)
+    return value
+
+
+def _array(value: probe.JsonValue) -> list[probe.JsonValue]:
+    assert isinstance(value, list)
+    return value
+
+
+def _number(value: probe.JsonValue) -> int | float:
+    assert isinstance(value, (int, float)) and not isinstance(value, bool)
+    return value
+
+
 def _handle(mode: str, repeats: int = 2, model_dir: Path | None = None):
     return __import__("argparse").Namespace(
         modes=mode, repeats=repeats, offline=True, notes=160, keep_vaults=False,
@@ -271,9 +400,8 @@ def _handle(mode: str, repeats: int = 2, model_dir: Path | None = None):
 
 
 def _run(mode: str, vault: Path, repeats: int = 2,
-         model_dir: Path | None = None) -> dict[str, Any]:
-    return probe.run_probe(_handle(mode, repeats, model_dir),
-                           env=probe.child_env(offline=True))
+         model_dir: Path | None = None) -> Mapping[str, Any]:
+    return probe.run_probe(_handle(mode, repeats, model_dir))
 
 
 def test_compact_mode_is_pending_until_the_real_read_exists(tmp_path):
@@ -327,9 +455,9 @@ def test_child_clock_starts_before_the_first_product_import(tmp_path):
     out = probe.run_child(["run", "kibitzer", str(vault)],
                           probe.child_env(offline=True))
     assert out["clock_origin"] == "pre_import"
-    assert 0.0 <= out["first_product_import_ms"] <= out["load_ms"]
-    assert out["load_ms"] >= out["import_ms"] >= 0.0
-    assert out["first_product_import_ms"] <= out["import_ms"] + 1.0
+    assert 0.0 <= _number(out["first_product_import_ms"]) <= _number(out["load_ms"])
+    assert _number(out["load_ms"]) >= _number(out["import_ms"]) >= 0.0
+    assert _number(out["first_product_import_ms"]) <= _number(out["import_ms"]) + 1.0
 
 
 def test_kibitzer_mode_reports_candidates_and_capacity(tmp_path):
@@ -346,7 +474,7 @@ def test_kibitzer_child_sees_changed_notes_immediately(tmp_path):
     vault = _vault2(tmp_path, 6)
     first = probe.run_child(["run", "kibitzer", str(vault)],
                             probe.child_env(offline=True))
-    assert first["candidates"] >= 1
+    assert _number(first["candidates"]) >= 1
     note = vault / "knowledge" / "release-gate.md"
     note.write_text(note.read_text("utf-8").replace("rollback window",
                                                     "rollback window freeze"), "utf-8")
@@ -363,13 +491,14 @@ def test_unprepared_semantic_mode_is_pending_never_a_silent_pass(tmp_path):
     # a machine with a prepared model must still not be read as ready when the
     # scoped model directory handed to the probe is empty
     assert probe._check_prepared(empty_cache) is False
-    env = {**probe.child_env(offline=True), "MNEMOSYNE_MODEL_CACHE": str(empty_cache),
-           "PYTHONPATH": str(ROOT)}
-    out = probe.run_probe(handle, env=env)
+    out = probe.run_probe(handle)
     record = out["modes"]["consolidation-semantic"]
+    assert "status" in record and "reason" in record and "detail" in record
     assert record["status"] == "PENDING"
     assert record["reason"] == "model_not_prepared"
-    assert "not a pass" in record["detail"]
+    detail = record["detail"]
+    assert isinstance(detail, str)
+    assert "not a pass" in detail
 
 
 def test_semantic_mode_reports_pending_when_the_semantic_api_is_absent(
@@ -379,7 +508,7 @@ def test_semantic_mode_reports_pending_when_the_semantic_api_is_absent(
     monkeypatch.setattr(birkin_mnemosyne, "Consolidation", _LegacyConsolidation)
     monkeypatch.setattr(probe, "peak_rss_bytes", lambda: 1_000_000)
     vault = _vault2(tmp_path, 6)
-    probe.run_consolidation(vault, tmp_path / "cache")
+    probe.run_consolidation(vault)
     record = json.loads(capsys.readouterr().out)
     assert record["status"] == "PENDING"
     assert record["reason"] == "semantic-consolidation-api-absent"
@@ -395,7 +524,7 @@ def test_semantic_mode_requires_locked_thresholds_before_construction(
     monkeypatch.setattr(birkin_mnemosyne, "Consolidation", _FakeConsolidation)
     monkeypatch.setattr(probe, "THRESHOLDS_PATH", tmp_path / "absent.json")
     monkeypatch.setattr(probe, "peak_rss_bytes", lambda: 1_000_000)
-    probe.run_consolidation(_vault2(tmp_path, 6), tmp_path / "cache")
+    probe.run_consolidation(_vault2(tmp_path, 6))
     record = json.loads(capsys.readouterr().out)
     assert record["status"] == "PENDING"
     assert record["reason"] == "locked-thresholds-absent"
@@ -431,7 +560,7 @@ def test_semantic_mode_forwards_locked_config_and_reads_service_status_after_que
     monkeypatch.setattr(probe, "THRESHOLDS_PATH", config_path)
     monkeypatch.setattr(probe, "peak_rss_bytes", lambda: 1_000_000)
     vault = _vault2(tmp_path, 6)
-    probe.run_consolidation(vault, tmp_path / "cache")
+    probe.run_consolidation(vault)
     record = json.loads(capsys.readouterr().out)
     # one construction, then the three vault-state passes
     assert calls[0] == (vault, True, thresholds)
@@ -476,7 +605,7 @@ def test_semantic_resource_probe_rejects_readiness_loss_after_cold(
     monkeypatch.setattr(birkin_mnemosyne, "Consolidation", Service)
     monkeypatch.setattr(probe, "THRESHOLDS_PATH", config)
     monkeypatch.setattr(probe, "peak_rss_bytes", lambda: 1_000_000)
-    probe.run_consolidation(_vault2(tmp_path, 6), tmp_path / "cache")
+    probe.run_consolidation(_vault2(tmp_path, 6))
     observed = json.loads(capsys.readouterr().out)
     assert observed["status"] == "PENDING"
     assert observed["semantic_status"] == "unavailable"
@@ -486,6 +615,10 @@ def test_semantic_resource_probe_rejects_readiness_loss_after_cold(
 
 
 @pytest.mark.parametrize("config", [
+    None,
+    False,
+    [],
+    "invalid",
     {"locked": False, "thresholds": {"min_cosine": 0.95}},
     {"locked": True, "thresholds": {}},
     {"locked": True, "thresholds": None},
@@ -499,7 +632,7 @@ def test_semantic_resource_proof_refuses_unlocked_or_placeholder_config(
     monkeypatch.setattr(birkin_mnemosyne, "Consolidation", _FakeConsolidation)
     monkeypatch.setattr(probe, "THRESHOLDS_PATH", path)
     with pytest.raises(ValueError, match="locked thresholds"):
-        probe.run_consolidation(_vault2(tmp_path, 6), tmp_path / "cache")
+        probe.run_consolidation(_vault2(tmp_path, 6))
 
 
 # -- readiness -----------------------------------------------------------------
@@ -516,8 +649,8 @@ def test_check_model_reports_ready_only_with_dependencies_and_prepared_model(
 
 
 def test_fresh_download_guard_labels_an_unprepared_model():
-    assert probe._fresh_download_guard(True, None)["status"] == "ready"
-    guard = probe._fresh_download_guard(False, None)
+    assert probe._fresh_download_guard(True)["status"] == "ready"
+    guard = probe._fresh_download_guard(False)
     assert guard["status"] == "model_not_prepared" and not guard["cleared"]
 
 
@@ -529,7 +662,7 @@ def test_child_check_mode_reports_real_availability(tmp_path):
                           probe.child_env(offline=True))
     assert out["mode"] == "compact" and out["notes"] == 2
     assert isinstance(out["numpy_importable"], bool)
-    assert out["capacity"]["supported"] is True
+    assert _object(out["capacity"])["supported"] is True
     assert out["backend"] == "compact"
     assert out["surface"] == "StartupReader.read(compact=True)"
 
@@ -542,15 +675,17 @@ def test_child_check_reports_model_status_and_finite_encode_when_prepared(tmp_pa
     out = probe.run_child(["check", "consolidation-semantic", str(vault),
                            str(model_dir), "--notes", "2"],
                           probe.child_env(offline=True))
-    assert out["model"]["path"] == str(model_dir)
-    assert out["surface_status"]["startup_compact"]["status"] in {"ready", "PENDING"}
-    planned = out["surface_status"]["consolidation_semantic"]["planned"]
+    model = _object(out["model"])
+    surfaces = _object(out["surface_status"])
+    assert model["path"] == str(model_dir)
+    assert _object(surfaces["startup_compact"])["status"] in {"ready", "PENDING"}
+    planned = _object(surfaces["consolidation_semantic"])["planned"]
     assert planned == "T11 (consolidation.py)"
-    if out["model"]["prepared"]:
-        encode = out["encode"]
+    if model["prepared"]:
+        encode = _object(out["encode"])
         assert encode["ok"] is True and encode["finite"] is True
-        assert encode["nonzero"] is True and encode["shape"][0] == 1
-        assert encode["dtype"] == "float32" and encode["encode_ms"] > 0
+        assert encode["nonzero"] is True and _array(encode["shape"])[0] == 1
+        assert encode["dtype"] == "float32" and _number(encode["encode_ms"]) > 0
         assert encode["released"] is True          # mmap released after the encode
         assert out["backend"] == "consolidation-semantic"
         assert out["detector_status"] == "PENDING"
@@ -569,14 +704,15 @@ def test_semantic_ready_check_is_a_real_data_surface_when_the_model_exists(tmp_p
                            str(semantic.model_dir()), "--notes", "2"],
                           probe.child_env(offline=True))
     if semantic.prepared():                        # real data-surface proof
-        encode = out["encode"]
+        encode = _object(out["encode"])
         assert encode["ok"] and encode["finite"] and encode["nonzero"]
-        assert encode["encode_ms"] > 0 and encode["shape"] == [1, semantic.DIM]
-        assert out["readiness"]["status"] == "ready"
-        assert out["readiness"]["prepared"] is True
+        assert _number(encode["encode_ms"]) > 0 and encode["shape"] == [1, semantic.DIM]
+        readiness = _object(out["readiness"])
+        assert readiness["status"] == "ready"
+        assert readiness["prepared"] is True
     else:                                          # weakened, never skipped
         assert out["encode"] == {"ok": False, "reason": "model_not_prepared"}
-        assert out["readiness"]["status"] == "model_not_prepared"
+        assert _object(out["readiness"])["status"] == "model_not_prepared"
         assert out["detector_status"] == "PENDING"
 
 
@@ -635,14 +771,19 @@ def test_phase_names_are_the_declared_three_states():
     assert probe.PHASES == ("first_unencoded_vault", "warm_vault", "changed_note")
 
 
-def test_phase_summary_separates_the_three_states_without_averaging():
-    attempts = [{"phases": {phase: {"elapsed_ms": float(i + 1)}
-                            for i, phase in enumerate(probe.PHASES)}}
-                for _ in range(3)]
+def test_phase_summary_separates_the_three_states_without_averaging() -> None:
+    attempts: list[dict[str, probe.JsonValue]] = [
+        {"phases": {phase: {"elapsed_ms": float(i + 1)}
+                    for i, phase in enumerate(probe.PHASES)}}
+        for _ in range(3)
+    ]
     summary = probe._phase_summary(attempts)
-    assert summary["first_unencoded_vault"]["median_ms"] == 1.0
-    assert summary["warm_vault"]["median_ms"] == 2.0
-    assert summary["changed_note"]["median_ms"] == 3.0
+    cold = summary["first_unencoded_vault"]
+    warm = summary["warm_vault"]
+    changed = summary["changed_note"]
+    assert "median_ms" in cold and cold["median_ms"] == 1.0
+    assert "median_ms" in warm and warm["median_ms"] == 2.0
+    assert "median_ms" in changed and changed["median_ms"] == 3.0
     assert set(summary) == set(probe.PHASES)
 
 
@@ -658,19 +799,20 @@ def test_kibitzer_reports_first_unencoded_warm_and_changed_separately(tmp_path):
     vault = _vault2(tmp_path, 6)
     out = probe.run_child(["run", "kibitzer", str(vault)],
                           probe.child_env(offline=True))
-    phases = out["phases"]
+    phases = _object(out["phases"])
+    first = _object(phases["first_unencoded_vault"])
+    warm = _object(phases["warm_vault"])
+    changed = _object(phases["changed_note"])
     assert set(phases) == set(probe.PHASES)
-    assert phases["first_unencoded_vault"]["candidates"] >= 1
-    assert phases["warm_vault"]["candidates"] >= 1
-    assert phases["changed_note"]["candidates"] >= 1
-    assert phases["warm_vault"]["vault_digest"] == phases["first_unencoded_vault"][
-        "vault_digest"]
-    assert phases["changed_note"]["vault_digest"] != phases["first_unencoded_vault"][
-        "vault_digest"]
+    assert _number(first["candidates"]) >= 1
+    assert _number(warm["candidates"]) >= 1
+    assert _number(changed["candidates"]) >= 1
+    assert warm["vault_digest"] == first["vault_digest"]
+    assert changed["vault_digest"] != first["vault_digest"]
     assert out["changed_note_visible"] is True
-    assert all(probe.finite_positive(p["elapsed_ms"]) for p in phases.values())
+    assert all(probe.finite_positive(_object(p)["elapsed_ms"]) for p in phases.values())
     # the gate number covers the whole fresh operation, so it never hides a phase
-    assert out["load_ms"] >= out["import_ms"]
+    assert _number(out["load_ms"]) >= _number(out["import_ms"])
 
 
 def test_run_record_exposes_the_separate_vault_states(tmp_path):
@@ -749,6 +891,14 @@ def test_compact_cannot_be_reported_from_a_legacy_read(monkeypatch, tmp_path, ca
     assert "context_sha256" not in record
 
 
+def test_import_clock_installation_is_idempotent() -> None:
+    from importlib.machinery import PathFinder
+
+    original = PathFinder.find_spec
+    probe.install_import_clock()
+    assert PathFinder.find_spec is original
+
+
 def test_child_clock_origin_precedes_every_product_import(tmp_path):
     """A mode reported under a post-import timer would fail these bounds."""
     vault = _vault2(tmp_path, 6)
@@ -756,4 +906,5 @@ def test_child_clock_origin_precedes_every_product_import(tmp_path):
                           probe.child_env(offline=True))
     assert out["clock_origin"] == "pre_import"
     # the product import is part of the measured span, not excluded from it
-    assert 0.0 < out["first_product_import_ms"] <= out["import_ms"] <= out["load_ms"]
+    assert 0.0 < _number(out["first_product_import_ms"]) <= _number(out["import_ms"]) <= _number(
+        out["load_ms"])
