@@ -598,6 +598,32 @@ the next save. Mixing older and newer library versions on one vault causes
 repeated cache rebuilding. MCP path and evidence settings are listed in the
 [MCP server reference](#mcp-server-claude-code-claude-desktop-codex-cli-cursor).
 
+## Upstream contributions
+
+Gwanghoon started this work because he was unhappy with how agent harnesses
+and agent memory handled Korean. He ran an agent team to investigate the
+gaps, test changes and contribute fixes upstream rather than keep them only
+in his own setup. Findings from birkin-mnemosyne's retrieval work and its
+memory adapters became contributions to the projects below.
+
+These are contributions authored by `ashmoonori-afk` to **other repositories
+that derive from birkin-mnemosyne**, with their source links and status as of
+**2026-10-06 KST**. Internal birkin-mnemosyne PRs and unrelated harness work
+are excluded. Open proposals are not shipped improvements, and approval does
+not mean merged. Closed work is labeled explicitly. The linked retrieval
+gains use synthetic benchmarks, not guarantees for real conversations.
+
+| Project | Contribution | Status | How it improves that project, or what is proposed | Basis in birkin-mnemosyne and Korean relevance |
+|---|---|---|---|---|
+| oh-my-openagent | [PR #9209](https://github.com/code-yeongyu/oh-my-openagent/pull/9209) | Merged | Recall automatically uses CJK-aware BM25 or hybrid ranking so inflected and unsegmented queries can find notes that substring matching missed, with English recall guards added during maintainer review. | The PR explicitly credits birkin-mnemosyne's Korean-aware bigram BM25 approach; Korean inflections, Japanese and Chinese benefit. |
+| oh-my-openagent | [PR #9341](https://github.com/code-yeongyu/oh-my-openagent/pull/9341) | Merged | Recall matches individual Han characters and shows matching excerpts, helping Chinese and Japanese kanji queries find notes through shared characters. | Ports the Han-character finding from birkin-mnemosyne's tokenizer work and benchmark; Korean hanja is covered, ordinary Hangul behavior unchanged. |
+| oh-my-openagent | [PR #9342](https://github.com/code-yeongyu/oh-my-openagent/pull/9342) | Merged | Optional weighted synonyms, keywords and related terms help recall find differently worded notes while keeping exact matches first; it is off by default and falls back to plain recall for invalid expansions. | Adapts query expansion first measured in birkin-mnemosyne; Korean paraphrase gains were measured, but expansions cost tokens and some mixed-language queries regress. |
+| oh-my-openagent | [PR #9275](https://github.com/code-yeongyu/oh-my-openagent/pull/9275) | Closed; split into #9341 and #9342 | The combined Han-matching and query-expansion proposal became two focused PRs that subsequently merged; this closed PR did not ship independently. | Both parts derive from birkin-mnemosyne's tokenizer and retrieval experiments, including Korean query expansion. |
+| Hermes Agent | [PR #131586](https://github.com/NousResearch/hermes-agent/pull/131586) | Merged | The community catalog now offers an external memory provider with a pinned source version, local Markdown storage and a separate vault per Hermes profile. | Catalogs birkin-mnemosyne's Hermes adapter, making multilingual memory available without a Korean-specific core change. |
+| HOL Guard | [PR #3441](https://github.com/hashgraph-online/hol-guard/pull/3441) | Approved; still open | Proposes an initially disabled MCP contribution with permission disclosures and review defaults for note mutations, so users can opt into local memory under Guard's policies. | Registers the published birkin-mnemosyne MCP server and its actual tool permissions; not a Korean-specific Guard fix. |
+| OpenClaw | [PR #163588](https://github.com/openclaw/openclaw/pull/163588) | Open | Proposes Python stdio bundle guidance covering dependencies, the Gateway service's PATH, persistent data and actual agent-session verification, rather than treating bundle detection as proof of execution. | Derived from exercising birkin-mnemosyne's Python MCP bundle in OpenClaw; generic setup guidance, not a new core memory backend or Korean-specific fix. |
+| Awesome Agent Memory | [PR #122](https://github.com/TeleAI-UAGI/Awesome-Agent-Memory/pull/122) | Closed; [landed by hand](https://github.com/TeleAI-UAGI/Awesome-Agent-Memory/commit/e5755368c00e4d21289c197e773966b6e6ed28a7) | The maintainer added a local Markdown memory option to Emerging projects with co-authorship preserved, helping readers discover its retrieval and bounded curation. | The accepted birkin-mnemosyne listing explicitly describes Korean bigrams. |
+
 ## Credits
 
 Extracted from the [Birkin](https://github.com/ashmoonori-afk/birkin) personal
