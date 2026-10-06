@@ -1,0 +1,49 @@
+{
+  "surface": "public Mnemosyne API against real temporary Markdown vaults",
+  "fixed_now": "2026-10-06T00:00:00+00:00",
+  "field": {
+    "invocation": "Mnemosyne(vault, semantic=False, field_aware=True, title_weight=2, tag_weight=1.5).search('orchard', now=fixed)",
+    "baseline_title_and_body_score": 0.3657370429286729,
+    "weighted_title_score": 0.5224814898981042,
+    "weighted_body_score": 0.3657370429286729,
+    "pass": true,
+    "cleanup": "TemporaryDirectory exited; vault.exists() False"
+  },
+  "diversity": {
+    "invocation": "Mnemosyne(vault, semantic=False, evidence_diversity=True).search('orchard retention', limit=32, now=fixed)",
+    "fixture": "6 identical first-fact notes, 1 long second-fact note, 20 long unrelated second-token notes",
+    "baseline_top2": ["alpha-0", "alpha-4"],
+    "diversity_top2": ["alpha-0", "beta"],
+    "baseline_candidate_count": 27,
+    "diversity_candidate_count": 27,
+    "same_slug_set": true,
+    "first_fact_duplicates_deferred": 5,
+    "pass": true,
+    "cleanup": "TemporaryDirectory exited; vault.exists() False"
+  },
+  "flags_off_cache": {
+    "invocation": "original_module(011cee7).Mnemosyne(vault, semantic=False).rebuild(); Mnemosyne(vault, semantic=False).rebuild(); compare actual compressed cache bytes and own query '김장 orchard'",
+    "compressed_cache_byte_parity": true,
+    "cache_bytes": 394,
+    "own_query_hit_byte_parity": true,
+    "pass": true,
+    "cleanup": "TemporaryDirectory exited; vault.exists() False"
+  },
+  "incremental": {
+    "invocation": "Mnemosyne(vault, semantic=False, incremental_doclen=True); rebuild; note_written after edit/insert; rezone; unlink+refresh; reload",
+    "columns": ["phase", "total_doclen", "count", "avgdl", "full_sum", "score_byte_parity"],
+    "stages": [
+      ["load", 16, 2, 8.0, 16, true],
+      ["edit", 68, 2, 34.0, 68, true],
+      ["insert", 77, 3, 25.666666666666668, 77, true],
+      ["rezone", 77, 3, 25.666666666666668, 77, true],
+      ["delete", 71, 2, 35.5, 71, true],
+      ["reload", 71, 2, 35.5, 71, true]
+    ],
+    "queries": ["김장 배추", "豚骨スープ", "orchard retention"],
+    "failed_parse_invocation": "engine.note_written(vault / 'absent.md')",
+    "failed_parse_preserves_totals": true,
+    "pass": true,
+    "cleanup": "TemporaryDirectory exited; vault.exists() False"
+  }
+}

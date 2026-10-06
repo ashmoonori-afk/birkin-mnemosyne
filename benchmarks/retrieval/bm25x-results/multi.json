@@ -1,0 +1,1204 @@
+{
+  "phase": "multi",
+  "schema_version": 1,
+  "language_axis": "gold-note language, NOT query language",
+  "size_axis": {
+    "quality_default_total_notes": [
+      1160,
+      10160
+    ],
+    "quality_default_distractors": [
+      1000,
+      10000
+    ],
+    "writes_default_total_notes": [
+      1000,
+      10000
+    ],
+    "quality_requested_total_notes": [
+      1160,
+      10160
+    ],
+    "writes_requested_total_notes": [
+      1000,
+      10000
+    ],
+    "sizes_override_unit": "TOTAL NOTES"
+  },
+  "seed": 0,
+  "fixed_now": "2026-01-01T00:00:00+00:00",
+  "python": "3.14.4 (main, Apr  7 2026, 13:13:20) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "production_source_sha256": "85c31497aa996c6cf889fa743becc2846cb92e506e9e7805522515b8f8fcb69e",
+  "runner_source_sha256": "554dadd64c2693457ef81cc3ebc855204637ed204f46b5815fea447e87fdb429",
+  "fixture": "own-synthetic-dev",
+  "total_notes": 304,
+  "independent_author_attribution": "N/A: our own synthetic DEV fixture",
+  "query_count": 8,
+  "trials": [
+    {
+      "config": {
+        "field_aware": false,
+        "title_weight": 1.5,
+        "tag_weight": 1.5,
+        "evidence_diversity": false,
+        "incremental_doclen": false
+      },
+      "queries": [
+        {
+          "id": "synthetic-en-0",
+          "lang": "en",
+          "query": "cedar launch access harbor oxygen",
+          "required_sources": [
+            [
+              "synthetic-en-0-first-00",
+              "synthetic-en-0-first-01",
+              "synthetic-en-0-first-02",
+              "synthetic-en-0-first-03",
+              "synthetic-en-0-first-04",
+              "synthetic-en-0-first-05",
+              "synthetic-en-0-first-06",
+              "synthetic-en-0-first-07",
+              "synthetic-en-0-first-08",
+              "synthetic-en-0-first-09",
+              "synthetic-en-0-first-10",
+              "synthetic-en-0-first-11",
+              "synthetic-en-0-first-12",
+              "synthetic-en-0-first-13",
+              "synthetic-en-0-first-14",
+              "synthetic-en-0-first-15",
+              "synthetic-en-0-first-16"
+            ],
+            [
+              "synthetic-en-0-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-en-0-first-11",
+            "synthetic-en-0-first-01",
+            "synthetic-en-0-first-15",
+            "synthetic-en-0-first-05",
+            "synthetic-en-0-first-14",
+            "synthetic-en-0-first-04",
+            "synthetic-en-0-first-10",
+            "synthetic-en-0-first-00"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-en-1",
+          "lang": "en",
+          "query": "maple depot transit permit cobalt",
+          "required_sources": [
+            [
+              "synthetic-en-1-first-00",
+              "synthetic-en-1-first-01",
+              "synthetic-en-1-first-02",
+              "synthetic-en-1-first-03",
+              "synthetic-en-1-first-04",
+              "synthetic-en-1-first-05",
+              "synthetic-en-1-first-06",
+              "synthetic-en-1-first-07",
+              "synthetic-en-1-first-08",
+              "synthetic-en-1-first-09",
+              "synthetic-en-1-first-10",
+              "synthetic-en-1-first-11",
+              "synthetic-en-1-first-12",
+              "synthetic-en-1-first-13",
+              "synthetic-en-1-first-14",
+              "synthetic-en-1-first-15",
+              "synthetic-en-1-first-16"
+            ],
+            [
+              "synthetic-en-1-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-en-1-first-06",
+            "synthetic-en-1-first-16",
+            "synthetic-en-1-first-02",
+            "synthetic-en-1-first-12",
+            "synthetic-en-1-first-03",
+            "synthetic-en-1-first-13",
+            "synthetic-en-1-first-07",
+            "synthetic-en-1-first-08"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ko-2",
+          "lang": "ko",
+          "query": "백두 출항 항구 허가 산소",
+          "required_sources": [
+            [
+              "synthetic-ko-2-first-00",
+              "synthetic-ko-2-first-01",
+              "synthetic-ko-2-first-02",
+              "synthetic-ko-2-first-03",
+              "synthetic-ko-2-first-04",
+              "synthetic-ko-2-first-05",
+              "synthetic-ko-2-first-06",
+              "synthetic-ko-2-first-07",
+              "synthetic-ko-2-first-08",
+              "synthetic-ko-2-first-09",
+              "synthetic-ko-2-first-10",
+              "synthetic-ko-2-first-11",
+              "synthetic-ko-2-first-12",
+              "synthetic-ko-2-first-13",
+              "synthetic-ko-2-first-14",
+              "synthetic-ko-2-first-15",
+              "synthetic-ko-2-first-16"
+            ],
+            [
+              "synthetic-ko-2-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ko-2-first-01",
+            "synthetic-ko-2-first-11",
+            "synthetic-ko-2-first-05",
+            "synthetic-ko-2-first-15",
+            "synthetic-ko-2-first-04",
+            "synthetic-ko-2-first-14",
+            "synthetic-ko-2-first-00",
+            "synthetic-ko-2-first-10"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ko-3",
+          "lang": "ko",
+          "query": "한라 창고 운송 승인 코발트",
+          "required_sources": [
+            [
+              "synthetic-ko-3-first-00",
+              "synthetic-ko-3-first-01",
+              "synthetic-ko-3-first-02",
+              "synthetic-ko-3-first-03",
+              "synthetic-ko-3-first-04",
+              "synthetic-ko-3-first-05",
+              "synthetic-ko-3-first-06",
+              "synthetic-ko-3-first-07",
+              "synthetic-ko-3-first-08",
+              "synthetic-ko-3-first-09",
+              "synthetic-ko-3-first-10",
+              "synthetic-ko-3-first-11",
+              "synthetic-ko-3-first-12",
+              "synthetic-ko-3-first-13",
+              "synthetic-ko-3-first-14",
+              "synthetic-ko-3-first-15",
+              "synthetic-ko-3-first-16"
+            ],
+            [
+              "synthetic-ko-3-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ko-3-first-16",
+            "synthetic-ko-3-first-06",
+            "synthetic-ko-3-first-12",
+            "synthetic-ko-3-first-02",
+            "synthetic-ko-3-first-13",
+            "synthetic-ko-3-first-03",
+            "synthetic-ko-3-first-07",
+            "synthetic-ko-3-first-08"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ja-4",
+          "lang": "ja",
+          "query": "杉 森林 天気 湿度 酸素",
+          "required_sources": [
+            [
+              "synthetic-ja-4-first-00",
+              "synthetic-ja-4-first-01",
+              "synthetic-ja-4-first-02",
+              "synthetic-ja-4-first-03",
+              "synthetic-ja-4-first-04",
+              "synthetic-ja-4-first-05",
+              "synthetic-ja-4-first-06",
+              "synthetic-ja-4-first-07",
+              "synthetic-ja-4-first-08",
+              "synthetic-ja-4-first-09",
+              "synthetic-ja-4-first-10",
+              "synthetic-ja-4-first-11",
+              "synthetic-ja-4-first-12",
+              "synthetic-ja-4-first-13",
+              "synthetic-ja-4-first-14",
+              "synthetic-ja-4-first-15",
+              "synthetic-ja-4-first-16"
+            ],
+            [
+              "synthetic-ja-4-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ja-4-first-01",
+            "synthetic-ja-4-first-11",
+            "synthetic-ja-4-first-05",
+            "synthetic-ja-4-first-15",
+            "synthetic-ja-4-first-04",
+            "synthetic-ja-4-first-14",
+            "synthetic-ja-4-first-00",
+            "synthetic-ja-4-first-10"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ja-5",
+          "lang": "ja",
+          "query": "楓 倉庫 運送 承認 金属",
+          "required_sources": [
+            [
+              "synthetic-ja-5-first-00",
+              "synthetic-ja-5-first-01",
+              "synthetic-ja-5-first-02",
+              "synthetic-ja-5-first-03",
+              "synthetic-ja-5-first-04",
+              "synthetic-ja-5-first-05",
+              "synthetic-ja-5-first-06",
+              "synthetic-ja-5-first-07",
+              "synthetic-ja-5-first-08",
+              "synthetic-ja-5-first-09",
+              "synthetic-ja-5-first-10",
+              "synthetic-ja-5-first-11",
+              "synthetic-ja-5-first-12",
+              "synthetic-ja-5-first-13",
+              "synthetic-ja-5-first-14",
+              "synthetic-ja-5-first-15",
+              "synthetic-ja-5-first-16"
+            ],
+            [
+              "synthetic-ja-5-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ja-5-first-16",
+            "synthetic-ja-5-first-06",
+            "synthetic-ja-5-first-12",
+            "synthetic-ja-5-first-02",
+            "synthetic-ja-5-first-13",
+            "synthetic-ja-5-first-03",
+            "synthetic-ja-5-first-07",
+            "synthetic-ja-5-first-08"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-zh-6",
+          "lang": "zh",
+          "query": "雪松 出航 港口 许可 氧气",
+          "required_sources": [
+            [
+              "synthetic-zh-6-first-00",
+              "synthetic-zh-6-first-01",
+              "synthetic-zh-6-first-02",
+              "synthetic-zh-6-first-03",
+              "synthetic-zh-6-first-04",
+              "synthetic-zh-6-first-05",
+              "synthetic-zh-6-first-06",
+              "synthetic-zh-6-first-07",
+              "synthetic-zh-6-first-08",
+              "synthetic-zh-6-first-09",
+              "synthetic-zh-6-first-10",
+              "synthetic-zh-6-first-11",
+              "synthetic-zh-6-first-12",
+              "synthetic-zh-6-first-13",
+              "synthetic-zh-6-first-14",
+              "synthetic-zh-6-first-15",
+              "synthetic-zh-6-first-16"
+            ],
+            [
+              "synthetic-zh-6-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-zh-6-first-04",
+            "synthetic-zh-6-first-14",
+            "synthetic-zh-6-first-00",
+            "synthetic-zh-6-first-10",
+            "synthetic-zh-6-first-01",
+            "synthetic-zh-6-first-11",
+            "synthetic-zh-6-first-05",
+            "synthetic-zh-6-first-15"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-zh-7",
+          "lang": "zh",
+          "query": "枫树 仓库 运输 批准 钴矿",
+          "required_sources": [
+            [
+              "synthetic-zh-7-first-00",
+              "synthetic-zh-7-first-01",
+              "synthetic-zh-7-first-02",
+              "synthetic-zh-7-first-03",
+              "synthetic-zh-7-first-04",
+              "synthetic-zh-7-first-05",
+              "synthetic-zh-7-first-06",
+              "synthetic-zh-7-first-07",
+              "synthetic-zh-7-first-08",
+              "synthetic-zh-7-first-09",
+              "synthetic-zh-7-first-10",
+              "synthetic-zh-7-first-11",
+              "synthetic-zh-7-first-12",
+              "synthetic-zh-7-first-13",
+              "synthetic-zh-7-first-14",
+              "synthetic-zh-7-first-15",
+              "synthetic-zh-7-first-16"
+            ],
+            [
+              "synthetic-zh-7-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-zh-7-first-13",
+            "synthetic-zh-7-first-03",
+            "synthetic-zh-7-first-07",
+            "synthetic-zh-7-first-16",
+            "synthetic-zh-7-first-06",
+            "synthetic-zh-7-first-12",
+            "synthetic-zh-7-first-02",
+            "synthetic-zh-7-first-09"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.5,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.8,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 0.5,
+              "all_required": false,
+              "duplicate_slot_rate": 0.875,
+              "returned": 8
+            }
+          }
+        }
+      ],
+      "aggregates": {
+        "all": {
+          "2": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.5
+          },
+          "5": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.8
+          },
+          "8": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.875
+          }
+        },
+        "en": {
+          "2": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.5
+          },
+          "5": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.8
+          },
+          "8": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.875
+          }
+        },
+        "ko": {
+          "2": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.5
+          },
+          "5": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.8
+          },
+          "8": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.875
+          }
+        },
+        "ja": {
+          "2": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.5
+          },
+          "5": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.8
+          },
+          "8": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.875
+          }
+        },
+        "zh": {
+          "2": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.5
+          },
+          "5": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.8
+          },
+          "8": {
+            "coverage": 0.5,
+            "all_required": 0.0,
+            "duplicate_slot_rate": 0.875
+          }
+        }
+      },
+      "serialized_hits": [
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-11.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-11\",\"summary\":\"cedar launch access harbor. reference............\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-01.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-01\",\"summary\":\"cedar launch access harbor. reference..\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-15.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-15\",\"summary\":\"cedar launch access harbor. reference................\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-05.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-05\",\"summary\":\"cedar launch access harbor. reference......\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-14.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-14\",\"summary\":\"cedar launch access harbor. reference...............\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-04.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-04\",\"summary\":\"cedar launch access harbor. reference.....\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-10.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-10\",\"summary\":\"cedar launch access harbor. reference...........\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-00.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-00\",\"summary\":\"cedar launch access harbor. reference.\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-06.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-06\",\"summary\":\"maple depot transit permit. reference.......\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-16.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-16\",\"summary\":\"maple depot transit permit. reference.................\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-02.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-02\",\"summary\":\"maple depot transit permit. reference...\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-12.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-12\",\"summary\":\"maple depot transit permit. reference.............\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-03.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-03\",\"summary\":\"maple depot transit permit. reference....\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-13.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-13\",\"summary\":\"maple depot transit permit. reference..............\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-07.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-07\",\"summary\":\"maple depot transit permit. reference........\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-08.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-08\",\"summary\":\"maple depot transit permit. reference.........\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-01.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-01\",\"summary\":\"백두 출항 항구 허가. reference..\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-11.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-11\",\"summary\":\"백두 출항 항구 허가. reference............\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-05.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-05\",\"summary\":\"백두 출항 항구 허가. reference......\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-15.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-15\",\"summary\":\"백두 출항 항구 허가. reference................\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-04.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-04\",\"summary\":\"백두 출항 항구 허가. reference.....\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-14.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-14\",\"summary\":\"백두 출항 항구 허가. reference...............\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-00.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-00\",\"summary\":\"백두 출항 항구 허가. reference.\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-10.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-10\",\"summary\":\"백두 출항 항구 허가. reference...........\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-16.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-16\",\"summary\":\"한라 창고 운송 승인. reference.................\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-06.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-06\",\"summary\":\"한라 창고 운송 승인. reference.......\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-12.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-12\",\"summary\":\"한라 창고 운송 승인. reference.............\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-02.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-02\",\"summary\":\"한라 창고 운송 승인. reference...\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-13.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-13\",\"summary\":\"한라 창고 운송 승인. reference..............\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-03.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-03\",\"summary\":\"한라 창고 운송 승인. reference....\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-07.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-07\",\"summary\":\"한라 창고 운송 승인. reference........\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-08.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-08\",\"summary\":\"한라 창고 운송 승인. reference.........\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-01.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-01\",\"summary\":\"杉 森林 天気 湿度. reference..\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-11.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-11\",\"summary\":\"杉 森林 天気 湿度. reference............\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-05.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-05\",\"summary\":\"杉 森林 天気 湿度. reference......\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-15.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-15\",\"summary\":\"杉 森林 天気 湿度. reference................\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-04.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-04\",\"summary\":\"杉 森林 天気 湿度. reference.....\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-14.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-14\",\"summary\":\"杉 森林 天気 湿度. reference...............\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-00.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-00\",\"summary\":\"杉 森林 天気 湿度. reference.\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-10.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-10\",\"summary\":\"杉 森林 天気 湿度. reference...........\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-16.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-16\",\"summary\":\"楓 倉庫 運送 承認. reference.................\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-06.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-06\",\"summary\":\"楓 倉庫 運送 承認. reference.......\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-12.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-12\",\"summary\":\"楓 倉庫 運送 承認. reference.............\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-02.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-02\",\"summary\":\"楓 倉庫 運送 承認. reference...\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-13.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-13\",\"summary\":\"楓 倉庫 運送 承認. reference..............\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-03.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-03\",\"summary\":\"楓 倉庫 運送 承認. reference....\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-07.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-07\",\"summary\":\"楓 倉庫 運送 承認. reference........\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-08.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-08\",\"summary\":\"楓 倉庫 運送 承認. reference.........\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-04.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-04\",\"summary\":\"雪松 出航 港口 许可. reference.....\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-14.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-14\",\"summary\":\"雪松 出航 港口 许可. reference...............\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-00.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-00\",\"summary\":\"雪松 出航 港口 许可. reference.\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-10.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-10\",\"summary\":\"雪松 出航 港口 许可. reference...........\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-01.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-01\",\"summary\":\"雪松 出航 港口 许可. reference..\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-11.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-11\",\"summary\":\"雪松 出航 港口 许可. reference............\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-05.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-05\",\"summary\":\"雪松 出航 港口 许可. reference......\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-15.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-15\",\"summary\":\"雪松 出航 港口 许可. reference................\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-13.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-13\",\"summary\":\"枫树 仓库 运输 批准. reference..............\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-03.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-03\",\"summary\":\"枫树 仓库 运输 批准. reference....\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-07.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-07\",\"summary\":\"枫树 仓库 运输 批准. reference........\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-16.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-16\",\"summary\":\"枫树 仓库 运输 批准. reference.................\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-06.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-06\",\"summary\":\"枫树 仓库 运输 批准. reference.......\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-12.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-12\",\"summary\":\"枫树 仓库 运输 批准. reference.............\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-02.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-02\",\"summary\":\"枫树 仓库 运输 批准. reference...\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-09.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-09\",\"summary\":\"枫树 仓库 运输 批准. reference..........\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]"
+      ]
+    },
+    {
+      "config": {
+        "field_aware": false,
+        "title_weight": 1.5,
+        "tag_weight": 1.5,
+        "evidence_diversity": true,
+        "incremental_doclen": false
+      },
+      "queries": [
+        {
+          "id": "synthetic-en-0",
+          "lang": "en",
+          "query": "cedar launch access harbor oxygen",
+          "required_sources": [
+            [
+              "synthetic-en-0-first-00",
+              "synthetic-en-0-first-01",
+              "synthetic-en-0-first-02",
+              "synthetic-en-0-first-03",
+              "synthetic-en-0-first-04",
+              "synthetic-en-0-first-05",
+              "synthetic-en-0-first-06",
+              "synthetic-en-0-first-07",
+              "synthetic-en-0-first-08",
+              "synthetic-en-0-first-09",
+              "synthetic-en-0-first-10",
+              "synthetic-en-0-first-11",
+              "synthetic-en-0-first-12",
+              "synthetic-en-0-first-13",
+              "synthetic-en-0-first-14",
+              "synthetic-en-0-first-15",
+              "synthetic-en-0-first-16"
+            ],
+            [
+              "synthetic-en-0-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-en-0-first-11",
+            "synthetic-en-0-second",
+            "synthetic-en-0-noise-19",
+            "synthetic-en-0-noise-09",
+            "synthetic-en-0-noise-18",
+            "synthetic-en-0-noise-08",
+            "synthetic-en-0-noise-17",
+            "synthetic-en-0-noise-07"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-en-1",
+          "lang": "en",
+          "query": "maple depot transit permit cobalt",
+          "required_sources": [
+            [
+              "synthetic-en-1-first-00",
+              "synthetic-en-1-first-01",
+              "synthetic-en-1-first-02",
+              "synthetic-en-1-first-03",
+              "synthetic-en-1-first-04",
+              "synthetic-en-1-first-05",
+              "synthetic-en-1-first-06",
+              "synthetic-en-1-first-07",
+              "synthetic-en-1-first-08",
+              "synthetic-en-1-first-09",
+              "synthetic-en-1-first-10",
+              "synthetic-en-1-first-11",
+              "synthetic-en-1-first-12",
+              "synthetic-en-1-first-13",
+              "synthetic-en-1-first-14",
+              "synthetic-en-1-first-15",
+              "synthetic-en-1-first-16"
+            ],
+            [
+              "synthetic-en-1-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-en-1-first-06",
+            "synthetic-en-1-second",
+            "synthetic-en-1-noise-00",
+            "synthetic-en-1-noise-10",
+            "synthetic-en-1-noise-04",
+            "synthetic-en-1-noise-14",
+            "synthetic-en-1-noise-05",
+            "synthetic-en-1-noise-15"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ko-2",
+          "lang": "ko",
+          "query": "백두 출항 항구 허가 산소",
+          "required_sources": [
+            [
+              "synthetic-ko-2-first-00",
+              "synthetic-ko-2-first-01",
+              "synthetic-ko-2-first-02",
+              "synthetic-ko-2-first-03",
+              "synthetic-ko-2-first-04",
+              "synthetic-ko-2-first-05",
+              "synthetic-ko-2-first-06",
+              "synthetic-ko-2-first-07",
+              "synthetic-ko-2-first-08",
+              "synthetic-ko-2-first-09",
+              "synthetic-ko-2-first-10",
+              "synthetic-ko-2-first-11",
+              "synthetic-ko-2-first-12",
+              "synthetic-ko-2-first-13",
+              "synthetic-ko-2-first-14",
+              "synthetic-ko-2-first-15",
+              "synthetic-ko-2-first-16"
+            ],
+            [
+              "synthetic-ko-2-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ko-2-first-01",
+            "synthetic-ko-2-second",
+            "synthetic-ko-2-noise-09",
+            "synthetic-ko-2-noise-19",
+            "synthetic-ko-2-noise-08",
+            "synthetic-ko-2-noise-18",
+            "synthetic-ko-2-noise-07",
+            "synthetic-ko-2-noise-17"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ko-3",
+          "lang": "ko",
+          "query": "한라 창고 운송 승인 코발트",
+          "required_sources": [
+            [
+              "synthetic-ko-3-first-00",
+              "synthetic-ko-3-first-01",
+              "synthetic-ko-3-first-02",
+              "synthetic-ko-3-first-03",
+              "synthetic-ko-3-first-04",
+              "synthetic-ko-3-first-05",
+              "synthetic-ko-3-first-06",
+              "synthetic-ko-3-first-07",
+              "synthetic-ko-3-first-08",
+              "synthetic-ko-3-first-09",
+              "synthetic-ko-3-first-10",
+              "synthetic-ko-3-first-11",
+              "synthetic-ko-3-first-12",
+              "synthetic-ko-3-first-13",
+              "synthetic-ko-3-first-14",
+              "synthetic-ko-3-first-15",
+              "synthetic-ko-3-first-16"
+            ],
+            [
+              "synthetic-ko-3-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ko-3-first-16",
+            "synthetic-ko-3-second",
+            "synthetic-ko-3-noise-10",
+            "synthetic-ko-3-noise-00",
+            "synthetic-ko-3-noise-14",
+            "synthetic-ko-3-noise-04",
+            "synthetic-ko-3-noise-15",
+            "synthetic-ko-3-noise-05"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ja-4",
+          "lang": "ja",
+          "query": "杉 森林 天気 湿度 酸素",
+          "required_sources": [
+            [
+              "synthetic-ja-4-first-00",
+              "synthetic-ja-4-first-01",
+              "synthetic-ja-4-first-02",
+              "synthetic-ja-4-first-03",
+              "synthetic-ja-4-first-04",
+              "synthetic-ja-4-first-05",
+              "synthetic-ja-4-first-06",
+              "synthetic-ja-4-first-07",
+              "synthetic-ja-4-first-08",
+              "synthetic-ja-4-first-09",
+              "synthetic-ja-4-first-10",
+              "synthetic-ja-4-first-11",
+              "synthetic-ja-4-first-12",
+              "synthetic-ja-4-first-13",
+              "synthetic-ja-4-first-14",
+              "synthetic-ja-4-first-15",
+              "synthetic-ja-4-first-16"
+            ],
+            [
+              "synthetic-ja-4-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ja-4-first-01",
+            "synthetic-ja-4-second",
+            "synthetic-ja-4-noise-09",
+            "synthetic-ja-4-noise-19",
+            "synthetic-ja-4-noise-08",
+            "synthetic-ja-4-noise-18",
+            "synthetic-ja-4-noise-07",
+            "synthetic-ja-4-noise-17"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-ja-5",
+          "lang": "ja",
+          "query": "楓 倉庫 運送 承認 金属",
+          "required_sources": [
+            [
+              "synthetic-ja-5-first-00",
+              "synthetic-ja-5-first-01",
+              "synthetic-ja-5-first-02",
+              "synthetic-ja-5-first-03",
+              "synthetic-ja-5-first-04",
+              "synthetic-ja-5-first-05",
+              "synthetic-ja-5-first-06",
+              "synthetic-ja-5-first-07",
+              "synthetic-ja-5-first-08",
+              "synthetic-ja-5-first-09",
+              "synthetic-ja-5-first-10",
+              "synthetic-ja-5-first-11",
+              "synthetic-ja-5-first-12",
+              "synthetic-ja-5-first-13",
+              "synthetic-ja-5-first-14",
+              "synthetic-ja-5-first-15",
+              "synthetic-ja-5-first-16"
+            ],
+            [
+              "synthetic-ja-5-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-ja-5-first-16",
+            "synthetic-ja-5-second",
+            "synthetic-ja-5-noise-10",
+            "synthetic-ja-5-noise-00",
+            "synthetic-ja-5-noise-14",
+            "synthetic-ja-5-noise-04",
+            "synthetic-ja-5-noise-15",
+            "synthetic-ja-5-noise-05"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-zh-6",
+          "lang": "zh",
+          "query": "雪松 出航 港口 许可 氧气",
+          "required_sources": [
+            [
+              "synthetic-zh-6-first-00",
+              "synthetic-zh-6-first-01",
+              "synthetic-zh-6-first-02",
+              "synthetic-zh-6-first-03",
+              "synthetic-zh-6-first-04",
+              "synthetic-zh-6-first-05",
+              "synthetic-zh-6-first-06",
+              "synthetic-zh-6-first-07",
+              "synthetic-zh-6-first-08",
+              "synthetic-zh-6-first-09",
+              "synthetic-zh-6-first-10",
+              "synthetic-zh-6-first-11",
+              "synthetic-zh-6-first-12",
+              "synthetic-zh-6-first-13",
+              "synthetic-zh-6-first-14",
+              "synthetic-zh-6-first-15",
+              "synthetic-zh-6-first-16"
+            ],
+            [
+              "synthetic-zh-6-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-zh-6-first-04",
+            "synthetic-zh-6-second",
+            "synthetic-zh-6-noise-08",
+            "synthetic-zh-6-noise-18",
+            "synthetic-zh-6-noise-09",
+            "synthetic-zh-6-noise-19",
+            "synthetic-zh-6-noise-02",
+            "synthetic-zh-6-noise-12"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        },
+        {
+          "id": "synthetic-zh-7",
+          "lang": "zh",
+          "query": "枫树 仓库 运输 批准 钴矿",
+          "required_sources": [
+            [
+              "synthetic-zh-7-first-00",
+              "synthetic-zh-7-first-01",
+              "synthetic-zh-7-first-02",
+              "synthetic-zh-7-first-03",
+              "synthetic-zh-7-first-04",
+              "synthetic-zh-7-first-05",
+              "synthetic-zh-7-first-06",
+              "synthetic-zh-7-first-07",
+              "synthetic-zh-7-first-08",
+              "synthetic-zh-7-first-09",
+              "synthetic-zh-7-first-10",
+              "synthetic-zh-7-first-11",
+              "synthetic-zh-7-first-12",
+              "synthetic-zh-7-first-13",
+              "synthetic-zh-7-first-14",
+              "synthetic-zh-7-first-15",
+              "synthetic-zh-7-first-16"
+            ],
+            [
+              "synthetic-zh-7-second"
+            ]
+          ],
+          "hits": [
+            "synthetic-zh-7-first-13",
+            "synthetic-zh-7-second",
+            "synthetic-zh-7-noise-15",
+            "synthetic-zh-7-noise-05",
+            "synthetic-zh-7-noise-11",
+            "synthetic-zh-7-noise-01",
+            "synthetic-zh-7-noise-10",
+            "synthetic-zh-7-noise-00"
+          ],
+          "metrics": {
+            "2": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 2
+            },
+            "5": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 5
+            },
+            "8": {
+              "coverage": 1.0,
+              "all_required": true,
+              "duplicate_slot_rate": 0.0,
+              "returned": 8
+            }
+          }
+        }
+      ],
+      "aggregates": {
+        "all": {
+          "2": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "5": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "8": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          }
+        },
+        "en": {
+          "2": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "5": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "8": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          }
+        },
+        "ko": {
+          "2": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "5": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "8": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          }
+        },
+        "ja": {
+          "2": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "5": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "8": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          }
+        },
+        "zh": {
+          "2": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "5": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          },
+          "8": {
+            "coverage": 1.0,
+            "all_required": 1.0,
+            "duplicate_slot_rate": 0.0
+          }
+        }
+      },
+      "serialized_hits": [
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-first-11.md\",\"score\":44.325485394531135,\"slug\":\"synthetic-en-0-first-11\",\"summary\":\"cedar launch access harbor. reference............\",\"title\":\"cedar launch access harbor\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-second.md\",\"score\":5.807300815270685,\"slug\":\"synthetic-en-0-second\",\"summary\":\"oxygen reserve is blue. neutral background record. neutral background record. neutral background record. neutral backgro\",\"title\":\"synthetic-en-0 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-19.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-19\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-19\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-09.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-09\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-9\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-18.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-18\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-18\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-08.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-08\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-8\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-17.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-17\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-17\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-0-noise-07.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-0-noise-07\",\"summary\":\"oxygen. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 0-7\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-first-06.md\",\"score\":38.02747227104953,\"slug\":\"synthetic-en-1-first-06\",\"summary\":\"maple depot transit permit. reference.......\",\"title\":\"maple depot transit permit\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-second.md\",\"score\":5.807300815270685,\"slug\":\"synthetic-en-1-second\",\"summary\":\"cobalt storage is east. neutral background record. neutral background record. neutral background record. neutral backgro\",\"title\":\"synthetic-en-1 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-00.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-00\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-0\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-10.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-10\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-10\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-04.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-04\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-4\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-14.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-14\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-14\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-05.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-05\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-5\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-en-1-noise-15.md\",\"score\":4.075752418266312,\"slug\":\"synthetic-en-1-noise-15\",\"summary\":\"cobalt. neutral background record. neutral background record. neutral background record. neutral background record. neut\",\"title\":\"Unrelated record 1-15\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-first-01.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-2-first-01\",\"summary\":\"백두 출항 항구 허가. reference..\",\"title\":\"백두 출항 항구 허가\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-second.md\",\"score\":4.1056686569824254,\"slug\":\"synthetic-ko-2-second\",\"summary\":\"산소 보관함은 파란색. neutral background record. neutral background record. neutral background record. neutral background record.\",\"title\":\"synthetic-ko-2 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-09.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-09\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-9\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-19.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-19\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-19\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-08.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-08\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-8\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-18.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-18\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-18\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-07.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-07\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-7\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-2-noise-17.md\",\"score\":3.1596320647964586,\"slug\":\"synthetic-ko-2-noise-17\",\"summary\":\"산소. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 2-17\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-first-16.md\",\"score\":27.577129807102814,\"slug\":\"synthetic-ko-3-first-16\",\"summary\":\"한라 창고 운송 승인. reference.................\",\"title\":\"한라 창고 운송 승인\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-second.md\",\"score\":8.699353381249393,\"slug\":\"synthetic-ko-3-second\",\"summary\":\"코발트 보관함은 동쪽. neutral background record. neutral background record. neutral background record. neutral background record.\",\"title\":\"synthetic-ko-3 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-10.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-10\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-10\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-00.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-00\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-0\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-14.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-14\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-14\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-04.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-04\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-4\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-15.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-15\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-15\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ko-3-noise-05.md\",\"score\":6.11172243803457,\"slug\":\"synthetic-ko-3-noise-05\",\"summary\":\"코발트. neutral background record. neutral background record. neutral background record. neutral background record. neutral\",\"title\":\"Unrelated record 3-5\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-first-01.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-4-first-01\",\"summary\":\"杉 森林 天気 湿度. reference..\",\"title\":\"杉 森林 天気 湿度\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-second.md\",\"score\":8.710951222906028,\"slug\":\"synthetic-ja-4-second\",\"summary\":\"酸素容器は青色. neutral background record. neutral background record. neutral background record. neutral background record. neu\",\"title\":\"synthetic-ja-4 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-09.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-09\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-9\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-19.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-19\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-19\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-08.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-08\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-8\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-18.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-18\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-18\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-07.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-07\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-7\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-4-noise-17.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-4-noise-17\",\"summary\":\"酸素. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 4-17\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-first-16.md\",\"score\":63.550733173225176,\"slug\":\"synthetic-ja-5-first-16\",\"summary\":\"楓 倉庫 運送 承認. reference.................\",\"title\":\"楓 倉庫 運送 承認\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-second.md\",\"score\":8.710951222906028,\"slug\":\"synthetic-ja-5-second\",\"summary\":\"金属容器は東側. neutral background record. neutral background record. neutral background record. neutral background record. neu\",\"title\":\"synthetic-ja-5 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-10.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-10\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-10\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-00.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-00\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-0\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-14.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-14\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-14\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-04.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-04\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-4\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-15.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-15\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-15\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-ja-5-noise-05.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-ja-5-noise-05\",\"summary\":\"金属. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 5-5\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-first-04.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-6-first-04\",\"summary\":\"雪松 出航 港口 许可. reference.....\",\"title\":\"雪松 出航 港口 许可\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-second.md\",\"score\":8.710951222906028,\"slug\":\"synthetic-zh-6-second\",\"summary\":\"氧气容器是蓝色. neutral background record. neutral background record. neutral background record. neutral background record. neu\",\"title\":\"synthetic-zh-6 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-08.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-08\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-8\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-18.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-18\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-18\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-09.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-09\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-9\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-19.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-19\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-19\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-02.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-02\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-2\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-6-noise-12.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-6-noise-12\",\"summary\":\"氧气. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 6-12\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]",
+        "[{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-first-13.md\",\"score\":76.19211091670535,\"slug\":\"synthetic-zh-7-first-13\",\"summary\":\"枫树 仓库 运输 批准. reference..............\",\"title\":\"枫树 仓库 运输 批准\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-second.md\",\"score\":8.710951222906028,\"slug\":\"synthetic-zh-7-second\",\"summary\":\"钴矿容器在东侧. neutral background record. neutral background record. neutral background record. neutral background record. neu\",\"title\":\"synthetic-zh-7 companion\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-15.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-15\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-15\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-05.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-05\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-5\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-11.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-11\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-11\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-01.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-01\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-1\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-10.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-10\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-10\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"},{\"links\":[],\"polarity\":\"positive\",\"rel\":\"synthetic-zh-7-noise-00.md\",\"score\":6.1155360061807915,\"slug\":\"synthetic-zh-7-noise-00\",\"summary\":\"钴矿. neutral background record. neutral background record. neutral background record. neutral background record. neutral \",\"title\":\"Unrelated record 7-0\",\"type\":\"topic\",\"updated\":\"2026-01-01T00:00:00+00:00\",\"zone\":\"\"}]"
+      ]
+    }
+  ],
+  "cleanup": {
+    "path": "/var/folders/zd/dbb_twgj1833hlylv5zvqvmr0000gp/T/bm25x-multi-jd__0f1a",
+    "absent": true
+  }
+}
