@@ -364,7 +364,8 @@ def _note_entry(path: Path, rel: str,
         if line and not line.startswith("#"):
             summary = line[:120]
             break
-    entry = {
+    entry: dict[str, str | list[str] | float | int | dict[str, int]
+                | dict[str, dict[str, int]] | None] = {
         "title": title, "rel": rel, "zone": zone,
         "type": str(meta.get("type", "topic")),
         "tags": tags, "links": sorted(set(WIKILINK_RE.findall(text))),
@@ -483,9 +484,9 @@ class Mnemosyne:
             raise ValueError("field weights must be finite and positive")
         self.vault = Path(vault)
         self._semantic_mode = semantic
-        self._field_aware = field_aware
-        self._title_weight = title_weight
-        self._tag_weight = tag_weight
+        self._field_aware: bool = field_aware
+        self._title_weight: float = title_weight
+        self._tag_weight: float = tag_weight
         self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
