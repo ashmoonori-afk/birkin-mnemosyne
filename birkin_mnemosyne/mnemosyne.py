@@ -229,7 +229,7 @@ def expansion_weights(expansions: Mapping[str, Any],
     return out
 
 
-def bm25_scores(terms: list[str], postings: dict[str, dict[str, int]],
+def bm25_scores(terms: list[str], postings: Mapping[str, Mapping[str, int | float]],
                 doclens: dict[str, int], avgdl: float,
                 n_docs: int, weights: Mapping[str, float] | None = None,
                 script_bonus: bool = True) -> dict[str, float]:
@@ -337,7 +337,8 @@ def decayed_ema(ema: float, last_hit: str | None, today: date) -> float:
 
 # -- note parsing -------------------------------------------------------------
 
-def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
+def _note_entry(path: Path, rel: str,
+                field_aware: bool = False) -> dict[str, Any] | None:
     """Parse one note file into an index entry (module-level for testability)."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -363,7 +364,7 @@ def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
         if line and not line.startswith("#"):
             summary = line[:120]
             break
-    return {
+    entry = {
         "title": title, "rel": rel, "zone": zone,
         "type": str(meta.get("type", "topic")),
         "tags": tags, "links": sorted(set(WIKILINK_RE.findall(text))),
@@ -377,6 +378,15 @@ def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
         "mtime": st.st_mtime, "size": st.st_size,
         "doclen": _doc_length(terms), "terms": terms,
     }
+    if field_aware:
+        fields: dict[str, dict[str, int]] = {}
+        for name, text in (("title", title), ("tags", " ".join(tags)), ("body", body)):
+            frequencies: dict[str, int] = {}
+            for tok in tokenize(text):
+                frequencies[tok] = frequencies.get(tok, 0) + 1
+            fields[name] = frequencies
+        entry["field_terms"] = fields
+    return entry
 
 
 def _doc_length(terms: dict[str, int]) -> int:
@@ -457,13 +467,25 @@ class Mnemosyne:
     memory read/write (it self-heals on the next refresh).
     """
 
-    def __init__(self, vault: Path, semantic: bool | None = None):
+    def __init__(self, vault: Path, semantic: bool | None = None, *,
+                 field_aware: bool = False, title_weight: float = 1.5,
+                 tag_weight: float = 1.5):
         """``semantic``: None = the core ranking, unless
         ``MNEMOSYNE_SEMANTIC=1`` asks for the optional semantic mode; True =
         request it (warns and stays on the core when it is unavailable);
-        False = core only."""
+        False = core only.
+
+        ``field_aware`` enables weighted title/tag/body frequencies before
+        BM25 saturation, using the existing aggregate document length. This
+        is not BM25F: there is no per-field length normalization. Default
+        False retains the original entries, cache format and ranking."""
+        if not all(math.isfinite(w) and w > 0 for w in (title_weight, tag_weight)):
+            raise ValueError("field weights must be finite and positive")
         self.vault = Path(vault)
         self._semantic_mode = semantic
+        self._field_aware = field_aware
+        self._title_weight = title_weight
+        self._tag_weight = tag_weight
         self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
@@ -488,6 +510,9 @@ class Mnemosyne:
         except (OSError, ValueError, zlib.error, AttributeError):
             notes = {}   # missing, older or corrupt cache: refresh() rebuilds it
         self._notes = notes
+        if not self._field_aware:
+            for entry in notes.values():
+                entry.pop("field_terms", None)
         self._postings = {}
         for s, e in notes.items():
             self._add_postings(s, e.get("terms") or {})
@@ -540,6 +565,28 @@ class Mnemosyne:
         notes = self._notes or {}
         total = sum(e.get("doclen", 0) for e in notes.values())
         self._avgdl = (total / len(notes)) if notes else 0.0
+
+    def _read_entry(self, path: Path, rel: str) -> dict[str, Any] | None:
+        """Keep the original parser call/cache unchanged when the flag is off."""
+        if self._field_aware:
+            return _note_entry(path, rel, field_aware=True)
+        return _note_entry(path, rel)
+
+    def _search_postings(self, terms: Iterable[str]
+                         ) -> Mapping[str, Mapping[str, int | float]]:
+        """Weight only query-bearing postings; IDF and length stay unchanged."""
+        if not self._field_aware:
+            return self._postings
+        notes = self._notes or {}
+        weighted: dict[str, dict[str, float]] = {}
+        for term in dict.fromkeys(terms):
+            weighted[term] = {}
+            for s, tf in self._postings.get(term, {}).items():
+                fields = notes[s]["field_terms"]
+                weighted[term][s] = (
+                    tf + (self._title_weight - 1) * fields["title"].get(term, 0)
+                    + (self._tag_weight - 1) * fields["tags"].get(term, 0))
+        return weighted
 
     # -- scanning / refreshing ------------------------------------------------
 
@@ -601,9 +648,10 @@ class Mnemosyne:
             for s, (rel, mtime, size) in scan.items():
                 e = self._notes.get(s)
                 if (e and e.get("rel") == rel and e.get("mtime") == mtime
-                        and e.get("size") == size):
+                        and e.get("size") == size
+                        and (not self._field_aware or "field_terms" in e)):
                     continue
-                entry = _note_entry(self.vault / rel, rel)
+                entry = self._read_entry(self.vault / rel, rel)
                 if entry is None:
                     continue
                 if e:
@@ -635,7 +683,7 @@ class Mnemosyne:
                 rel = path.relative_to(self.vault).as_posix()
             except ValueError:
                 return
-            entry = _note_entry(path, rel)
+            entry = self._read_entry(path, rel)
             if entry is None:
                 return
             s = path.stem
@@ -822,7 +870,8 @@ class Mnemosyne:
             if not notes or not (terms or sem_ranked):
                 return []
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
-            literal = bm25_scores(terms, self._postings, doclens,
+            postings = self._search_postings([*terms, *added])
+            literal = bm25_scores(terms, postings, doclens,
                                   self._avgdl, len(notes))
             pri = self.zone_priorities(today=now.date())
             # TTL is a user-facing calendar date -> LOCAL today, matching
@@ -877,7 +926,7 @@ class Mnemosyne:
                     literal.items(), key=lambda kv: kv[1],
                     reverse=True)[:FUSE_DEPTH])
                 base = dict(literal)
-                for s, v in bm25_scores(list(added), self._postings, doclens,
+                for s, v in bm25_scores(list(added), postings, doclens,
                                         self._avgdl, len(notes), weights=added,
                                         script_bonus=False).items():
                     if s not in full:
