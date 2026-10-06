@@ -117,6 +117,22 @@ def test_diversity_protects_complete_matches_even_if_redundant(tmp_path: Path) -
     assert {h["slug"] for h in hits} == {"one", "two", "partial"}
 
 
+def test_diversity_keeps_a_near_duplicate_with_a_contradictory_value(tmp_path: Path) -> None:
+    # Given: lexical near-duplicates that disagree, neither a full query match.
+    shared = " ".join(f"detail{i}" for i in range(30))
+    _ = note(tmp_path, "original", "record", f"orchard orchard approved {shared}")
+    correction = note(tmp_path, "correction", "record", f"orchard denied {shared}")
+    before = correction.read_bytes()
+    # When: the lower scoring correction is deferred by lexical similarity.
+    hits = mnemosyne.Mnemosyne(
+        tmp_path, semantic=False, evidence_diversity=True).search(
+            "orchard missingunit", limit=32, now=NOW)
+    # Then: the contradictory source still exists and can be returned.
+    assert [h["slug"] for h in hits] == ["original", "correction"]
+    assert hits[1]["diversity_deferred"] == "near_duplicate"
+    assert correction.read_bytes() == before
+
+
 @pytest.mark.parametrize("query", ["", "notfound", "車", "배추"])
 def test_diversity_handles_empty_unknown_and_single_script_queries(tmp_path: Path, query: str) -> None:
     # Given: one note, including a lone CJK query unit.
