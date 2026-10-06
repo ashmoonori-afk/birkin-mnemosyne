@@ -20,6 +20,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -e . pytest
       - run: python -m pytest -q
+      - name: Verify incremental document-length cases execute
+        run: python -m pytest -v tests/test_incremental_doclen.py
 
   mcp:
     name: mcp extra (${{ matrix.os }}, py${{ matrix.python }})
