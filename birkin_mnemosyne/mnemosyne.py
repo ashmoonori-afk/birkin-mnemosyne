@@ -76,6 +76,7 @@ INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: zlib f
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
 SCAN_TTL = 2.0                        # search() stats the vault at most this often (s)
+DIVERSITY_JACCARD = 0.9               # experimental lexical duplicate deferral
 # Search-time query expansion: the weight of a term the caller adds to a query,
 # graded by its distance from the query's own words (which weigh 1.0). Dev-tuned.
 EXPANSION_WEIGHTS = {"synonyms": 0.75, "keywords": 0.75,
@@ -470,7 +471,7 @@ class Mnemosyne:
 
     def __init__(self, vault: Path, semantic: bool | None = None, *,
                  field_aware: bool = False, title_weight: float = 1.5,
-                 tag_weight: float = 1.5):
+                 tag_weight: float = 1.5, evidence_diversity: bool = False):
         """``semantic``: None = the core ranking, unless
         ``MNEMOSYNE_SEMANTIC=1`` asks for the optional semantic mode; True =
         request it (warns and stays on the core when it is unavailable);
@@ -487,6 +488,7 @@ class Mnemosyne:
         self._field_aware: bool = field_aware
         self._title_weight: float = title_weight
         self._tag_weight: float = tag_weight
+        self._evidence_diversity: bool = evidence_diversity
         self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
@@ -832,6 +834,56 @@ class Mnemosyne:
             return []
         return [s for s, _ in bm_list if all(s in post for post in posts)]
 
+    def _diverse_hits(self, query: str, terms: list[str],
+                      hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Reorder the bounded pool, never delete candidates or change scores.
+
+        Complete original-unit matches keep their scored order first. The
+        remainder prefers uncovered informative query tokens, with original
+        rank as tie-break. Lexical Jaccard >= 0.9 duplicates are deferred to
+        the tail, annotated ``diversity_deferred="near_duplicate"``. Similar
+        notes may contradict one another: this is selection, not truth or
+        a deduplication decision. No semantic/vector threshold is used.
+        """
+        notes = self._notes or {}
+        tokens = {
+            h["slug"]: {t for t in notes[h["slug"]]["terms"]
+                        if not t.endswith(STEM_MARK)
+                        and (len(t) > 1 or _script(t) != "cjk")}
+            for h in hits
+        }
+        query_tokens = {t for t in terms if not t.endswith(STEM_MARK)
+                        and (len(t) > 1 or _script(t) != "cjk")}
+        protected = set(self._covering(
+            query, terms, [(h["slug"], h["score"]) for h in hits]))
+        selected = [h for h in hits if h["slug"] in protected]
+        remaining = [h for h in hits if h["slug"] not in protected]
+        covered: set[str] = set()
+        for h in selected:
+            covered.update(tokens[h["slug"]] & query_tokens)
+        deferred: list[dict[str, Any]] = []
+        while remaining:
+            distinct: list[dict[str, Any]] = []
+            for h in remaining:
+                current = tokens[h["slug"]]
+                duplicate = any(
+                    len(current & tokens[p["slug"]]) / len(current | tokens[p["slug"]])
+                    >= DIVERSITY_JACCARD
+                    for p in selected if current | tokens[p["slug"]])
+                if duplicate:
+                    deferred.append({**h, "diversity_deferred": "near_duplicate"})
+                else:
+                    distinct.append(h)
+            if not distinct:
+                break
+            # max keeps the first tied item: the score/updated order above.
+            pick = max(distinct, key=lambda h: len(
+                (tokens[h["slug"]] & query_tokens) - covered))
+            selected.append(pick)
+            covered.update(tokens[pick["slug"]] & query_tokens)
+            remaining = [h for h in distinct if h["slug"] != pick["slug"]]
+        return selected + deferred
+
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
                now: datetime | None = None,
@@ -962,6 +1014,8 @@ class Mnemosyne:
             hits.sort(key=lambda h: (h["slug"] in pinned, h["score"],
                                      -bm_order.get(h["slug"], unranked),
                                      h["updated"]), reverse=True)
+            if self._evidence_diversity:
+                hits = self._diverse_hits(query, terms, hits)
             return hits[:limit]
 
     def related(self, s: str, limit: int = RELATED_LIMIT) -> list[dict[str, Any]]:

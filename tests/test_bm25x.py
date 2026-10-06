@@ -73,3 +73,54 @@ def test_invalid_field_weights_are_rejected_at_constructor(tmp_path: Path, weigh
     # Given/When: an invalid public configuration.
     with pytest.raises(ValueError, match="finite and positive"):
         mnemosyne.Mnemosyne(tmp_path, field_aware=True, title_weight=weight)
+
+
+def test_diversity_selects_complementary_evidence_and_keeps_duplicates(tmp_path: Path) -> None:
+    # Given: repeated first fact scores above the complementary second fact.
+    for i in range(6):
+        _ = note(tmp_path, f"alpha-{i}", "alpha",
+                 "orchard orchard orchard orchard rollback configuration checklist")
+    _ = note(tmp_path, "beta", "beta", "retention policy " + "other " * 20)
+    for i in range(20):
+        _ = note(tmp_path, f"noise-{i}", "misc", "retention " + "filler " * 100)
+    plain = mnemosyne.Mnemosyne(tmp_path, semantic=False).search(
+        "orchard retention", limit=32, now=NOW)
+    assert "beta" not in [h["slug"] for h in plain[:2]]
+    # When: diversity selects from the same scored pool.
+    eng = mnemosyne.Mnemosyne(tmp_path, semantic=False, evidence_diversity=True)
+    hits = eng.search("orchard retention", limit=32, now=NOW)
+    # Then: both facts fit top two and every duplicate remains available.
+    assert "beta" in [h["slug"] for h in hits[:2]]
+    assert {h["slug"] for h in hits} == {h["slug"] for h in plain}
+    assert len(hits) == len(plain)
+    assert sum(h.get("diversity_deferred") == "near_duplicate"
+               for h in hits if h["slug"].startswith("alpha-")) == 5
+    assert {h["slug"]: h["score"] for h in hits} == {
+        h["slug"]: h["score"] for h in plain}
+
+
+def test_diversity_protects_complete_matches_even_if_redundant(tmp_path: Path) -> None:
+    # Given: two complete matches and a partial corroborating note.
+    for name in ("one", "two"):
+        _ = note(tmp_path, name, "orchard retention", "same fact same wording")
+    _ = note(tmp_path, "partial", "orchard", "orchard orchard orchard")
+    plain = mnemosyne.Mnemosyne(tmp_path, semantic=False).search(
+        "orchard retention", now=NOW)
+    full = [h for h in plain if h["slug"] in {"one", "two"}]
+    # When: duplicate deferral is enabled.
+    hits = mnemosyne.Mnemosyne(
+        tmp_path, semantic=False, evidence_diversity=True).search(
+            "orchard retention", now=NOW)
+    # Then: exact matches preserve scored order and unmodified hit dictionaries.
+    assert hits[:2] == full
+    assert {h["slug"] for h in hits} == {"one", "two", "partial"}
+
+
+@pytest.mark.parametrize("query", ["", "notfound", "車", "배추"])
+def test_diversity_handles_empty_unknown_and_single_script_queries(tmp_path: Path, query: str) -> None:
+    # Given: one note, including a lone CJK query unit.
+    _ = note(tmp_path, "one", "車", "배추")
+    plain = mnemosyne.Mnemosyne(tmp_path, semantic=False).search(query, now=NOW)
+    # When/Then: no extra candidate changes a one-note or empty result.
+    assert mnemosyne.Mnemosyne(
+        tmp_path, semantic=False, evidence_diversity=True).search(query, now=NOW) == plain
