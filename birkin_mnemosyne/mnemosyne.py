@@ -481,7 +481,13 @@ class Mnemosyne:
         ``field_aware`` enables weighted title/tag/body frequencies before
         BM25 saturation, using the existing aggregate document length. This
         is not BM25F: there is no per-field length normalization. Default
-        False retains the original entries, cache format and ranking."""
+        False retains the original entries, cache format and ranking.
+
+        ``evidence_diversity`` reorders the bounded scored pool for query
+        coverage and defers lexical near-duplicates, preserving full matches.
+        ``incremental_doclen`` maintains integer length/count totals on index
+        mutations; full cache persistence remains unchanged. Both default
+        False, and each experiment can be enabled independently."""
         if not all(math.isfinite(w) and w > 0 for w in (title_weight, tag_weight)):
             raise ValueError("field weights must be finite and positive")
         self.vault = Path(vault)
