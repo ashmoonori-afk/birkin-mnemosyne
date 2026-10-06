@@ -471,7 +471,8 @@ class Mnemosyne:
 
     def __init__(self, vault: Path, semantic: bool | None = None, *,
                  field_aware: bool = False, title_weight: float = 1.5,
-                 tag_weight: float = 1.5, evidence_diversity: bool = False):
+                 tag_weight: float = 1.5, evidence_diversity: bool = False,
+                 incremental_doclen: bool = False):
         """``semantic``: None = the core ranking, unless
         ``MNEMOSYNE_SEMANTIC=1`` asks for the optional semantic mode; True =
         request it (warns and stays on the core when it is unavailable);
@@ -489,6 +490,9 @@ class Mnemosyne:
         self._title_weight: float = title_weight
         self._tag_weight: float = tag_weight
         self._evidence_diversity: bool = evidence_diversity
+        self._incremental_doclen: bool = incremental_doclen
+        self._total_doclen: int = 0
+        self._doc_count: int = 0
         self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
@@ -567,7 +571,21 @@ class Mnemosyne:
     def _recompute_avgdl(self) -> None:
         notes = self._notes or {}
         total = sum(e.get("doclen", 0) for e in notes.values())
+        self._total_doclen = total
+        self._doc_count = len(notes)
         self._avgdl = (total / len(notes)) if notes else 0.0
+
+    def _adjust_doclen(self, old_length: int, new_length: int,
+                       count_delta: int) -> None:
+        """Update integer totals after a successful opt-in index mutation.
+
+        Totals are derived once from cached entries on load. The unchanged
+        compressed cache persists entries, not redundant floating statistics.
+        Rezone changes no length; failed parsing changes no totals.
+        """
+        self._total_doclen += new_length - old_length
+        self._doc_count += count_delta
+        self._avgdl = self._total_doclen / self._doc_count if self._doc_count else 0.0
 
     def _read_entry(self, path: Path, rel: str) -> dict[str, Any] | None:
         """Keep the original parser call/cache unchanged when the flag is off."""
@@ -645,6 +663,8 @@ class Mnemosyne:
             self._scanned_at = _clock()
             changed = False
             for s in [s for s in self._notes if s not in scan]:
+                if self._incremental_doclen:
+                    self._adjust_doclen(self._notes[s].get("doclen", 0), 0, -1)
                 self._drop_postings(s)
                 del self._notes[s]
                 changed = True
@@ -659,11 +679,15 @@ class Mnemosyne:
                     continue
                 if e:
                     self._drop_postings(s)
+                if self._incremental_doclen:
+                    self._adjust_doclen(
+                        e.get("doclen", 0) if e else 0, entry["doclen"], int(e is None))
                 self._notes[s] = entry
                 self._add_postings(s, entry["terms"])
                 changed = True
             if changed:
-                self._recompute_avgdl()
+                if not self._incremental_doclen:
+                    self._recompute_avgdl()
                 self._save_index()
 
     def rebuild(self) -> dict[str, int]:
@@ -673,6 +697,9 @@ class Mnemosyne:
                 self._load_dynamics()   # skip parsing the index we discard
             self._notes = {}
             self._postings = {}
+            if self._incremental_doclen:
+                self._total_doclen = self._doc_count = 0
+                self._avgdl = 0.0
             self.refresh()
             return self.stats()
 
@@ -690,11 +717,16 @@ class Mnemosyne:
             if entry is None:
                 return
             s = path.stem
+            old = self._notes.get(s)
             if s in self._notes:
                 self._drop_postings(s)
+            if self._incremental_doclen:
+                self._adjust_doclen(
+                    old.get("doclen", 0) if old else 0, entry["doclen"], int(old is None))
             self._notes[s] = entry
             self._add_postings(s, entry["terms"])
-            self._recompute_avgdl()
+            if not self._incremental_doclen:
+                self._recompute_avgdl()
             self._save_index()
 
     # -- accessors -------------------------------------------------------------

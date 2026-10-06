@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -124,3 +125,96 @@ def test_diversity_handles_empty_unknown_and_single_script_queries(tmp_path: Pat
     # When/Then: no extra candidate changes a one-note or empty result.
     assert mnemosyne.Mnemosyne(
         tmp_path, semantic=False, evidence_diversity=True).search(query, now=NOW) == plain
+
+
+def assert_length_parity(eng: mnemosyne.Mnemosyne, vault: Path) -> None:
+    """Compare persisted public searches and cached accounting, exactly."""
+    entries = eng.entries()
+    total = sum(e["doclen"] for e in entries.values())
+    assert eng._total_doclen == total
+    assert eng._doc_count == len(entries)
+    assert eng._avgdl == (total / len(entries) if entries else 0.0)
+    baseline = mnemosyne.Mnemosyne(vault, semantic=False)
+    for query in ("김장 배추", "豚骨スープ", "搬家准备", "orchard retention"):
+        assert json.dumps(eng.search(query, now=NOW)) == json.dumps(
+            baseline.search(query, now=NOW))
+
+
+@pytest.mark.parametrize("operation", ["insert", "edit", "delete", "rezone", "reload", "rebuild"])
+def test_incremental_lengths_preserve_scores_after_mutation(
+        tmp_path: Path,
+        operation: Literal["insert", "edit", "delete", "rezone", "reload", "rebuild"]) -> None:
+    # Given: mixed-script note lengths, including excluded Han/kana unigrams.
+    path = note(tmp_path, "a", "김장", "배추 豚骨スープ orchard", "搬家准备")
+    _ = note(tmp_path, "b", "orchard", "retention")
+    eng = mnemosyne.Mnemosyne(tmp_path, semantic=False, incremental_doclen=True)
+    _ = eng.rebuild()
+    # When: each public index mutation or reconstruction runs.
+    match operation:
+        case "insert":
+            new = note(tmp_path, "c", "搬家准备", "豚骨スープ retention " * 5)
+            eng.note_written(new)
+        case "edit":
+            _ = note(tmp_path, "a", "김장", "배추 " * 30)
+            eng.note_written(path)
+        case "delete":
+            path.unlink()
+            eng.refresh()
+        case "rezone":
+            _ = eng.rezone("a", "food")
+        case "reload":
+            eng = mnemosyne.Mnemosyne(tmp_path, semantic=False, incremental_doclen=True)
+        case "rebuild":
+            _ = eng.rebuild()
+        case unreachable:
+            raise AssertionError(unreachable)
+    # Then: every score and the total/count/average equal full recomputation.
+    assert_length_parity(eng, tmp_path)
+
+
+def test_incremental_failed_parse_does_not_change_totals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: an indexed note and a parser failure after an edit.
+    path = note(tmp_path, "a", "김장", "배추")
+    eng = mnemosyne.Mnemosyne(tmp_path, incremental_doclen=True)
+    _ = eng.rebuild()
+    before = (eng._total_doclen, eng._doc_count, eng._avgdl, eng.entries())
+    _ = note(tmp_path, "a", "김장", "배추 " * 10)
+    monkeypatch.setattr(mnemosyne, "_note_entry", lambda path, rel: None)
+    # When: the targeted parser cannot produce an entry.
+    eng.note_written(path)
+    # Then: accounting and the previous entry are unchanged.
+    assert (eng._total_doclen, eng._doc_count, eng._avgdl, eng.entries()) == before
+
+
+def test_incremental_empty_vault_reset_and_reload(tmp_path: Path) -> None:
+    # Given: a previously nonempty cache.
+    path = note(tmp_path, "a", "車", "車")
+    eng = mnemosyne.Mnemosyne(tmp_path, incremental_doclen=True)
+    _ = eng.rebuild()
+    path.unlink()
+    # When: the last note is removed and the cache is reconstructed.
+    _ = eng.rebuild()
+    # Then: zero totals and an empty search survive reload.
+    assert_length_parity(eng, tmp_path)
+    reloaded = mnemosyne.Mnemosyne(tmp_path, incremental_doclen=True)
+    assert_length_parity(reloaded, tmp_path)
+
+
+def test_incremental_targeted_write_never_recomputes_all_lengths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: loaded totals and a guard against accidentally retaining the full pass.
+    path = note(tmp_path, "a", "orchard", "orchard")
+    eng = mnemosyne.Mnemosyne(tmp_path, incremental_doclen=True)
+    _ = eng.rebuild()
+
+    def forbidden() -> None:
+        raise AssertionError("targeted opt-in mutation recomputed all lengths")
+
+    monkeypatch.setattr(eng, "_recompute_avgdl", forbidden)
+    _ = note(tmp_path, "a", "orchard", "orchard retention " * 5)
+    # When: an edit updates the real index and full persisted cache.
+    eng.note_written(path)
+    # Then: the new average and search are correct without the guarded pass.
+    assert eng._doc_count == 1
+    assert eng._notes is not None
+    assert eng._total_doclen == eng._notes["a"]["doclen"]
+    assert eng.search("retention", now=NOW)[0]["slug"] == "a"
