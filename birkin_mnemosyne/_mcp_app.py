@@ -364,8 +364,12 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                     f"note {s!r} already exists (version {current}). Use "
                     "mode='append', or mode='replace' with "
                     f"expected_version={current} after reading it.")
-            if mode == "create" and mem._resolve_path(
-                    title, note_type or "topic", new_zone).is_file():
+            try:
+                on_disk = (mode == "create" and mem._resolve_path(
+                    title, note_type or "topic", new_zone).is_file())
+            except ValueError as exc:   # e.g. zone cap reached
+                raise ToolError(str(exc)) from exc
+            if on_disk:
                 # the index missed a file that is there: never overwrite it
                 raise ToolError(f"note {s!r} already exists on disk; "
                                 "use mode='append' or mode='replace'")

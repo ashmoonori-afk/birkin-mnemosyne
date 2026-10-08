@@ -118,6 +118,29 @@ def slug(title: str) -> str:
     return s or "note"
 
 
+def normalize_zone(zone: str, *, allow_archive: bool = False) -> str:
+    """Canonical zone name for ``write_note``, ``rezone`` and ``search``.
+
+    ``""``/``"inbox"`` mean the vault root and come back as ``""``; anything
+    else is lower-cased and must match :data:`ZONE_RE` (the same rule
+    :meth:`Mnemosyne.rezone` enforces). Names are never slugged: a Unicode or
+    spaced name is refused instead of silently becoming another zone. The
+    archive is refused unless ``allow_archive`` (``rezone`` and ``search``
+    may name it; ``write_note`` may not: use forget/rezone)."""
+    z = zone.strip().lower()
+    if z in ("", "inbox"):
+        return ""
+    if z == ARCHIVE_ZONE:
+        if allow_archive:
+            return ARCHIVE_ZONE
+        raise ValueError("cannot write a new note into the archive zone "
+                         f"{ARCHIVE_ZONE!r}; use forget or rezone")
+    if not ZONE_RE.fullmatch(z):
+        raise ValueError(f"invalid zone name {zone!r} "
+                         "(want ^[a-z0-9][a-z0-9-]{0,31}$ or 'inbox')")
+    return z
+
+
 # -- pure functions -----------------------------------------------------------
 
 def _fold_char(c: str) -> str:
@@ -963,12 +986,22 @@ class Mnemosyne:
                 return (1 + W_DYN * eff / STRENGTH_CAP
                         + W_ZONE * pri.get(notes[s]["zone"], 0.0))
 
+            # inbox is stored as ""; a hand-made mixed-case folder keeps its
+            # literal name, so match the normalised name or the name as given
+            # (a filter never raises).
+            want_zones = {zone}
+            if zone is not None:
+                try:
+                    want_zones.add(normalize_zone(zone, allow_archive=True))
+                except ValueError:
+                    pass
+
             def visible(s: str) -> bool:
                 e = notes[s]
                 if _entry_expired(e, expiry_today):
                     return False
                 if zone is not None:
-                    return e["zone"] == zone
+                    return e["zone"] in want_zones
                 return e["zone"] != ARCHIVE_ZONE or include_archive
 
             def fuse(lexical: dict[str, float]) -> tuple[
@@ -1092,10 +1125,7 @@ class Mnemosyne:
         ``"inbox"`` for the vault root. Raises ValueError on unknown notes,
         invalid names, the zone cap, or a destination file that already
         exists (it is never overwritten)."""
-        z = "" if zone in ("", "inbox") else str(zone)
-        if z and z != ARCHIVE_ZONE and not ZONE_RE.fullmatch(z):
-            raise ValueError(f"invalid zone name {zone!r} "
-                             "(want ^[a-z0-9][a-z0-9-]{{0,31}}$)")
+        z = normalize_zone(str(zone), allow_archive=True)
         with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
             assert self._notes is not None

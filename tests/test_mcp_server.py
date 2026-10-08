@@ -165,6 +165,21 @@ def test_remember_create_never_overwrites(tmp_path):
     assert _files(tmp_path) == before
 
 
+def test_remember_new_zone_over_the_cap_returns_the_real_message(tmp_path):
+    from birkin_mnemosyne import VaultMemory
+    mem = VaultMemory({"vault_path": str(tmp_path)})
+    for i in range(mnemosyne.MAX_ZONES):
+        mem.write_note(f"Cap {i}", "x", zone=f"z{i}", source="s")
+    before = _files(tmp_path)
+    msg = err(tmp_path, "memory_remember",
+              {"title": "One too many", "body": "x", "zone": "brand-new",
+               "source": "s"})
+    assert "zone cap reached" in msg
+    assert _files(tmp_path) == before
+    out = remember(tmp_path, "Fits", "x", zone="z0", source="s")
+    assert out["path"] == "z0/fits.md"
+
+
 def test_remember_append_and_replace_need_existing_and_version(tmp_path):
     assert "no note" in err(tmp_path, "memory_remember",
                             {"title": "Ghost", "body": "x", "mode": "append"})

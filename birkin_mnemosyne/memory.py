@@ -26,8 +26,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, TYPE_ZONE, WIKILINK_RE,
-                        Mnemosyne, expansion_weights)
+from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, MAX_ZONES, TYPE_ZONE,
+                        WIKILINK_RE, Mnemosyne, expansion_weights,
+                        normalize_zone)
 from .mnemosyne import atomic_write as _atomic_write
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
@@ -124,7 +125,12 @@ class VaultMemory:
         if rel:
             return self.vault / rel
         if zone is not None:
-            z = "" if zone in ("", "inbox") else _slug(zone)[:32]
+            z = normalize_zone(zone)
+            existing = {e["zone"] for e in self.dex.entries().values()
+                        if e["zone"] and e["zone"] != ARCHIVE_ZONE}
+            if z and z not in existing and len(existing) >= MAX_ZONES:
+                raise ValueError(f"zone cap reached ({MAX_ZONES}); "
+                                 "re-use an existing zone")
         else:
             z = TYPE_ZONE.get(note_type, "knowledge")
         return (self.vault / z / f"{s}.md") if z else self.vault / f"{s}.md"
