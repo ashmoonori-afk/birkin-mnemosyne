@@ -118,6 +118,26 @@ def slug(title: str) -> str:
     return s or "note"
 
 
+def normalize_zone(zone: str) -> str:
+    """Canonical zone for placing a new note (``write_note``).
+
+    ``""``/``"inbox"`` mean the vault root and come back as ``""``; anything
+    else is lower-cased and must match :data:`ZONE_RE` (the same rule
+    :meth:`Mnemosyne.rezone` enforces). Names are never slugged: a Unicode or
+    spaced name is refused instead of silently becoming another zone. The
+    archive is not a placement target (use forget/rezone)."""
+    z = zone.strip().lower()
+    if z in ("", "inbox"):
+        return ""
+    if z == ARCHIVE_ZONE:
+        raise ValueError("cannot write a new note into the archive zone "
+                         f"{ARCHIVE_ZONE!r}; use forget or rezone")
+    if not ZONE_RE.fullmatch(z):
+        raise ValueError(f"invalid zone name {zone!r} "
+                         "(want ^[a-z0-9][a-z0-9-]{0,31}$ or 'inbox')")
+    return z
+
+
 # -- pure functions -----------------------------------------------------------
 
 def _fold_char(c: str) -> str:
@@ -948,7 +968,8 @@ class Mnemosyne:
                 if _entry_expired(e, expiry_today):
                     return False
                 if zone is not None:
-                    return e["zone"] == zone
+                    # inbox is stored as "" (same alias rezone accepts)
+                    return e["zone"] == ("" if zone == "inbox" else zone)
                 return e["zone"] != ARCHIVE_ZONE or include_archive
 
             def fuse(lexical: dict[str, float]) -> tuple[

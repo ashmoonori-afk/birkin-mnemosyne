@@ -6,6 +6,8 @@ import config
 
 from pathlib import Path
 
+import pytest
+
 from birkin_mnemosyne import mnemosyne
 from birkin_mnemosyne import VaultMemory
 
@@ -33,6 +35,57 @@ def test_explicit_zone_overrides_type_map():
     p = m.write_note("Budget 2026", "numbers", note_type="fact",
                      zone="finance")
     assert p.parent.name == "finance"
+
+
+def test_write_note_refuses_to_write_into_archive():
+    m = _mem()
+    with pytest.raises(ValueError, match="archive"):
+        m.write_note("Sneaky", "x", zone=mnemosyne.ARCHIVE_ZONE)
+    assert m.get_note("Sneaky") is None
+    assert not (_vault() / "archive").exists()
+
+
+def test_write_note_inbox_zone_lands_at_vault_root():
+    m = _mem()
+    p = m.write_note("Rooted", "x", zone="inbox")
+    assert p.parent == _vault()
+    p2 = m.write_note("Rooted too", "x", zone="  INBOX ")
+    assert p2.parent == _vault()
+
+
+@pytest.mark.parametrize("bad", ["\u65e5\u672c\u8a9e", "Ops Notes", "a_b",
+                                 "-lead", "x" * 33])
+def test_write_note_rejects_zone_names_rezone_would_reject(bad):
+    m = _mem()
+    with pytest.raises(ValueError, match="zone"):
+        m.write_note("Odd zone", "x", zone=bad)
+    assert m.get_note("Odd zone") is None
+
+
+def test_write_note_zone_is_lowercased_like_the_mcp_tool():
+    m = _mem()
+    p = m.write_note("Cased", "x", zone="DevOps")
+    assert p.parent.name == "devops"
+    m.rezone("Cased", "devops")           # rezone accepts what write_note made
+
+
+def test_write_note_enforces_zone_cap_for_new_zones_only():
+    m = _mem()
+    for i in range(mnemosyne.MAX_ZONES):
+        m.write_note(f"Cap {i}", "x", zone=f"z{i}")
+    with pytest.raises(ValueError, match="zone cap"):
+        m.write_note("One too many", "x", zone="brand-new")
+    assert m.get_note("One too many") is None
+    m.write_note("Fits", "x", zone="z0")  # an existing zone is still fine
+    m.write_note("Typed", "x", note_type="project")   # default map unaffected
+
+
+def test_search_zone_inbox_finds_root_notes():
+    m = _mem()
+    m.write_note("Loose banana", "banana split", zone="inbox")
+    m.write_note("Filed banana", "banana bread", zone="baking")
+    hits = m.dex.search("banana", zone="inbox")
+    assert [h["slug"] for h in hits] == ["loose-banana"]
 
 
 def test_update_never_moves_an_existing_note():
