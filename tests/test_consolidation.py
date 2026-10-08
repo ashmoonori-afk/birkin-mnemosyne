@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import multiprocessing
 import os
@@ -497,3 +498,20 @@ def test_lock_retry_waits_through_contention_without_raising():
     assert attempts == 16
     assert len(sleeps) == 15
     assert all(0 < delay <= 0.5 for delay in sleeps)
+
+
+def test_lock_retry_reraises_non_contention_errors_immediately():
+    attempts = 0
+
+    def try_lock():
+        nonlocal attempts
+        attempts += 1
+        raise OSError(errno.EBADF, "bad file descriptor")
+
+    def sleep(delay):
+        raise AssertionError("slept on a non-contention error")
+
+    with pytest.raises(OSError) as raised:
+        vault_lock._acquire_with_retry(try_lock, sleep)
+    assert raised.value.errno == errno.EBADF
+    assert attempts == 1

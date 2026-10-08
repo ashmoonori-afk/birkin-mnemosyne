@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import errno
 import os
 import threading
 import time
@@ -55,15 +56,27 @@ class VaultLock:
                     _unlock_file(handle.fileno())
 
 
+_CONTENDED = frozenset(
+    code for name in ("EACCES", "EDEADLK", "EDEADLOCK")
+    if (code := getattr(errno, name, None)) is not None
+)
+
+
 def _acquire_with_retry(
     try_lock: Callable[[], None], sleep: Callable[[float], None],
 ) -> None:
-    """Retry a non-blocking lock attempt until it succeeds (capped backoff)."""
+    """Retry a non-blocking lock attempt while the lock is contended.
+
+    Only contention errnos are retried (capped backoff); any other OSError is
+    raised immediately.
+    """
     delay = 0.05
     while True:
         try:
             try_lock()
-        except OSError:
+        except OSError as exc:
+            if exc.errno not in _CONTENDED:
+                raise
             sleep(delay)
             delay = min(delay * 2, 0.5)
         else:
