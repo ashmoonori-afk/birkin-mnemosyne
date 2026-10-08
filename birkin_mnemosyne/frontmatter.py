@@ -15,6 +15,7 @@ raising.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -49,8 +50,20 @@ def _indent(s: str) -> int:
 
 def _split_commas(s: str) -> list[str]:
     out, depth, buf = [], 0, []
+    in_str = esc = False
     for ch in s:
-        if ch in "[{":
+        if in_str:   # inside a double-quoted token: commas/brackets are text
+            buf.append(ch)
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"' and not "".join(buf).strip():
+            in_str = True
+        elif ch in "[{":
             depth += 1
         elif ch in "]}":
             depth -= 1
@@ -64,9 +77,20 @@ def _split_commas(s: str) -> list[str]:
     return [x.strip() for x in out if x.strip()]
 
 
+_INT_RE = re.compile(r"-?(?:0|[1-9]\d*)")
+_FLOAT_RE = re.compile(r"-?(?:0|[1-9]\d*)\.\d+")
+
+
 def _parse_value(s: str) -> Any:
     s = s.strip()
     if len(s) >= 2 and s[0] in "\"'" and s[-1] == s[0]:
+        if s[0] == '"':   # JSON-style escapes (\" \\ \n \uXXXX), as the writer emits
+            try:
+                decoded = json.loads(s)
+            except ValueError:
+                return s[1:-1]
+            if isinstance(decoded, str):
+                return decoded
         return s[1:-1]
     if s.startswith("[") and s.endswith("]"):
         inner = s[1:-1].strip()
@@ -76,10 +100,12 @@ def _parse_value(s: str) -> Any:
         return low == "true"
     if low in ("null", "~", ""):
         return None
-    try:
-        return int(s) if re.fullmatch(r"-?\d+", s) else float(s)
-    except ValueError:
-        return s
+    # Strict numerics only: never nan/inf/exponent forms or leading-zero ids.
+    if _INT_RE.fullmatch(s):
+        return int(s)
+    if _FLOAT_RE.fullmatch(s):
+        return float(s)
+    return s
 
 
 def _parse_block(lines: list[str], i: int, base: int):

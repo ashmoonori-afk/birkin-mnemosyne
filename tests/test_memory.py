@@ -244,3 +244,92 @@ def test_existing_nfd_named_file_stays_reachable_by_nfc_title(tmp_path):
     assert text is not None and "decomposed file name body" in text
     assert m.write_note(nfc, "added later", append=True) == hand
     assert len(_md_names(m.vault)) == 1
+
+
+# -- frontmatter quoting (M1-9 / M1-11) ----------------------------------------
+
+_AWKWARD_TITLES = [
+    "Nan", "Infinity", "Inf", "1e3", "007", "true", "null", "[a, b]",
+    'He said "hi" \\ bye',
+]
+
+
+@pytest.mark.parametrize("title", _AWKWARD_TITLES)
+def test_awkward_titles_roundtrip_unchanged(title):
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    m.write_note(title, "body text", source="seed")
+    meta, _ = frontmatter.parse(m.get_note(title))
+    assert meta["title"] == title
+    assert [n["title"] for n in m.list_notes()] == [title]
+    m.write_note(title, "second", source="seed2")
+    meta, _ = frontmatter.parse(m.get_note(title))
+    assert meta["version"] == 2
+    assert meta["sources"] == ["seed", "seed2"]
+
+
+def test_numeric_title_survives_add_link():
+    m = _mem()
+    m.write_note("007", "agent", source="s")
+    m.write_note("B", "other", source="s")
+    assert m.add_link("007", "B") is True
+    assert "B" in m.neighbors("007")
+
+
+def test_source_with_quote_and_tag_with_comma_roundtrip():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    src = 'https://x.test/?q="a"&b=\\c'
+    tags = ["a,b", "c]d", 'e"f', "plain"]
+    m.write_note("Quoted", "body", source=src, tags=tags)
+    meta, _ = frontmatter.parse(m.get_note("Quoted"))
+    assert meta["sources"] == [src]
+    assert meta["tags"] == tags
+    m.write_note("Quoted", "again", tags=tags)
+    meta, _ = frontmatter.parse(m.get_note("Quoted"))
+    assert meta["version"] == 2
+    assert meta["sources"] == [src]
+
+
+def test_multiline_title_cannot_break_header():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    m.write_note("Plan\n---\nnotes", "body", source="seed", tags=["t\n---"])
+    m.write_note("Plan\n---\nnotes", "body2", source="seed")
+    text = m.get_note("Plan --- notes")
+    meta, body = frontmatter.parse(text)
+    assert meta["version"] == 2
+    assert meta["sources"] == ["seed"]
+    assert meta["title"] == "Plan --- notes"
+    assert "---" not in body.replace("body2", "")
+    m.write_note("Plan --- notes", "body3", expected_version=2)
+
+
+def test_old_unquoted_frontmatter_still_parses():
+    from birkin_mnemosyne import frontmatter
+    old = (
+        "---\ntitle: Old Note\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 3\nsources: ["https://a.test", "b"]\n'
+        "tags: [x, y z]\nexpires_at: 2099-01-01\n---\n\nhello\n"
+    )
+    meta, body = frontmatter.parse(old)
+    assert meta["title"] == "Old Note"
+    assert meta["confidence"] == 0.7
+    assert meta["version"] == 3
+    assert meta["sources"] == ["https://a.test", "b"]
+    assert meta["tags"] == ["x", "y z"]
+    assert meta["created"] == "2026-01-02"
+    assert body.strip() == "hello"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("Nan", "Nan"), ("inf", "inf"), ("Infinity", "Infinity"),
+    ("1e3", "1e3"), ("007", "007"), ("42", 42), ("-3", -3),
+    ("0.7", 0.7), ("-1.5", -1.5), ("0", 0),
+])
+def test_parser_numeric_coercion_is_strict(raw, expected):
+    from birkin_mnemosyne import frontmatter
+    meta, _ = frontmatter.parse(f"---\nk: {raw}\n---\n")
+    assert meta["k"] == expected
+    assert type(meta["k"]) is type(expected)

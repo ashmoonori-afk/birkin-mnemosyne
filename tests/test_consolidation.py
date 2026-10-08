@@ -95,7 +95,7 @@ def test_merge_preserves_survivor_metadata_and_both_sources(tmp_path, survivor):
     assert "Review releases; the user approved this merge." in text
     assert ('"chat:first", "chat:second"' if survivor == "first" else
             '"chat:second", "chat:first"') in text
-    assert ("tags: [guard]" in text) == (survivor == "first")
+    assert ('tags: ["guard"]' in text) == (survivor == "first")
     assert not (tmp_path / retired_note.path).exists()
     assert (tmp_path / "_archive" / Path(retired_note.path).name).read_bytes() \
         == before[retired_note.path]

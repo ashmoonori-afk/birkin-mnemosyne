@@ -20,6 +20,8 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 
 from __future__ import annotations
 
+import json
+import re
 import threading
 from collections.abc import Mapping
 from datetime import date, datetime, timezone
@@ -193,6 +195,12 @@ class VaultMemory:
         - **Evidence gate** — a brand-new note requires at least one ``source``.
         """
         note_type = note_type if note_type in VALID_TYPES else "topic"
+        # Header-bound strings must stay on one line (a stray newline could
+        # close the frontmatter early and reset the version counter).
+        title = _one_line(title)
+        if tags is not None:   # None = keep the note's tags; [] = clear them
+            tags = [_one_line(t) for t in tags]
+        source = _one_line(source) if source else source
         # Serialize the read->check->write for this note so concurrent writers
         # can't both pass the version check and clobber each other (lost update),
         # and so the file is never half-written under a reader. Path resolution
@@ -213,12 +221,12 @@ class VaultMemory:
                 created = str(meta.get("created", created))
                 old_sources = meta.get("sources")
                 if isinstance(old_sources, list):
-                    sources = [str(s) for s in old_sources]
+                    sources = [_one_line(s) for s in old_sources]
                 existing_body = old_body.strip()
                 existing_polarity = str(meta.get("polarity") or "") or None
                 old_tags = meta.get("tags")
                 if isinstance(old_tags, list):
-                    existing_tags = [str(t) for t in old_tags]
+                    existing_tags = [_one_line(t) for t in old_tags]
                 existing_expiry = str(meta.get("expires_at") or "") or None
                 try:
                     existing_version = int(meta.get("version") or 0)
@@ -364,7 +372,7 @@ class VaultMemory:
         except (TypeError, ValueError):
             confidence = 0.7
         # rewrite preserving frontmatter (tags/expiry are kept by write_note)
-        self.write_note(meta.get("title", from_title), body,
+        self.write_note(str(meta.get("title") or from_title), body,
                         note_type=str(meta.get("type", "topic")),
                         confidence=confidence)
         return True
@@ -430,18 +438,32 @@ class VaultMemory:
 
 # -- module helpers --------------------------------------------------------
 
+_LINE_BREAKS_RE = re.compile(r"[\x00-\x1f\x7f-\x85\u2028\u2029]+")
+
+
+def _one_line(value: object) -> str:
+    """Collapse newlines/control characters to one space."""
+    return _LINE_BREAKS_RE.sub(" ", str(value)).strip()
+
+
+def _yaml_str(value: object) -> str:
+    """A JSON string is a valid YAML double-quoted scalar; it cannot be
+    mistaken for a number/bool/null/list and escapes ``"`` and ``\\``."""
+    return json.dumps(str(value), ensure_ascii=False)
+
+
 def _compose_frontmatter(*, title: str, note_type: str, created: str,
                          updated: str, confidence: float,
                          sources: list[str], tags: list[str],
                          expires_at: str | None = None,
                          polarity: str = "positive",
                          version: int = 1) -> str:
-    src = ", ".join(f'"{s}"' for s in sources)
-    tg = ", ".join(str(t) for t in tags)
+    src = ", ".join(_yaml_str(s) for s in sources)
+    tg = ", ".join(_yaml_str(t) for t in tags)
     ttl_line = f"expires_at: {expires_at}\n" if expires_at else ""
     return (
         "---\n"
-        f"title: {title}\n"
+        f"title: {_yaml_str(title)}\n"
         f"type: {note_type}\n"
         f"created: {created}\n"
         f"updated: {updated}\n"
