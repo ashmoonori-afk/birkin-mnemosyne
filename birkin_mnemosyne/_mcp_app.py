@@ -388,9 +388,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 "ops": [{"op": "archive", "slug": s, "reason": reason}]}
         with lock.hold():
             out = evaluate_plan(vault, plan, apply=confirm)
-        archived = any(o.get("op") == "archive" for o in out.accepted)
-        return {"slug": s, "allowed": archived,
-                "archived": archived and confirm, **_outcome(out)}
+        allowed = any(o.get("op") == "archive" for o in out.accepted)
+        archived = any(o.get("op") == "archive" and "error" not in o
+                       for o in out.effected)
+        return {"slug": s, "allowed": allowed,
+                "archived": archived, **_outcome(out)}
 
     @server.tool(annotations=_mutating("Restore", destructive=False,
                                        idempotent=True))

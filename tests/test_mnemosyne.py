@@ -577,6 +577,30 @@ def test_rezone_rejects_bad_zone_names():
         eng.rezone("no-such-note", "finance")
 
 
+def test_rezone_refuses_to_overwrite_existing_destination():
+    import os
+    m = _mem()
+    m.write_note("Foo", "the indexed copy", note_type="fact")
+    vault = _vault()
+    src = vault / "knowledge" / "foo.md"
+    hidden = vault / "projects" / "foo.md"
+    hidden.parent.mkdir(parents=True, exist_ok=True)
+    hidden.write_text("---\ntitle: foo\n---\nolder hand-made copy\n",
+                      encoding="utf-8")
+    old = src.stat().st_mtime - 1000
+    os.utime(hidden, (old, old))
+    src_bytes, hidden_bytes = src.read_bytes(), hidden.read_bytes()
+    eng = _engine()
+    assert eng.note_meta("foo")["rel"] == "knowledge/foo.md"
+    with pytest.raises(ValueError) as exc:
+        eng.rezone("foo", "projects")
+    msg = str(exc.value)
+    assert "knowledge/foo.md" in msg and "projects/foo.md" in msg
+    assert src.read_bytes() == src_bytes
+    assert hidden.read_bytes() == hidden_bytes
+    assert eng.note_meta("foo")["rel"] == "knowledge/foo.md"
+
+
 def test_entries_returns_snapshot_not_live_dict():
     """Consumers iterate entries() while other threads mutate the index —
     it must be a copy (review finding: RuntimeError under concurrency)."""

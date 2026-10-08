@@ -278,6 +278,25 @@ def test_forget_is_dry_run_then_archive_then_restore(tmp_path):
                                  {"note": "tax-filing"})
 
 
+def test_forget_never_overwrites_an_existing_archive_file(tmp_path):
+    _seed(tmp_path)
+    live = tmp_path / "tax-filing.md"
+    hidden = tmp_path / "_archive" / "tax-filing.md"
+    hidden.parent.mkdir(exist_ok=True)
+    hidden.write_text("---\ntitle: tax-filing\n---\nolder archived copy\n",
+                      encoding="utf-8")
+    old = live.stat().st_mtime - 1000
+    os.utime(hidden, (old, old))
+    live_bytes, hidden_bytes = live.read_bytes(), hidden.read_bytes()
+
+    out = ok(tmp_path, "memory_forget",
+             {"note": "tax-filing", "reason": "filed", "confirm": True})
+    assert out["archived"] is False
+    assert "already exists" in out["effected"][0]["error"]
+    assert live.read_bytes() == live_bytes
+    assert hidden.read_bytes() == hidden_bytes
+
+
 def test_forget_refuses_protected_note(tmp_path):
     _seed(tmp_path)
     out = ok(tmp_path, "memory_forget",

@@ -981,7 +981,8 @@ class Mnemosyne:
 
         ``zone`` may be a normal zone name, ``"_archive"``, or ``""``/
         ``"inbox"`` for the vault root. Raises ValueError on unknown notes,
-        invalid names, or the zone cap."""
+        invalid names, the zone cap, or a destination file that already
+        exists (it is never overwritten)."""
         z = "" if zone in ("", "inbox") else str(zone)
         if z and z != ARCHIVE_ZONE and not ZONE_RE.fullmatch(z):
             raise ValueError(f"invalid zone name {zone!r} "
@@ -1003,10 +1004,18 @@ class Mnemosyne:
             old = self.vault / e["rel"]
             new_dir = (self.vault / z) if z else self.vault
             new = new_dir / f"{s}.md"
+            rel = f"{z}/{s}.md" if z else f"{s}.md"
             if old != new:
+                # _scan tolerates same-stem files in several zones (newest
+                # wins), so the destination may hold a note the index cannot
+                # see; os.replace would silently destroy it.
+                if new.exists() and not (old.exists()
+                                         and os.path.samefile(old, new)):
+                    raise ValueError(
+                        f"cannot move {e['rel']} to {rel}: destination "
+                        "already exists; merge or rename one of them first")
                 new_dir.mkdir(parents=True, exist_ok=True)
                 os.replace(old, new)
-            rel = f"{z}/{s}.md" if z else f"{s}.md"
             try:
                 st = new.stat()
                 mtime, size = st.st_mtime, st.st_size
