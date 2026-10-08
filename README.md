@@ -608,7 +608,19 @@ my_vault/
   _archive/                     # soft-forgotten notes
   .mnemosyne-index.json.z        # rebuildable compressed index cache
   .mnemosyne-dynamics.json       # persistent usage state
+  .mnemosyne-vectors.npz         # rebuildable semantic vector cache
+  .mnemosyne-reviews/            # review undo journal (<transaction-id>.json)
+  .mnemosyne-mcp.lock            # cross-process writer lock
 ```
+
+The index cache, the vectors file and the lock file are safe to delete only
+while no Mnemosyne process is using the vault. The caches are rebuilt
+automatically (without the vectors file, the next semantic search re-embeds the
+whole vault) and the lock file is recreated, but deleting the lock file while
+another process holds it breaks mutual exclusion on Linux and macOS. Keep the
+lock file and the vectors file out of git and file sync. Keep
+`.mnemosyne-dynamics.json` (usage history) and `.mnemosyne-reviews/` (needed to
+undo review answers) when backing up or syncing a vault.
 
 `VaultMemory({"vault_path": "my_vault"})` selects the vault. The legacy `vault`
 configuration key is also accepted; without either key the default is
