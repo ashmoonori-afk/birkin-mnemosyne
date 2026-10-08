@@ -139,12 +139,31 @@ def _outcome(out: CurationOutcome) -> dict[str, Any]:
             "effected": out.effected, "plan_ops": out.plan_ops}
 
 
+def _vault_relative(name: object, vault: Path) -> str:
+    """Vault-relative POSIX form of ``name``; the basename if it is outside."""
+    path = Path(str(name))
+    for candidate in (path, path.resolve()):
+        for root in (vault, vault.resolve()):
+            try:
+                return candidate.relative_to(root).as_posix()
+            except ValueError:
+                continue
+    return path.name
+
+
 def _review_failure(exc: Exception, vault: Path) -> ToolError:
     """Map a review I/O or decode failure to a ToolError with vault-relative paths."""
-    text = str(exc) or type(exc).__name__
-    for root in dict.fromkeys((str(vault.resolve()), str(vault))):
-        text = text.replace(root.rstrip("/\\") + "/", "").replace(root, ".")
-    return ToolError(f"review failed ({type(exc).__name__}): {text}")
+    if isinstance(exc, OSError):
+        detail = exc.strerror or type(exc).__name__
+        names = [_vault_relative(n, vault)
+                 for n in (exc.filename, exc.filename2) if isinstance(n, (str, Path))]
+        if names:
+            detail = f"{detail}: {', '.join(names)}"
+    else:
+        detail = str(exc) or type(exc).__name__
+        for root in dict.fromkeys((str(vault.resolve()), str(vault))):
+            detail = detail.replace(root, ".")
+    return ToolError(f"review failed ({type(exc).__name__}): {detail}")
 
 
 def create_server(vault: Path, *, evidence_required: bool = False,

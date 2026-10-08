@@ -498,4 +498,14 @@ def test_review_io_errors_become_tool_errors_with_relative_path(
         if tool == "memory_review_apply" else {}
     message = err(tmp_path, tool, args)
     assert "inbox/first-rule.md" in message
-    assert str(tmp_path.resolve()) not in message
+    for root in (tmp_path, tmp_path.resolve()):
+        assert str(root) not in message
+        assert repr(str(root))[1:-1] not in message
+
+
+def test_review_failure_falls_back_to_basename_outside_the_vault(tmp_path):
+    from birkin_mnemosyne import _mcp_app
+    outside = tmp_path.parent / "elsewhere" / "other.md"
+    error = _mcp_app._review_failure(
+        PermissionError(13, "Permission denied", str(outside)), tmp_path)
+    assert str(error) == "review failed (PermissionError): Permission denied: other.md"
