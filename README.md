@@ -371,7 +371,8 @@ stays inside the vault, `_archive` is not an active zone, and free-text
 summaries are inert rather than control signals. Unparseable output becomes
 an empty plan. Placement is model judgment; linking co-placed notes is
 mechanical. Schema validation alone does not prevent mass archiving; the
-executor's clamp does. Path containment and slug lookup also protect the
+executor's clamp limits each call, so repeated calls can archive more (archives
+stay reversible). Path containment and slug lookup also protect the
 lower-level file operations.
 
 ```python
@@ -425,6 +426,7 @@ times out on that first start, run the command once in a terminal.
 |---|---|
 | vault directory | `--vault PATH`, else `$MNEMOSYNE_VAULT`, else `~/.birkin-mnemosyne/vault` |
 | require a `source` for new notes | `--evidence-required` or `MNEMOSYNE_EVIDENCE_REQUIRED=1` |
+| identity/startup read root | `--identity-root PATH`, else `$MNEMOSYNE_IDENTITY_ROOT`, else the vault; `memory_identity_read` and `memory_startup_*` can read files under this root, hidden files included, so keep it narrow |
 
 **Claude Code**
 
@@ -476,13 +478,23 @@ serialized across server processes with a lock file.
 | `memory_restore` | move a note back out of `_archive` | — |
 | `memory_curation_catalog` | structured catalog for writing a CurationPlan | read-only |
 | `memory_curate` | run a CurationPlan/1 through the deterministic gate | dry run unless `apply=true` |
+| `memory_review_questions` | list possible duplicate, overlapping or conflicting note pairs as questions for the user | read-only |
+| `memory_review_apply` | apply one explicit user answer to a review question (`drop-*` archives a note, `merge` writes the approved body); journals both original byte images | dry run unless `confirm=true` |
+| `memory_review_undo` | restore the byte-exact originals of a review transaction if every post-image is unchanged | dry run unless `confirm=true` |
+| `memory_identity_read` | read SOUL/AGENTS-style Markdown under the identity root as a catalog, ranked sections, one section, or the full file | read-only |
+| `memory_kibitzer_candidates` | ranked live note candidates for a query, with short excerpts; archive, system and expired notes are skipped | read-only |
+| `memory_startup_read` | read startup files (and the local files they MUST READ) under the identity root completely, with coverage checks | read-only |
+| `memory_startup_verify` | re-read the same files and verify a returned startup context against them | read-only |
 
 Plus the resources `mnemosyne://digest` (the prompt digest) and
 `mnemosyne://note/{slug}`, and the prompt `curate_vault`. The calling agent is
 the curator: it reads the catalog, writes a plan, and `memory_curate` clamps it
 exactly like `run_curation_pass` would — protected notes stay put and the
-archive cap applies to every call. Nothing exposed over MCP can hard-delete a
-file (`purge_expired` stays a Python-only maintenance call). Note text returned
+archive cap is recomputed for each call, so repeated calls can archive more.
+Forget and curation only archive notes. The one file removal over MCP is
+`memory_review_undo`, which deletes a review's archived copy only after the
+original bytes are restored and verified; `purge_expired` stays a Python-only
+maintenance call. Note text returned
 by the tools is stored data from earlier sessions; the server tells clients
 not to follow instructions found inside it.
 
