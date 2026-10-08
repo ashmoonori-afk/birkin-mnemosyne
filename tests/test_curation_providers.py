@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 
 from birkin_mnemosyne import providers
@@ -61,6 +62,38 @@ def test_codex_completer_uses_readonly_isolated_home_and_cwd(
     assert not captured["outpath"].exists()
     assert not schema_path.exists()
     assert not isolated_home.exists()
+
+
+def test_codex_isolated_home_lives_in_system_temp_not_cwd(
+        monkeypatch, tmp_path):
+    source_home = tmp_path / "source-codex"
+    source_home.mkdir()
+    (source_home / "auth.json").write_text("{}", encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    monkeypatch.setenv("CODEX_HOME", str(source_home))
+    monkeypatch.setattr(providers.shutil, "which",
+                        lambda name: "codex.exe" if name == "codex" else None)
+    captured = {}
+
+    def fake_run(argv, stdin=None, timeout=0, cwd=None, env=None):
+        home = Path(env["CODEX_HOME"])
+        captured["home"] = home
+        captured["auth_seeded"] = (home / "auth.json").is_file()
+        Path(argv[argv.index("-o") + 1]).write_text("ok", encoding="utf-8")
+        return "", "", 0
+
+    monkeypatch.setattr(providers, "_run", fake_run)
+
+    assert providers.codex_completer("gpt-test")("prompt") == "ok"
+
+    home = captured["home"]
+    assert captured["auth_seeded"] is True
+    assert not (work / ".omo").exists()
+    assert list(work.iterdir()) == []
+    assert home.resolve().parent == Path(tempfile.gettempdir()).resolve()
+    assert not home.exists()
 
 
 def test_get_completer_passes_cwd_to_codex_alias(monkeypatch):
