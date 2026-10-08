@@ -36,7 +36,8 @@ def evaluate_plan(vault: Path, plan: dict[str, Any], *, apply: bool = False,
 
     The plan is validated and clamped against the vault's *current* state
     (archive cap, protected notes, known slugs, zone names) and expanded with
-    dense zone links. With ``apply=False`` (the default) nothing is applied:
+    dense zone links (bounded: see ``_dense_zone_links``; the number added is
+    reported as ``dense_links``). With ``apply=False`` (the default) nothing is applied:
     no note or dynamics file changes (the index cache may still be refreshed)
     and ``effected`` is empty. With ``apply=True`` the accepted ops are
     applied exactly as :func:`run_curation_pass` does.
@@ -53,7 +54,8 @@ def evaluate_plan(vault: Path, plan: dict[str, Any], *, apply: bool = False,
             snap = _snapshot(dex)
             gate = validate_clamp(plan, dex, snap, now=now)
             accepted = _dense_zone_links(gate.accepted, snap)
-        effected = apply_plan(accepted, vault, dex) if apply else []
+        with dex.deferred_save():
+            effected = apply_plan(accepted, vault, dex) if apply else []
     ops = plan.get("ops", [])
     return CurationOutcome(
         provider=provider, model=model,
@@ -65,7 +67,8 @@ def evaluate_plan(vault: Path, plan: dict[str, Any], *, apply: bool = False,
         summary=sanitize_summary(str(plan.get("summary", ""))),
         raw_text=sanitize_summary(raw_text)[:4000],
         plan_ops=len(ops) if isinstance(ops, list) else 0,
-        dry_run=not apply)
+        dry_run=not apply,
+        dense_links=len(accepted) - len(gate.accepted))
 
 
 def run_curation_pass(vault: Path, complete: Callable[[str], str], *,

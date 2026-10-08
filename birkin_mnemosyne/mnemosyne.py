@@ -478,6 +478,8 @@ class Mnemosyne:
         self._doc_count: int = 0
         self._avgdl = 0.0
         self._scanned_at: float | None = None   # _clock() of the last vault scan
+        self._defer_depth = 0         # >0: index saves are batched
+        self._save_pending = False    # a save was requested while deferred
 
     # -- persistence --------------------------------------------------------
 
@@ -559,7 +561,25 @@ class Mnemosyne:
                 self._load_dynamics(quarantine=True)
                 yield
 
+    @contextlib.contextmanager
+    def deferred_save(self) -> Iterator[None]:
+        """Batch index persistence: saves requested inside the block are
+        coalesced into one save on exit (also when the block raises)."""
+        with self._lock:
+            self._defer_depth += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._defer_depth -= 1
+                if self._defer_depth == 0 and self._save_pending:
+                    self._save_pending = False
+                    self._save_index()
+
     def _save_index(self) -> None:
+        if self._defer_depth:
+            self._save_pending = True
+            return
         try:
             atomic_write_bytes(self._index_path, _encode_index(self._notes or {}))
             (self.vault / LEGACY_INDEX_FILE).unlink(missing_ok=True)

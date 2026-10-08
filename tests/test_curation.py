@@ -13,7 +13,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from birkin_mnemosyne import curation, mnemosyne
+from birkin_mnemosyne import curation, curation_contract, curation_gate, mnemosyne
 from birkin_mnemosyne import VaultMemory
 
 
@@ -468,6 +468,104 @@ def test_run_pass_dense_links_skip_supersede_pair():
     assert {"op": "supersede", "stale": old, "by": new} in out.effected
     assert not any(e["op"] == "link" and {e["a"], e["b"]} == {old, new}
                    for e in out.effected)
+
+
+# ---------------- bounded dense zone links (M2-3) ---------------------------
+
+def _big_zone_vault(n: int = 30) -> tuple[Path, str, list[str]]:
+    """A zone holding ``n`` notes (every third one already linked) plus one
+    inbox note that a plan will move into it."""
+    m = VaultMemory(config.load_config())
+    mates = []
+    for i in range(n):
+        title = f"Bigzone note {i:02d}"
+        links = [f"Bigzone note {(i + 1) % n:02d}"] if i % 3 == 0 else None
+        m.write_note(title, f"body about {title.lower()}", zone="bigzone",
+                     links=links)
+        mates.append(mnemosyne.slug(title))
+    m.write_note("Newcomer", "body about newcomer", zone="inbox")
+    vault = config.vault_dir(config.load_config())
+    return vault, mnemosyne.slug("Newcomer"), mates
+
+
+def _related_lines(vault: Path, slugs: list[str]) -> dict[str, int]:
+    dex = mnemosyne.Mnemosyne(vault)
+    dex.refresh()
+    return {s: (vault / dex.note_meta(s)["rel"]).read_text(
+        encoding="utf-8").count("- [[") for s in slugs}
+
+
+def test_rezone_one_note_into_big_zone_links_only_the_moved_note():
+    vault, new, mates = _big_zone_vault()
+    plan = {"plan_version": 1, "ops": [
+        {"op": "rezone", "slug": new, "zone": "bigzone"}], "summary": "file"}
+    before = _related_lines(vault, mates)
+
+    dry = curation.evaluate_plan(vault, plan, provider="test", now=NOW)
+    links = [o for o in dry.accepted if o["op"] == "link"]
+    assert 0 < len(links) <= curation_contract.DENSE_LINK_LIMIT
+    assert all(new in (o["a"], o["b"]) for o in links)
+    assert dry.dense_links == len(links)
+
+    curation.evaluate_plan(vault, plan, apply=True, provider="test", now=NOW)
+    after = _related_lines(vault, mates)
+    assert all(after[s] - before[s] <= 1 for s in mates)
+    assert sum(after[s] - before[s] for s in mates) == len(links)
+
+
+def test_dense_links_total_is_capped_per_plan(monkeypatch):
+    monkeypatch.setattr(curation_gate, "MAX_DENSE_LINKS", 5)
+    snap = {f"n{i:02d}": {"zone": "", "type": "fact", "polarity": "neutral",
+                          "links": []} for i in range(20)}
+    accepted = [{"op": "rezone", "slug": s, "zone": "z"} for s in snap]
+    expanded = curation_gate._dense_zone_links(accepted, snap)
+    assert len(expanded) - len(accepted) == 5
+
+
+def test_dense_links_choice_is_deterministic():
+    snap = {f"n{i:02d}": {"zone": "z" if i else "", "type": "fact",
+                          "polarity": "neutral", "links": []}
+            for i in range(40)}
+    accepted = [{"op": "rezone", "slug": "n00", "zone": "z"}]
+    first = curation_gate._dense_zone_links(accepted, snap)
+    assert first == curation_gate._dense_zone_links(accepted, snap)
+    picked = [o["b"] if o["a"] == "n00" else o["a"] for o in first[1:]]
+    assert picked == sorted(picked)[:curation_contract.DENSE_LINK_LIMIT]
+
+
+def test_apply_plan_saves_index_once(monkeypatch):
+    vault, new, mates = _big_zone_vault(12)
+    plan = {"plan_version": 1, "ops": [
+        {"op": "rezone", "slug": new, "zone": "bigzone"}], "summary": "file"}
+    dry = curation.evaluate_plan(vault, plan, provider="test", now=NOW)
+    assert sum(1 for o in dry.accepted if o["op"] == "link") >= 5
+    encoded: list[int] = []
+    real = mnemosyne._encode_index
+    monkeypatch.setattr(mnemosyne, "_encode_index",
+                        lambda notes: encoded.append(1) or real(notes))
+    out = curation.evaluate_plan(vault, plan, apply=True, provider="test",
+                                 now=NOW)
+    assert sum(1 for e in out.effected if e["op"] == "link") >= 5
+    assert len(encoded) == 1
+
+
+def test_deferred_save_flushes_once_even_on_error(monkeypatch):
+    vault, new, mates = _big_zone_vault(3)
+    dex = mnemosyne.Mnemosyne(vault)
+    dex.refresh()
+    encoded: list[int] = []
+    real = mnemosyne._encode_index
+    monkeypatch.setattr(mnemosyne, "_encode_index",
+                        lambda notes: encoded.append(1) or real(notes))
+    try:
+        with dex.deferred_save():
+            dex.rezone(new, "bigzone")
+            dex.rezone(new, "other")
+            assert encoded == []
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+    assert len(encoded) == 1
 
 
 def test_prompt_explains_zone_assignments_drive_dense_links():

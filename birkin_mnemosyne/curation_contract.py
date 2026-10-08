@@ -9,6 +9,11 @@ ARCHIVE_CAP_FRACTION = 0.20
 ARCHIVE_CAP_MIN = 2
 PROTECT_TYPES = {"identity", "preference"}
 OPS = {"rezone", "link", "supersede", "archive"}
+# Dense zone links: each note a plan moves into a zone is linked to at most
+# DENSE_LINK_LIMIT zone-mates, and one plan expands to at most
+# MAX_DENSE_LINKS links (the same size as the 500-op plan limit).
+DENSE_LINK_LIMIT = 10
+MAX_DENSE_LINKS = 500
 
 FORBIDDEN_PHRASE_TOKENS = ("ALL", "NOTES", "ARCHIVED", "SUCCESSFULLY")
 _FORBIDDEN_RE = re.compile(r"\s*".join(FORBIDDEN_PHRASE_TOKENS),
@@ -44,6 +49,7 @@ class CurationOutcome:
     raw_text: str
     plan_ops: int
     dry_run: bool = False
+    dense_links: int = 0   # link ops the executor added on top of the plan
 
 
 def sanitize_summary(summary: str) -> str:
