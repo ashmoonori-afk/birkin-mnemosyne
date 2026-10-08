@@ -21,6 +21,62 @@ jobs:
       - run: python -m pip install build twine
       - run: python -m build
       - run: python -m twine check --strict dist/*
+      # Smoke-test the exact wheel that would be published: install it (core,
+      # no extras) into a fresh venv and import / test it from outside the
+      # checkout, so the source tree can never stand in for the package.
+      - name: Check wheel version against pyproject and tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          project=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          wheels=(dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          wheel=$(python -c "import sys; print(sys.argv[1].split('/')[-1].split('-')[1])" "${wheels[0]}")
+          echo "pyproject=$project wheel=$wheel ref_type=$REF_TYPE ref=$REF_NAME"
+          test "$wheel" = "$project"
+          if [ "$REF_TYPE" = "tag" ]; then
+            test "${REF_NAME#v}" = "$project"
+          fi
+      - name: Install the wheel into a fresh venv
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-venv"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install dist/*.whl pytest
+      - name: Import and run the installed wheel
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          py="$RUNNER_TEMP/wheel-venv/bin/python"
+          "$py" -c "import birkin_mnemosyne, birkin_mnemosyne.mcp_server; print(birkin_mnemosyne.__version__, birkin_mnemosyne.__file__)"
+          # --version is handled by argparse before the optional mcp extra is imported
+          "$RUNNER_TEMP/wheel-venv/bin/mnemosyne-mcp" --version
+      - name: Run the test suite against the installed wheel
+        working-directory: ${{ runner.temp }}
+        env:
+          CHECKOUT: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # Fail if any birkin_mnemosyne module the tests load comes from the
+          # checkout instead of the installed wheel.
+          mkdir -p wheel-guard
+          cat > wheel-guard/wheel_guard.py <<'PY'
+          import os
+          import sys
+
+
+          def pytest_sessionfinish(session, exitstatus):
+              checkout = os.path.realpath(os.environ["CHECKOUT"]) + os.sep
+              mods = {n: m for n, m in sys.modules.items()
+                      if n == "birkin_mnemosyne" or n.startswith("birkin_mnemosyne.")}
+              assert "birkin_mnemosyne" in mods, "tests never imported birkin_mnemosyne"
+              bad = sorted(n for n, m in mods.items()
+                           if os.path.realpath(getattr(m, "__file__", "") or "").startswith(checkout))
+              assert not bad, f"imported from the checkout, not the wheel: {bad}"
+              print(f"\nwheel guard: {len(mods)} birkin_mnemosyne modules, all from the installed wheel")
+          PY
+          PYTHONPATH="$PWD/wheel-guard" "$RUNNER_TEMP/wheel-venv/bin/python" -m pytest -q \
+            -p no:cacheprovider -p wheel_guard "$CHECKOUT/tests"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
