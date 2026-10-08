@@ -426,7 +426,7 @@ times out on that first start, run the command once in a terminal.
 |---|---|
 | vault directory | `--vault PATH`, else `$MNEMOSYNE_VAULT`, else `~/.birkin-mnemosyne/vault` |
 | require a `source` for new notes | `--evidence-required` or `MNEMOSYNE_EVIDENCE_REQUIRED=1` |
-| identity/startup read root | `--identity-root PATH`, else `$MNEMOSYNE_IDENTITY_ROOT`, else the vault; `memory_identity_read` and `memory_startup_*` can read files under this root, hidden files included, so keep it narrow |
+| identity/startup read root | `--identity-root PATH`, else `$MNEMOSYNE_IDENTITY_ROOT`, else the vault; `memory_identity_read` and `memory_startup_*` can read files under this root (paths are confined to it); point it at a directory that holds only files you want an agent to read |
 
 **Claude Code**
 
