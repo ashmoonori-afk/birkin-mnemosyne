@@ -149,3 +149,54 @@ def test_stem_snippet_word_ends_at_cjk_like_the_tokenizer():
     from birkin_mnemosyne.memory import _stem_word_at
     assert not _stem_word_at("abcde漢字", 0)
     assert _stem_word_at("abcdef漢字", 0)
+
+
+def _vault_mem(tmp_path):
+    return VaultMemory({"vault_path": str(tmp_path / "v")})
+
+
+def _md_names(vault):
+    return sorted(p.name for p in vault.rglob("*.md"))
+
+
+def test_hand_made_note_title_round_trips_through_get_and_write(tmp_path):
+    m = _vault_mem(tmp_path)
+    hand = m.vault / "My Note.md"
+    hand.write_text("---\ntype: topic\n---\nhand written body about pelicans\n",
+                    encoding="utf-8")
+    m.dex.refresh()
+    hits = m.search("pelicans")
+    assert hits and hits[0]["title"] == "My Note"
+    text = m.get_note(hits[0]["title"])
+    assert text is not None and "pelicans" in text
+    assert m.write_note("My Note", "more about herons", append=True) == hand
+    updated = hand.read_text(encoding="utf-8")
+    assert "pelicans" in updated and "herons" in updated
+    assert _md_names(m.vault) == ["My Note.md"]
+
+
+def test_nfd_title_names_the_same_note_as_nfc(tmp_path):
+    import unicodedata
+    nfc = "\ud55c\uae00 note"
+    nfd = unicodedata.normalize("NFD", nfc)
+    assert nfd != nfc
+    m = _vault_mem(tmp_path)
+    first = m.write_note(nfc, "first body")
+    assert m.write_note(nfd, "second body", append=True) == first
+    assert len(_md_names(m.vault)) == 1
+    text = m.get_note(nfd)
+    assert text is not None and "first body" in text and "second body" in text
+
+
+def test_existing_nfd_named_file_stays_reachable_by_nfc_title(tmp_path):
+    import unicodedata
+    nfc = "\ud55c\uae00 note"
+    hand = (tmp_path / "v") / (unicodedata.normalize("NFD", nfc) + ".md")
+    hand.parent.mkdir()
+    hand.write_text("---\ntype: topic\n---\ndecomposed file name body\n",
+                    encoding="utf-8")
+    m = VaultMemory({"vault_path": str(hand.parent)})
+    text = m.get_note(nfc)
+    assert text is not None and "decomposed file name body" in text
+    assert m.write_note(nfc, "added later", append=True) == hand
+    assert len(_md_names(m.vault)) == 1

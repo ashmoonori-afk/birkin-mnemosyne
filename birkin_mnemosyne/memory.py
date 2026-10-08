@@ -96,7 +96,7 @@ class VaultMemory:
         explicit ``zone`` or the mechanical type→zone map (Morpheus refines
         placement nightly via memory_rezone)."""
         s = _slug(title)
-        rel = self.dex.resolve_rel(s)
+        rel = self.dex.resolve_rel(title)
         if rel:
             return self.vault / rel
         if zone is not None:
@@ -107,14 +107,14 @@ class VaultMemory:
 
     def _find_note(self, title: str) -> Path | None:
         s = _slug(title)
-        rel = self.dex.resolve_rel(s)
+        rel = self.dex.resolve_rel(title)
         if rel and (self.vault / rel).is_file():
             return self.vault / rel
         p = self.vault / f"{s}.md"
         if p.is_file():
             return p
         for f in self.vault.rglob("*.md"):   # index cold/missing fallback
-            if f.stem == s:
+            if _slug(f.stem) == s:
                 return f
         return None
 
@@ -263,7 +263,7 @@ class VaultMemory:
                 polarity=pol, version=existing_version + 1)
             _atomic_write(p, fm + body + "\n")
             self.dex.note_written(p)
-            self.dex.record_access(_slug(title))   # writing = using
+            self.dex.record_access(p.stem)   # writing = using
             return p
 
     def search(self, query: str, limit: int = 8,
@@ -319,7 +319,7 @@ class VaultMemory:
         new_tokens = set(_tokenize(f"{title} {body}"))
         if not new_tokens:
             return []
-        self_slug = _slug(title)
+        self_slug = self.dex.key_for(title) or _slug(title)
         entries = self.dex.entries()
         out: list[tuple[str, float]] = []
         seen: set[str] = set()
@@ -360,7 +360,7 @@ class VaultMemory:
     def rezone(self, title: str, zone: str) -> Path:
         """Move a note to another zone (Morpheus's placement instrument)."""
         with VaultLock(self.vault).hold(), _note_lock(_slug(title)):
-            return self.dex.rezone(_slug(title), zone)
+            return self.dex.rezone(title, zone)
 
     def reindex(self) -> dict[str, int]:
         """Force-rebuild the vault index; returns stats (force rebuild)."""

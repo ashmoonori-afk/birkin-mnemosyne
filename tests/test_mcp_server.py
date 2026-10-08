@@ -403,3 +403,31 @@ def test_stdio_transport_end_to_end(tmp_path, mode):
     assert json.loads(content.text)["results"][0]["slug"] == \
         "stdio-note"
     assert (tmp_path / "knowledge" / "stdio-note.md").is_file()
+
+
+def test_hand_made_note_title_round_trips_over_mcp(tmp_path):
+    hand = tmp_path / "My Note.md"
+    hand.write_text("---\ntype: topic\n---\nhand written body about pelicans\n",
+                    encoding="utf-8")
+    hit, = ok(tmp_path, "memory_search", {"query": "pelicans"})["results"]
+    assert hit["title"] == "My Note"
+    note = ok(tmp_path, "memory_get_note", {"note": hit["title"]})
+    assert note["slug"] == "My Note" and "pelicans" in note["body"]
+    assert "already exists" in err(tmp_path, "memory_remember",
+                                   {"title": "My Note", "body": "dup?"})
+    out = remember(tmp_path, "My Note", "more about herons", mode="append")
+    assert out["path"] == "My Note.md" and out["created"] is False
+    assert sorted(_files(tmp_path)) == ["My Note.md"]
+
+
+def test_remember_create_refuses_file_the_index_has_not_seen(tmp_path,
+                                                             monkeypatch):
+    target = tmp_path / "knowledge" / "unseen.md"
+    target.parent.mkdir()
+    target.write_bytes(b"original bytes\n")
+    # the index never learns about the file (stale cache, scan race)
+    monkeypatch.setattr(mnemosyne.Mnemosyne, "refresh", lambda self: None)
+    msg = err(tmp_path, "memory_remember",
+              {"title": "Unseen", "body": "overwrite!"})
+    assert "already exists" in msg
+    assert target.read_bytes() == b"original bytes\n"
