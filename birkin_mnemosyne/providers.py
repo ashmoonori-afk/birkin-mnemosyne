@@ -158,17 +158,15 @@ def codex_completer(model: Optional[str] = None,
         argv.append("-")
         env = dict(os.environ)
         home: Path | None = None
-        if isolate_home:
-            src = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
-            tmp_root = Path.cwd() / ".omo" / "tmp"
-            tmp_root.mkdir(parents=True, exist_ok=True)
-            home = Path(tempfile.mkdtemp(suffix="-codex-home",
-                                         dir=str(tmp_root)))
-            auth = src / "auth.json"
-            if auth.is_file():
-                shutil.copy2(auth, home / "auth.json")
-            env["CODEX_HOME"] = str(home)
         try:
+            if isolate_home:
+                src = Path(os.environ.get("CODEX_HOME",
+                                          Path.home() / ".codex"))
+                home = Path(tempfile.mkdtemp(prefix="mnemosyne-codex-home-"))
+                auth = src / "auth.json"
+                if auth.is_file():
+                    shutil.copy2(auth, home / "auth.json")
+                env["CODEX_HOME"] = str(home)
             out, err, code = _run(argv, stdin=prompt, timeout=timeout,
                                   env=env, cwd=cwd)
             text = ""
