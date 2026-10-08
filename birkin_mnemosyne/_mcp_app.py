@@ -133,6 +133,11 @@ def _zone_name(zone: str | None) -> str | None:
     return z
 
 
+def _startup_os_error(exc: OSError, paths: list[str]) -> str:
+    """OSError text embeds absolute paths; name the requested relative paths instead."""
+    return f"cannot read startup files {paths!r}: {exc.strerror}"
+
+
 def _outcome(out: CurationOutcome) -> dict[str, Any]:
     return {"dry_run": out.dry_run, "archive_cap": out.archive_cap,
             "accepted": out.accepted, "dropped": out.dropped,
@@ -583,7 +588,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                     )
                 case "full":
                     result = identity.read_full(path, force_refresh=force_refresh)
-        except (IdentityReadError, OSError, UnicodeError) as exc:
+        except OSError as exc:
+            raise ToolError(f"cannot read {path!r}: {exc.strerror}") from exc
+        except (IdentityReadError, UnicodeError) as exc:
             raise ToolError(str(exc)) from exc
         return {
             "path": result.path, "revision": result.revision,
@@ -611,7 +618,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 query, limit=limit, surfaced=surfaced or (),
                 exclude_paths=exclude_paths or (), force_refresh=force_refresh,
             )
-        except (OSError, UnicodeError) as exc:
+        except OSError as exc:
+            raise ToolError(f"cannot read vault: {exc.strerror}") from exc
+        except UnicodeError as exc:
             raise ToolError(str(exc)) from exc
         return {"selector": "mnemosyne-bm25", "snapshot": "live",
                 "candidates": [asdict(candidate) for candidate in candidates]}
@@ -627,7 +636,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         """
         try:
             result = startup.read(paths)
-        except (StartupError, OSError, UnicodeError) as exc:
+        except OSError as exc:
+            raise ToolError(_startup_os_error(exc, paths)) from exc
+        except (StartupError, UnicodeError) as exc:
             raise ToolError(str(exc)) from exc
         return {"complete": result.coverage.complete, "context": result.context,
                 "coverage": asdict(result.coverage), "cache_hit": result.cache_hit}
@@ -639,7 +650,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         """Re-read the requested closure and independently verify returned context."""
         try:
             coverage = startup.verify(context, paths)
-        except (StartupError, OSError, UnicodeError) as exc:
+        except OSError as exc:
+            raise ToolError(_startup_os_error(exc, paths)) from exc
+        except (StartupError, UnicodeError) as exc:
             raise ToolError(str(exc)) from exc
         return asdict(coverage)
 

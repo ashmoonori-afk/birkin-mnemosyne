@@ -63,6 +63,10 @@ class IdentityReader:
         path = (self.root / relative).resolve()
         if not path.is_relative_to(self.root):
             raise IdentityReadError("path is outside the configured identity root")
+        if any(part in {".", ".."} or part.startswith(".")
+               for part in relative.replace("\\", "/").split("/")) or \
+                any(part.startswith(".") for part in path.relative_to(self.root).parts):
+            raise IdentityReadError(f"refusing hidden path {relative!r}")
         return path
 
     def _load(self, relative: str, force_refresh: bool) -> _Document:

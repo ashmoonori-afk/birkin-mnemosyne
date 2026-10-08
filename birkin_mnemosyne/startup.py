@@ -203,6 +203,10 @@ class StartupReader:
     def _sources(self, paths: Sequence[str]) -> dict[str, bytes]:
         if not paths or isinstance(paths, str):
             raise StartupError("supply a nonempty list of startup paths")
+        for path in paths:
+            if any(part in {".", ".."} or part.startswith(".")
+                   for part in path.replace("\\", "/").split("/")):
+                raise StartupError(f"refusing hidden path {path!r}")
         pending = [self.root / path for path in paths]
         sources: dict[str, bytes] = {}
         while pending:
@@ -210,6 +214,8 @@ class StartupReader:
             if not path.is_relative_to(self.root):
                 raise StartupError("required startup file is outside the configured root")
             relative = path.relative_to(self.root).as_posix()
+            if any(part.startswith(".") for part in relative.split("/")):
+                raise StartupError(f"refusing hidden path {relative!r}")
             if relative in sources:
                 continue
             if len(sources) >= 64:
