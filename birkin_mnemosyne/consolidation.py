@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 
 from . import frontmatter
+from .memory import _one_line, _yaml_str
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, tokenize
 from .review_journal import Change, Receipt, ReviewError, commit, undo_receipt
 from .vault_lock import VaultLock
@@ -241,7 +242,7 @@ def _merged(survivor: bytes, retired: bytes, body: str) -> bytes:
     header, _ = frontmatter.split_frontmatter(text)
     lines = header.splitlines()
     for key, value in (
-        ("sources", json.dumps(sources, ensure_ascii=False)),
+        ("sources", "[" + ", ".join(_yaml_str(_one_line(x)) for x in sources) + "]"),
         ("version", str(_version(meta.get("version")) + 1)),
     ):
         start = next((i for i, line in enumerate(lines)
