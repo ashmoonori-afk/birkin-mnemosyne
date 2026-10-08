@@ -36,6 +36,13 @@ from benchmarks.round4 import run as protocol
 
 FROZEN_DIRS = ("benchmarks/round3", "benchmarks/retrieval")
 
+# The guard pins frozen blobs through ``git``; a source tarball or ZIP has no
+# ``.git`` (a linked worktree has a ``.git`` *file*, which also counts).
+NEEDS_GIT = pytest.mark.skipif(
+    not (ROOT / ".git").exists() or shutil.which("git") is None,
+    reason="needs a git checkout and the git binary",
+)
+
 
 def disposable_tree(tmp_path: Path) -> Path:
     """A byte-identical copy of the frozen tree; the originals are only read.
@@ -149,6 +156,7 @@ def blocked_optional_deps(monkeypatch):
     return {"snapshot": snapshot, "numpy": sys.modules["numpy"], "tiktoken": sys.modules["tiktoken"]}
 
 
+@NEEDS_GIT
 def test_check_inputs_verifies_every_frozen_file_without_scoring(blocked_optional_deps):
     report = protocol.check_inputs()
     manifest = manifest_dict()
@@ -170,6 +178,7 @@ def test_check_inputs_verifies_every_frozen_file_without_scoring(blocked_optiona
         f"the guard must not import the immutable scorers: {sorted(imported_scorers)}"
 
 
+@NEEDS_GIT
 def test_missing_required_frozen_file_is_rejected(tmp_path):
     root = disposable_tree(tmp_path)
     (root / "benchmarks/round3/frozen_sol.json").unlink()
@@ -178,6 +187,7 @@ def test_missing_required_frozen_file_is_rejected(tmp_path):
         protocol.check_frozen_files(manifest, root=root)
 
 
+@NEEDS_GIT
 def test_same_length_mutated_frozen_bytes_are_rejected(tmp_path):
     root = disposable_tree(tmp_path)
     target = root / "benchmarks/round3/frozen_sol.json"
@@ -189,6 +199,7 @@ def test_same_length_mutated_frozen_bytes_are_rejected(tmp_path):
         protocol.check_frozen_files(manifest_dict(), root=root)
 
 
+@NEEDS_GIT
 def test_same_length_mutation_with_preserved_mtime_is_rejected(tmp_path):
     root = disposable_tree(tmp_path)
     target = root / "benchmarks/round3/frozen_sol_startup.json"
@@ -201,6 +212,7 @@ def test_same_length_mutation_with_preserved_mtime_is_rejected(tmp_path):
         protocol.check_frozen_files(manifest_dict(), root=root)
 
 
+@NEEDS_GIT
 def test_missing_required_scorer_file_is_rejected(tmp_path):
     root = disposable_tree(tmp_path)
     (root / "benchmarks/round3/answerer.py").unlink()
@@ -219,6 +231,7 @@ def test_eol_normalization_accepts_crlf_and_lf_but_not_changed_bytes():
     assert protocol.raw_sha256(lf) != protocol.raw_sha256(crlf)
 
 
+@NEEDS_GIT
 def test_declared_git_blob_hash_rejects_arbitrary_normalized_drift(tmp_path):
     root = disposable_tree(tmp_path)
     manifest = manifest_dict()
@@ -241,6 +254,7 @@ def test_declared_git_blob_hash_rejects_arbitrary_normalized_drift(tmp_path):
         protocol.verify_file(relative, manifest["required_files"][relative], root=root)
 
 
+@NEEDS_GIT
 def test_matching_raw_bytes_do_not_accept_a_false_git_declaration():
     manifest = manifest_dict()
     relative = "benchmarks/round3/run.py"
@@ -270,6 +284,7 @@ def test_git_unavailable_is_an_integrity_failure(monkeypatch):
         protocol.verify_file(relative, meta)
 
 
+@NEEDS_GIT
 def test_required_author_slices_are_validated_on_a_disposable_copy(tmp_path):
     root = disposable_tree(tmp_path)
     checked = protocol.validate_required_authors(root)
@@ -287,6 +302,7 @@ def test_required_author_slices_are_validated_on_a_disposable_copy(tmp_path):
         protocol.validate_required_authors(root)
 
 
+@NEEDS_GIT
 def test_missing_required_author_slice_is_rejected_when_file_is_absent(tmp_path):
     root = disposable_tree(tmp_path)
     (root / "benchmarks/round3/frozen_claude_startup.json").unlink()
@@ -294,6 +310,7 @@ def test_missing_required_author_slice_is_rejected_when_file_is_absent(tmp_path)
         protocol.validate_required_authors(root)
 
 
+@NEEDS_GIT
 def test_misattributed_author_identity_is_rejected(tmp_path):
     root = disposable_tree(tmp_path)
     path = root / "benchmarks/round3/frozen_claude_consolidation.json"
@@ -523,6 +540,7 @@ def test_semantic_factory_rejects_non_object_config(
         protocol.configured_consolidation(tmp_path, protocol.SEMANTIC_DETECTION_MODE)
 
 
+@NEEDS_GIT
 def test_cli_check_inputs_only_succeeds():
     result = cli("--check-inputs-only", "--manifest", "benchmarks/round4/frozen-manifest.json")
     assert result.returncode == 0, result.stderr
@@ -531,6 +549,7 @@ def test_cli_check_inputs_only_succeeds():
     assert report["hashed_files"] == len(manifest_dict()["required_files"])
 
 
+@NEEDS_GIT
 def test_cli_rejects_mutated_disposable_manifest_input(tmp_path):
     root = disposable_tree(tmp_path)
     manifest_path = tmp_path / "frozen-manifest.json"
@@ -543,6 +562,7 @@ def test_cli_rejects_mutated_disposable_manifest_input(tmp_path):
     assert "drifted" in result.stderr
 
 
+@NEEDS_GIT
 def test_cli_rejects_missing_disposable_manifest_input(tmp_path):
     root = disposable_tree(tmp_path)
     manifest_path = tmp_path / "frozen-manifest.json"
