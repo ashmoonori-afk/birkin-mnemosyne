@@ -727,3 +727,55 @@ def test_question_cache_is_bounded_per_vault(tmp_path, monkeypatch):
     assert len(questions) == 6
     cached = [q for q in questions if service.lookup(q.id) is not None]
     assert len(cached) == 2
+
+
+def _word(prefix: str, n: int) -> str:
+    """A short alphabetic token (at most five letters, so it has no stem)."""
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    return prefix + letters[n // 26 % 26] + letters[n % 26] + "x"
+
+
+def test_far_exact_duplicate_survives_bounding_with_over_cap_common_tokens(tmp_path):
+    import random
+
+    rng = random.Random(7)
+    common = [_word("w", n) for n in range(30)]
+    bodies = []
+    for n in range(250):
+        held = [word for word in common if rng.random() < 0.9]
+        unique = [f"u{'abcdefghijklmnopqrstuvwxyz'[n // 676 % 26]}"
+                  f"{'abcdefghijklmnopqrstuvwxyz'[n // 26 % 26]}"
+                  f"{'abcdefghijklmnopqrstuvwxyz'[n % 26]}{k}"
+                  for k in "abcd"]
+        bodies.append(" ".join(held + unique))
+        _raw_note(tmp_path, f"n{n:04d}", bodies[-1])
+    _raw_note(tmp_path, "zz-duplicate-of-n0005", bodies[5])
+    # Every common token is above the cap, so bounding is in effect.
+    assert min(sum(word in body.split() for body in bodies)
+               for word in common) > consolidation.MAX_TOKEN_DF
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    far = [q for q in questions
+           if {q.first.path, q.second.path}
+           == {"inbox/n0005.md", "inbox/zz-duplicate-of-n0005.md"}]
+    assert [q.reason for q in far] == ["duplicate"]
+    assert far[0].similarity == 1.0
+
+
+def test_small_vault_questions_match_the_unbounded_pairing(tmp_path):
+    count = 30
+    body = "alpha bravo charlie delta echo foxtrot golf hotel"
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:02d}", body)
+    assert count - 1 > consolidation.MAX_PAIRS_PER_NOTE
+    paths = sorted(p.relative_to(tmp_path).as_posix()
+                   for p in tmp_path.rglob("*.md"))
+
+    def snapshot(path: str):
+        return consolidation.NoteSnapshot(
+            path, "", consolidation._hash((tmp_path / path).read_bytes()), body, ())
+
+    expected = {consolidation._question_id(snapshot(a), snapshot(b))
+                for i, a in enumerate(paths) for b in paths[i + 1:]}
+    assert len(expected) == count * (count - 1) // 2
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    assert {q.id for q in questions} == expected

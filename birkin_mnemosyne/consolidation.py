@@ -32,13 +32,19 @@ Choice = Literal[
 ]
 RetireChoice = Literal["keep", "retire"]
 
-#: Candidate partners kept per note (highest Jaccard similarity first, ties by
-#: path order). Bounds pair generation to O(n * k) instead of O(n^2).
+#: Every pair of notes sharing a token is scored while the number of such pairs
+#: (sum over tokens of df * (df - 1) / 2, an upper bound) stays within this
+#: budget, so ordinary vaults get exactly the unbounded pairing. Above it,
+#: candidate generation is bounded by the next two constants.
+MAX_CANDIDATE_PAIRS = 50_000
+#: Bounded mode: candidate partners kept per note, ranked by true Jaccard
+#: similarity (ties by path order). Bounds pair generation to O(n * k).
 MAX_PAIRS_PER_NOTE = 20
-#: A token present in more than this many notes is too common to pair every
-#: note holding it; each such note is paired only with its MAX_PAIRS_PER_NOTE
-#: nearest neighbours before and after it (path order) among those notes, so
-#: a large cluster of near-identical notes still surfaces questions.
+#: Bounded mode: a token present in more than this many notes is too common to
+#: pair every note holding it; each such note is paired only with its
+#: MAX_PAIRS_PER_NOTE nearest neighbours before and after it (path order)
+#: among those notes, so a large cluster of near-identical notes still
+#: surfaces questions.
 MAX_TOKEN_DF = 200
 #: Questions remembered per vault so an answer can be resolved by id without
 #: rescanning the vault (see Consolidation.lookup).
@@ -116,38 +122,49 @@ def _retire_id(note: NoteSnapshot) -> str:
                  .encode("utf-8"))
 
 
-def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
-    """Index pairs (j < i) worth scoring: top partners per note by similarity.
+def _jaccard(a: set[str], b: set[str]) -> float:
+    common = len(a & b)
+    return common / (len(a) + len(b) - common)
 
-    Similarity here is Jaccard over the tokens a pair was found through; it
-    equals the final score whenever no token exceeds MAX_TOKEN_DF.
+
+def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
+    """Index pairs (i < j) worth scoring.
+
+    Within the MAX_CANDIDATE_PAIRS budget this is every pair sharing a token.
+    Above it, each note keeps its MAX_PAIRS_PER_NOTE partners with the highest
+    true Jaccard similarity (full token sets) among the candidates found via
+    its tokens' postings, where over-frequent tokens only reach the nearest
+    notes in path order. A duplicate that shares no rare token with a note and
+    lies outside every window of that note's common tokens can still be missed.
     """
     postings: dict[str, list[int]] = {}
     for i, tokens in enumerate(terms):
         for token in tokens:
             postings.setdefault(token, []).append(i)
+    if sum(len(p) * (len(p) - 1) // 2 for p in postings.values()) <= MAX_CANDIDATE_PAIRS:
+        return {(j, i) for posting in postings.values()
+                for a, i in enumerate(posting) for j in posting[:a]}
     pairs: set[tuple[int, int]] = set()
     for i, tokens in enumerate(terms):
-        shared: dict[int, int] = {}
+        near: set[int] = set()
         for token in tokens:
             posting = postings[token]
             if len(posting) > MAX_TOKEN_DF:
                 at = bisect_left(posting, i)
                 posting = posting[max(0, at - MAX_PAIRS_PER_NOTE):
                                   at + MAX_PAIRS_PER_NOTE + 1]
-            for j in posting:
-                if j != i:
-                    shared[j] = shared.get(j, 0) + 1
+            near.update(posting)
+        near.discard(i)
         best = heapq.nsmallest(
-            MAX_PAIRS_PER_NOTE, shared.items(),
-            key=lambda item: (
-                -item[1] / (len(tokens) + len(terms[item[0]]) - item[1]), item[0]),
-        )
-        pairs.update((min(i, j), max(i, j)) for j, _ in best)
+            MAX_PAIRS_PER_NOTE, near,
+            key=lambda j: (-_jaccard(tokens, terms[j]), j))
+        pairs.update((min(i, j), max(i, j)) for j in best)
     return pairs
 
 
 _CACHE_LOCK = threading.Lock()
+# Memory: entries hold full NoteSnapshot bodies, bounded by MAX_CACHED_QUESTIONS
+# questions per vault (at most twice that many distinct notes).
 _QUESTION_CACHE: dict[str, OrderedDict[str, Question]] = {}
 
 
