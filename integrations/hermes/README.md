@@ -7,6 +7,9 @@ service, telemetry, or automatic transcript capture is required.
 
 ## Install and select
 
+The Hermes plugin requires Python 3.11 or later, because Hermes itself does;
+the core `birkin-mnemosyne` library supports Python 3.10 and later.
+
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
 `birkin-mnemosyne==0.4.0` dependency through Hermes' package manager:
