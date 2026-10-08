@@ -139,6 +139,14 @@ def _outcome(out: CurationOutcome) -> dict[str, Any]:
             "effected": out.effected, "plan_ops": out.plan_ops}
 
 
+def _review_failure(exc: Exception, vault: Path) -> ToolError:
+    """Map a review I/O or decode failure to a ToolError with vault-relative paths."""
+    text = str(exc) or type(exc).__name__
+    for root in dict.fromkeys((str(vault.resolve()), str(vault))):
+        text = text.replace(root.rstrip("/\\") + "/", "").replace(root, ".")
+    return ToolError(f"review failed ({type(exc).__name__}): {text}")
+
+
 def create_server(vault: Path, *, evidence_required: bool = False,
                   identity_root: Path | None = None) -> MCPServer:
     vault = Path(vault)
@@ -465,11 +473,19 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         invent an answer. Then memory_review_apply with that explicit choice.
         Similarity is candidate evidence, not a claim that two facts conflict.
         """
-        questions = Consolidation(vault).questions(limit)
-        return {"questions": [{**asdict(q), "question": q.text} for q in questions],
-                "choices": ["keep-both", "keep-first", "keep-second",
-                            "current-first", "current-second", "drop-first",
-                            "drop-second", "merge"]}
+        service = Consolidation(vault)
+        try:
+            questions = service.questions(limit)
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise _review_failure(exc, vault) from exc
+        result: dict[str, Any] = {
+            "questions": [{**asdict(q), "question": q.text} for q in questions],
+            "choices": ["keep-both", "keep-first", "keep-second",
+                        "current-first", "current-second", "drop-first",
+                        "drop-second", "merge"]}
+        if service.skipped:
+            result["skipped"] = list(service.skipped)
+        return result
 
     @server.tool(annotations=_mutating("Apply explicit review answer", destructive=True))
     def memory_review_apply(
@@ -485,20 +501,22 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         """
         with lock.hold():
             service = Consolidation(vault)
-            question = next((q for q in service.questions(500)
-                             if q.id == question_id), None)
-            if question is None:
-                raise ToolError("question is stale or unknown; ask again")
-            answer = Answer(question_id, choice, merged_body, survivor)
-            if not confirm:
-                return {"dry_run": True, "question_id": question_id,
-                        "choice": choice}
             try:
+                question = next((q for q in service.questions(500)
+                                 if q.id == question_id), None)
+                if question is None:
+                    raise ToolError("question is stale or unknown; ask again")
+                answer = Answer(question_id, choice, merged_body, survivor)
+                if not confirm:
+                    return {"dry_run": True, "question_id": question_id,
+                            "choice": choice}
                 receipt = service.apply(question, answer)
                 dex.refresh()
                 return {"dry_run": False, **asdict(receipt)}
             except ReviewError as exc:
                 raise ToolError(str(exc)) from exc
+            except (OSError, UnicodeError, ValueError) as exc:
+                raise _review_failure(exc, vault) from exc
 
     @server.tool(annotations=_mutating("Undo review answer", destructive=True))
     def memory_review_undo(
@@ -510,8 +528,10 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         try:
             receipt = Consolidation(vault).undo(transaction_id)
             dex.refresh()
-        except (ReviewError, OSError) as exc:
+        except ReviewError as exc:
             raise ToolError(str(exc)) from exc
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise _review_failure(exc, vault) from exc
         return {"dry_run": False, **asdict(receipt)}
 
     @server.tool(annotations=_READ)

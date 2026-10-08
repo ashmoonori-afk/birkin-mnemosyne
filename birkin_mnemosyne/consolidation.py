@@ -77,14 +77,18 @@ class Consolidation:
     def __init__(self, vault: str | Path) -> None:
         self.vault: Path = Path(vault).resolve()
         self.dex: Mnemosyne = Mnemosyne(self.vault)
+        #: Vault-relative paths the last questions() call could not decode/parse.
+        self.skipped: tuple[str, ...] = ()
 
     def questions(self, limit: int = 20) -> tuple[Question, ...]:
         """Return deterministic candidate pairs without changing any note."""
+        self.skipped = ()
         if limit < 1:
             return ()
         with VaultLock(self.vault).hold():
             self.dex.refresh()
             notes: list[NoteSnapshot] = []
+            skipped: list[str] = []
             for entry in self.dex.entries().values():
                 if entry["zone"] == ARCHIVE_ZONE:
                     continue
@@ -93,7 +97,11 @@ class Consolidation:
                 title = str(fields["title"])
                 path = self.vault / relative
                 raw = path.read_bytes()
-                parsed, body = frontmatter.parse(raw.decode("utf-8"))
+                try:
+                    parsed, body = frontmatter.parse(raw.decode("utf-8"))
+                except (UnicodeError, ValueError):
+                    skipped.append(relative)
+                    continue
                 meta: dict[str, str | int | float | bool | None | list[str]] = parsed
                 expiry = meta.get("expires_at")
                 expired = False
@@ -111,6 +119,7 @@ class Consolidation:
                     body=body.strip(),
                     sources=tuple(sources) if isinstance(sources, list) else (),
                 ))
+            self.skipped = tuple(sorted(skipped))
             notes.sort(key=lambda n: n.path)
             terms = [set(tokenize(n.body)) for n in notes]
             inverted: dict[str, list[int]] = {}
@@ -208,6 +217,14 @@ class Consolidation:
             return receipt
 
 
+def _version(value: object) -> int:
+    """Non-numeric or missing versions count as 0, as in the MCP note tools."""
+    try:
+        return int(str(value or 0))
+    except ValueError:
+        return 0
+
+
 def _merged(survivor: bytes, retired: bytes, body: str) -> bytes:
     """Retain survivor metadata, union source evidence; retired bytes are kept."""
     text = survivor.decode("utf-8")
@@ -225,7 +242,7 @@ def _merged(survivor: bytes, retired: bytes, body: str) -> bytes:
     lines = header.splitlines()
     for key, value in (
         ("sources", json.dumps(sources, ensure_ascii=False)),
-        ("version", str(int(str(meta.get("version", 0))) + 1)),
+        ("version", str(_version(meta.get("version")) + 1)),
     ):
         start = next((i for i, line in enumerate(lines)
                       if line.startswith(key + ":")), len(lines))

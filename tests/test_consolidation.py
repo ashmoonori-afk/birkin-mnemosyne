@@ -4,6 +4,7 @@ import errno
 import json
 import multiprocessing
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import replace
@@ -515,3 +516,32 @@ def test_lock_retry_reraises_non_contention_errors_immediately():
         vault_lock._acquire_with_retry(try_lock, sleep)
     assert raised.value.errno == errno.EBADF
     assert attempts == 1
+
+
+def test_undecodable_note_is_skipped_and_reported(tmp_path):
+    _, service, question = seed(tmp_path)
+    bad = tmp_path / Path(question.first.path).parent / "latin1-note.md"
+    bad.write_bytes(b"---\ntitle: Latin one\n---\n\ncaf\xe9 menu for review\n")
+    before = bad.read_bytes()
+    service = Consolidation(tmp_path)
+    questions = service.questions()
+    assert [q.id for q in questions] == [question.id]
+    assert service.skipped == (bad.relative_to(tmp_path).as_posix(),)
+    assert bad.read_bytes() == before
+    assert Consolidation(tmp_path).skipped == ()
+
+
+def test_non_numeric_version_merges_as_version_one(tmp_path):
+    memory, service, question = seed(tmp_path)
+    path = tmp_path / question.first.path
+    text = path.read_text("utf-8")
+    drafted = re.sub(r"(?m)^version:.*$", "version: draft", text)
+    assert drafted != text
+    path.write_text(drafted, "utf-8")
+    question = service.questions()[0]
+    service.apply(question, Answer(
+        question.id, "merge", "Merged despite a draft version.", survivor="first",
+    ))
+    merged = memory.get_note(question.first.title)
+    assert "version: 1\n" in merged
+    assert "version: draft" not in merged
