@@ -333,3 +333,40 @@ def test_parser_numeric_coercion_is_strict(raw, expected):
     meta, _ = frontmatter.parse(f"---\nk: {raw}\n---\n")
     assert meta["k"] == expected
     assert type(meta["k"]) is type(expected)
+
+
+def test_old_note_with_backslash_sources_survives_rewrite():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    old_sources = ["D:\\notes\\todo", "C:\\Users\\x"]
+    raw = (
+        "---\ntitle: Old Paths\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 1\nsources: ["D:\\notes\\todo", "C:\\Users\\x"]\n'
+        "tags: []\n---\n\nbody\n"
+    )
+    (m.vault / "old-paths.md").write_text(raw, encoding="utf-8")
+    meta, _ = frontmatter.parse(raw)
+    assert meta["sources"] == old_sources
+    m.reindex()
+    m.write_note("Old Paths", "body two", source="extra")
+    meta, _ = frontmatter.parse(m.get_note("Old Paths"))
+    assert meta["sources"] == old_sources + ["extra"]
+    assert meta["version"] == 2
+    m.write_note("Old Paths", "body three")
+    meta, _ = frontmatter.parse(m.get_note("Old Paths"))
+    assert meta["sources"] == old_sources + ["extra"]
+
+
+def test_source_with_literal_backslash_sequences_roundtrips():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    srcs = ["a\\nb", 'q\\"r', "t\\\\u", "end\\", 'x"y\\', "\\u0041"]
+    for i, src in enumerate(srcs):
+        m.write_note(f"Esc {i}", "body", source=src, tags=[src])
+        meta, _ = frontmatter.parse(m.get_note(f"Esc {i}"))
+        assert meta["sources"] == [src]
+        assert meta["tags"] == [src]
+    m.write_note("Multi", "body", source=srcs[0], tags=srcs)
+    meta, _ = frontmatter.parse(m.get_note("Multi"))
+    assert meta["tags"] == srcs

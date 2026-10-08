@@ -15,7 +15,6 @@ raising.
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -77,6 +76,7 @@ def _split_commas(s: str) -> list[str]:
     return [x.strip() for x in out if x.strip()]
 
 
+_UNESCAPE_RE = re.compile(r'\\([\\"])')
 _INT_RE = re.compile(r"-?(?:0|[1-9]\d*)")
 _FLOAT_RE = re.compile(r"-?(?:0|[1-9]\d*)\.\d+")
 
@@ -84,13 +84,8 @@ _FLOAT_RE = re.compile(r"-?(?:0|[1-9]\d*)\.\d+")
 def _parse_value(s: str) -> Any:
     s = s.strip()
     if len(s) >= 2 and s[0] in "\"'" and s[-1] == s[0]:
-        if s[0] == '"':   # JSON-style escapes (\" \\ \n \uXXXX), as the writer emits
-            try:
-                decoded = json.loads(s)
-            except ValueError:
-                return s[1:-1]
-            if isinstance(decoded, str):
-                return decoded
+        if s[0] == '"':   # only \\ and \" are escapes; old data has neither
+            return _UNESCAPE_RE.sub(r"\1", s[1:-1])
         return s[1:-1]
     if s.startswith("[") and s.endswith("]"):
         inner = s[1:-1].strip()
