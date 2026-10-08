@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from birkin_mnemosyne import mnemosyne, semantic, static_model
+from birkin_mnemosyne import mnemosyne, semantic
 
 CONCEPTS = [("car", "vehicle", "auto", "자동차"), ("dog", "puppy", "hound", "강아지"),
             ("tax", "levy", "duty", "세금")]
@@ -158,7 +158,7 @@ def test_prepare_pins_the_default_revision_and_records_it(tmp_path, monkeypatch)
 
     hub.snapshot_download = fake_snapshot
     monkeypatch.setitem(sys.modules, "huggingface_hub", hub)   # never downloads
-    monkeypatch.setattr(static_model, "prepare_isolated", fake_convert)
+    monkeypatch.setattr("birkin_mnemosyne.static_model.prepare_isolated", fake_convert)
     monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
     semantic.prepare()
     assert seen[-1][0] == semantic.MODEL_NAME
