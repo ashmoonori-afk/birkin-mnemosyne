@@ -288,3 +288,28 @@ def test_empty_file_has_one_verified_block_and_duplicate_is_rejected(tmp_path):
     assert reader.verify(json.dumps(payload), ["empty.md"]).complete
     payload["blocks"].append(payload["blocks"][0])
     assert not reader.verify(json.dumps(payload), ["empty.md"]).complete
+
+
+@pytest.mark.parametrize("relative", [
+    ".mnemosyne-reviews/x.json", ".env", "sub/.hidden.md", "sub/../.env",
+])
+def test_startup_refuses_hidden_and_dot_paths(tmp_path, relative):
+    for target in (".mnemosyne-reviews/x.json", ".env", "sub/.hidden.md"):
+        (tmp_path / target).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / target).write_text(
+            '{"jobs": []}' if target.endswith(".json") else "secret\n", encoding="utf-8")
+    with pytest.raises(StartupError, match="refusing hidden path") as caught:
+        StartupReader(tmp_path).read([relative])
+    assert str(tmp_path) not in str(caught.value)
+
+
+def test_startup_refuses_hidden_file_reached_through_must_read(tmp_path):
+    (tmp_path / "MODE.md").write_text("MUST READ: .env\n# Mode\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("secret\n", encoding="utf-8")
+    with pytest.raises(StartupError):
+        StartupReader(tmp_path).read(["MODE.md"])
+
+
+def test_startup_still_reads_normal_files(tmp_path):
+    (tmp_path / "AGENTS.md").write_text("# Agent\nrule\n", encoding="utf-8")
+    assert StartupReader(tmp_path).read(["AGENTS.md"]).coverage.complete

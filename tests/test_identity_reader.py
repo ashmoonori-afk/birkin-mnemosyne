@@ -154,3 +154,32 @@ def test_lru_total_source_budget_is_bounded(tmp_path):
         reader.read_full(f"{i}.md")
     assert len(reader._cache) == 4
     assert sum(d.fingerprint[2] for d in reader._cache.values()) <= 1_048_576
+
+
+@pytest.mark.parametrize("relative", [
+    ".mnemosyne-reviews/x.json", ".env", "sub/.hidden.md", "sub/../.env", "./.env",
+])
+def test_hidden_and_dot_parts_are_refused(tmp_path, relative):
+    for target in (".mnemosyne-reviews/x.json", ".env", "sub/.hidden.md"):
+        (tmp_path / target).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / target).write_text("# Secret\nbody\n", encoding="utf-8")
+    reader = IdentityReader(tmp_path)
+    with pytest.raises(IdentityReadError) as caught:
+        reader.read_full(relative)
+    assert str(tmp_path) not in str(caught.value)
+
+
+def test_normal_files_in_subdirectories_still_read(tmp_path):
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "AGENTS.md").write_text("# Agent\nrule\n", encoding="utf-8")
+    assert "rule" in IdentityReader(tmp_path).read_full("sub/AGENTS.md").context
+
+
+def test_symlink_to_hidden_file_is_refused(tmp_path):
+    (tmp_path / ".env").write_text("# Secret\nbody\n", encoding="utf-8")
+    try:
+        (tmp_path / "link.md").symlink_to(tmp_path / ".env")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks are not supported here")
+    with pytest.raises(IdentityReadError, match="refusing hidden path 'link.md'"):
+        IdentityReader(tmp_path).read_full("link.md")

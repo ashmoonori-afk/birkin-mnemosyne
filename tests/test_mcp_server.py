@@ -509,3 +509,26 @@ def test_review_failure_falls_back_to_basename_outside_the_vault(tmp_path):
     error = _mcp_app._review_failure(
         PermissionError(13, "Permission denied", str(outside)), tmp_path)
     assert str(error) == "review failed (PermissionError): Permission denied: other.md"
+
+
+def test_identity_and_startup_refuse_hidden_review_journal(tmp_path):
+    journal = tmp_path / ".mnemosyne-reviews" / "x.json"
+    journal.parent.mkdir()
+    journal.write_text('{"body": "retired note"}', encoding="utf-8")
+    message = err(tmp_path, "memory_identity_read",
+                  {"path": ".mnemosyne-reviews/x.json", "mode": "full"})
+    assert "hidden path" in message
+    assert "retired note" not in message
+    message = err(tmp_path, "memory_startup_read", {"paths": [".mnemosyne-reviews/x.json"]})
+    assert "hidden path" in message
+
+
+@pytest.mark.parametrize("tool,args", [
+    ("memory_identity_read", {"path": "missing.md", "mode": "full"}),
+    ("memory_startup_read", {"paths": ["missing.md"]}),
+    ("memory_startup_verify", {"paths": ["missing.md"], "context": "{}"}),
+])
+def test_missing_file_errors_do_not_leak_absolute_root(tmp_path, tool, args):
+    message = err(tmp_path, tool, args)
+    assert str(tmp_path) not in message
+    assert "missing.md" in message
