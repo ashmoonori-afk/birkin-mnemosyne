@@ -622,3 +622,38 @@ def test_zone_priority_reflects_access_concentration():
     pri = eng.zone_priorities(today=NOW.date())
     assert pri["projects"] == pytest.approx(1.0)
     assert pri.get("knowledge", 0.0) < 1.0
+
+
+# ---------------- dynamics persistence (M1-2 / M1-3) -------------------------
+
+def test_two_engines_on_one_vault_merge_dynamics():
+    """Two engines stand in for two processes: each holds its own in-memory
+    copy, so a whole-dict write-back would erase the other's accesses."""
+    m = _mem()
+    m.write_note("Merge X", "first note")
+    m.write_note("Merge Y", "second note")
+    base = _engine()
+    x0 = base.dynamics_of("merge-x")["access_count"]
+    y0 = base.dynamics_of("merge-y")["access_count"]
+    a, b = _engine(), _engine()
+    a.record_access("merge-x", now=NOW)
+    b.record_access("merge-y", now=NOW + timedelta(hours=2))
+    a.record_access("merge-x", now=NOW + timedelta(hours=4))
+    third = _engine()
+    assert third.dynamics_of("merge-x")["access_count"] == x0 + 2
+    assert third.dynamics_of("merge-y")["access_count"] == y0 + 1
+
+
+@pytest.mark.parametrize("payload", [b"{not json", b"\xff\xfe\x00bad", b"[1, 2]"])
+def test_corrupt_dynamics_file_is_backed_up_not_overwritten(payload):
+    m = _mem()
+    m.write_note("Corrupt Probe", "body")
+    dyn_path = _vault() / mnemosyne.DYNAMICS_FILE
+    dyn_path.write_bytes(payload)
+    eng = mnemosyne.Mnemosyne(_vault())
+    eng.record_access("corrupt-probe", now=NOW)
+    backups = list(_vault().glob(mnemosyne.DYNAMICS_FILE + ".corrupt-*"))
+    assert len(backups) == 1
+    assert backups[0].read_bytes() == payload
+    fresh = json.loads(dyn_path.read_text(encoding="utf-8"))
+    assert fresh["notes"]["corrupt-probe"]["access_count"] == 1
