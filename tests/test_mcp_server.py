@@ -450,3 +450,62 @@ def test_remember_create_refuses_file_the_index_has_not_seen(tmp_path,
               {"title": "Unseen", "body": "overwrite!"})
     assert "already exists" in msg
     assert target.read_bytes() == b"original bytes\n"
+
+
+def test_review_questions_reports_undecodable_note_as_skipped(tmp_path):
+    remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    remember(tmp_path, "Second rule", "Reviews precede release.", source="user:b")
+    bad = tmp_path / "inbox" / "latin1-note.md"
+    bad.parent.mkdir(exist_ok=True)
+    bad.write_bytes(b"---\ntitle: Latin one\n---\n\ncaf\xe9 menu\n")
+    result = ok(tmp_path, "memory_review_questions")
+    assert len(result["questions"]) == 1
+    assert result["skipped"] == ["inbox/latin1-note.md"]
+
+
+def test_review_questions_omits_skipped_when_empty(tmp_path):
+    remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    assert "skipped" not in ok(tmp_path, "memory_review_questions")
+
+
+def test_review_merge_with_non_numeric_version_succeeds(tmp_path):
+    first = remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    remember(tmp_path, "Second rule", "Reviews precede release.", source="user:b")
+    path = tmp_path / first["path"]
+    path.write_text(path.read_text("utf-8").replace("version: 1", "version: draft"),
+                    encoding="utf-8")
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    receipt = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "merge", "confirm": True,
+        "merged_body": "Reviews precede every release.",
+    })
+    assert receipt["state"] == "committed"
+
+
+@pytest.mark.parametrize("tool", ["memory_review_questions", "memory_review_apply"])
+def test_review_io_errors_become_tool_errors_with_relative_path(
+        tmp_path, monkeypatch, tool):
+    from birkin_mnemosyne import _mcp_app
+    remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    target = tmp_path.resolve() / "inbox" / "first-rule.md"
+
+    class Broken(_mcp_app.Consolidation):
+        def questions(self, limit=20):
+            raise PermissionError(13, "Permission denied", str(target))
+
+    monkeypatch.setattr(_mcp_app, "Consolidation", Broken)
+    args = {"question_id": "x", "choice": "keep-first"} \
+        if tool == "memory_review_apply" else {}
+    message = err(tmp_path, tool, args)
+    assert "inbox/first-rule.md" in message
+    for root in (tmp_path, tmp_path.resolve()):
+        assert str(root) not in message
+        assert repr(str(root))[1:-1] not in message
+
+
+def test_review_failure_falls_back_to_basename_outside_the_vault(tmp_path):
+    from birkin_mnemosyne import _mcp_app
+    outside = tmp_path.parent / "elsewhere" / "other.md"
+    error = _mcp_app._review_failure(
+        PermissionError(13, "Permission denied", str(outside)), tmp_path)
+    assert str(error) == "review failed (PermissionError): Permission denied: other.md"
