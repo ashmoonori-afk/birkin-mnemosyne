@@ -1,4 +1,4 @@
-![birkin-mnemosyne - tiny multilingual memory for agents: three note cards linked by glowing threads to a search lens](docs/assets/hero.png)
+![birkin-mnemosyne - tiny multilingual memory for agents: three note cards linked by glowing threads to a search lens](https://raw.githubusercontent.com/ashmoonori-afk/birkin-mnemosyne/main/docs/assets/hero.png)
 
 # birkin-mnemosyne
 
@@ -81,12 +81,12 @@ the benchmark's test split at 10,000 notes, expansions written by two models
 that saw only the question moved paraphrase MRR from 0.205 to 0.981 and
 0.952. Questions and expansions are both model-written, so read that as an
 upper bound: see
-[Search-time query expansion](benchmarks/retrieval/RESULTS.md#search-time-query-expansion-core-zero-dependencies-opt-in-per-search).
+[Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#search-time-query-expansion-core-zero-dependencies-opt-in-per-search).
 
 ## What the numbers say
 
 All retrieval quality below is the **final frozen test split**, copied from
-[RESULTS.md](benchmarks/retrieval/RESULTS.md#optional-semantic-mode-semantic-extra).
+[RESULTS.md](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#optional-semantic-mode-semantic-extra).
 The synthetic corpus has 160 gold notes in six languages, padded with
 invented distractors to 1,000 and 10,000 notes. **Three independent query
 authors** (claude-opus-5.5, gpt-6.1-sol, claude-fable-5.1) supply exact,
@@ -291,7 +291,7 @@ use the separately measured start-up and latency table in RESULTS.md.
   tokenization itself is unchanged. Stem reweighting traded English for
   Korean, and a minority-script boost hurt independently authored mirror
   questions. Neither was shipped: see
-  [Code-switched queries in the core](benchmarks/retrieval/RESULTS.md#code-switched-queries-in-the-core-measured-not-changed).
+  [Code-switched queries in the core](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#code-switched-queries-in-the-core-measured-not-changed).
 - **This is a synthetic personal-scale benchmark.** It does not establish
   superiority over other memory projects, answer accuracy, or universal
   multilingual coverage. Low-overlap paraphrases remain difficult for the
@@ -369,7 +369,7 @@ python benchmarks/retrieval/compare.py run.json run.json --engine-before bm25 --
 ```
 
 The committed quality run is
-[semantic_test_run.json](benchmarks/retrieval/semantic_test_run.json).
+[semantic_test_run.json](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/semantic_test_run.json).
 See RESULTS.md for the full query-kind tables, query counts, rejected ideas
 and footprint methodology. Additional checks and offline examples:
 
@@ -689,4 +689,4 @@ package imports as `birkin_mnemosyne`.
 
 ## License
 
-MIT; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+MIT; see [LICENSE](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/LICENSE) and [NOTICE](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/NOTICE).
