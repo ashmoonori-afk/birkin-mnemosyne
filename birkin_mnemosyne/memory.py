@@ -20,7 +20,6 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 
 from __future__ import annotations
 
-import json
 import re
 import threading
 from collections.abc import Iterator, Mapping
@@ -471,9 +470,11 @@ def _one_line(value: object) -> str:
 
 
 def _yaml_str(value: object) -> str:
-    """A JSON string is a valid YAML double-quoted scalar; it cannot be
-    mistaken for a number/bool/null/list and escapes ``"`` and ``\\``."""
-    return json.dumps(str(value), ensure_ascii=False)
+    """Double-quoted scalar escaping ONLY ``\\`` and ``"``. Any other
+    backslash sequence stays literal, so notes written before quoting existed
+    (``"D:\\notes\\todo"``) keep their exact text. Line breaks are removed
+    earlier by :func:`_one_line`."""
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _compose_frontmatter(*, title: str, note_type: str, created: str,
