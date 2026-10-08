@@ -311,6 +311,9 @@ use the separately measured start-up and latency table in RESULTS.md.
 - **Compression has a write cost.** Saving recompresses the whole index;
   loading briefly holds compressed and decoded text together. Mixing older
   and newer library versions on a vault causes repeated cache rebuilding.
+  Index cache writes after single-note changes are coalesced (at most one
+  every 2 seconds, plus a flush at exit); after a crash the cache is rebuilt
+  from the note files on the next refresh.
 - **Curation safety is narrower than correctness.** The executor bounds file
   operations; model choice still affects placement and linking quality.
   Python's explicit `purge_expired()` maintenance call can delete expired

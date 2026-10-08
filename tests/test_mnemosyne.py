@@ -657,3 +657,97 @@ def test_corrupt_dynamics_file_is_backed_up_not_overwritten(payload):
     assert backups[0].read_bytes() == payload
     fresh = json.loads(dyn_path.read_text(encoding="utf-8"))
     assert fresh["notes"]["corrupt-probe"]["access_count"] == 1
+
+
+def _fake_clock(monkeypatch, start: float = 1000.0) -> list[float]:
+    clock = [start]
+    monkeypatch.setattr(mnemosyne, "_clock", lambda: clock[0])
+    return clock
+
+
+def _count_index_saves(monkeypatch, eng: mnemosyne.Mnemosyne) -> list[int]:
+    saves: list[int] = []
+    real = eng._save_index
+    monkeypatch.setattr(eng, "_save_index", lambda: saves.append(1) or real())
+    return saves
+
+
+def _cached_slugs() -> set[str]:
+    path = _vault() / mnemosyne.INDEX_FILE
+    return set(mnemosyne._decode_index(path.read_bytes()))
+
+
+def test_index_saves_are_coalesced_within_the_interval(monkeypatch):
+    clock = _fake_clock(monkeypatch)
+    m = _mem()
+    saves = _count_index_saves(monkeypatch, m.dex)
+    for i in range(20):
+        m.write_note(f"Coalesce {i}", f"coalesce body {i}")
+    assert len(saves) == 1               # the first write; the rest are dirty
+    clock[0] += mnemosyne.INDEX_SAVE_INTERVAL
+    m.write_note("Coalesce after", "written past the interval")
+    assert len(saves) == 2
+    assert len(_cached_slugs()) == 21    # the late save carries every note
+
+
+def test_flush_persists_a_dirty_index_for_a_new_instance(monkeypatch):
+    _fake_clock(monkeypatch)
+    m = _mem()
+    for i in range(20):
+        m.write_note(f"Flush {i}", f"flush body {i}")
+    assert len(_cached_slugs()) < 20     # still coalesced on disk
+    m.dex.flush()
+    assert len(_cached_slugs()) == 20
+
+    def no_reparse(*_a, **_k):
+        raise AssertionError("a flushed cache needs no re-parse")
+
+    monkeypatch.setattr(mnemosyne, "_note_entry", no_reparse)
+    fresh = mnemosyne.Mnemosyne(_vault())
+    assert len(fresh.entries()) == 20
+
+
+def test_unflushed_index_is_rebuilt_from_the_note_files(monkeypatch):
+    _fake_clock(monkeypatch)
+    m = _mem()
+    for i in range(20):
+        m.write_note(f"Crash {i}", f"crash body {i}")
+    assert len(_cached_slugs()) < 20
+    del m                                # simulated crash: no flush, no atexit
+    fresh = mnemosyne.Mnemosyne(_vault())
+    assert len(fresh.entries()) == 20
+    assert fresh.search("crash", now=NOW)
+
+
+def test_deferred_save_still_saves_exactly_once(monkeypatch):
+    clock = _fake_clock(monkeypatch)
+    m = _mem()
+    m.write_note("Seed", "seed body")
+    clock[0] += mnemosyne.INDEX_SAVE_INTERVAL
+    encoded: list[int] = []
+    real = mnemosyne._encode_index
+    monkeypatch.setattr(mnemosyne, "_encode_index",
+                        lambda notes: encoded.append(1) or real(notes))
+    with m.dex.deferred_save():
+        for i in range(3):
+            m.write_note(f"Deferred {i}", f"deferred body {i}")
+        assert encoded == []
+    assert len(encoded) == 1
+    assert len(_cached_slugs()) == 4
+
+
+def test_exit_hook_flushes_live_instances_and_never_raises(monkeypatch):
+    _fake_clock(monkeypatch)
+    m = _mem()
+    for i in range(3):
+        m.write_note(f"Exit {i}", f"exit body {i}")
+    assert len(_cached_slugs()) < 3
+
+    def broken() -> None:
+        raise RuntimeError("boom")
+
+    bad = _engine()
+    monkeypatch.setattr(bad, "flush", broken)
+    mnemosyne._live_instances.add(bad)
+    mnemosyne._flush_live_instances()    # must swallow the broken instance
+    assert len(_cached_slugs()) == 3

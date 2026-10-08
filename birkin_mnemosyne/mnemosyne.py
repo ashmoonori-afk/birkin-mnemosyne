@@ -35,6 +35,7 @@ Two sidecar files live next to the notes:
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import json
 import logging
@@ -44,6 +45,7 @@ import re
 import threading
 import time
 import unicodedata
+import weakref
 import zlib
 from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
@@ -77,6 +79,7 @@ RELATED_QUERY_TERMS = 12
 INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: zlib file
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
+INDEX_SAVE_INTERVAL = 2.0              # single-note changes save the index at most this often (s)
 SCAN_TTL = 2.0                        # search() stats the vault at most this often (s)
 # Search-time query expansion: the weight of a term the caller adds to a query,
 # graded by its distance from the query's own words (which weigh 1.0). Dev-tuned.
@@ -476,12 +479,30 @@ def _entry_expired(entry: dict[str, Any], today: date) -> bool:
 
 # -- engine -------------------------------------------------------------------
 
+_live_instances: weakref.WeakSet[Mnemosyne] = weakref.WeakSet()
+
+
+def _flush_live_instances() -> None:
+    """atexit hook: write every instance's coalesced index; never raises."""
+    for eng in list(_live_instances):
+        try:
+            eng.flush()
+        except Exception:   # interpreter exit must stay quiet
+            pass
+
+
+atexit.register(_flush_live_instances)
+
+
 class Mnemosyne:
     """Index + dynamics over one vault directory. Thread-safe via one RLock.
 
     Sidecar persistence is best-effort: the index is a rebuildable cache and
     dynamics are advisory telemetry, so a failed flush must never break a
-    memory read/write (it self-heals on the next refresh).
+    memory read/write (it self-heals on the next refresh). Single-note index
+    changes are saved at most every ``INDEX_SAVE_INTERVAL`` seconds; a dirty
+    index is written by the next save, ``flush()``, or at interpreter exit,
+    and after a crash ``refresh()`` rebuilds the missing entries from files.
     """
 
     def __init__(self, vault: Path, semantic: bool | None = None):
@@ -502,7 +523,9 @@ class Mnemosyne:
         self._avgdl = 0.0
         self._scanned_at: float | None = None   # _clock() of the last vault scan
         self._defer_depth = 0         # >0: index saves are batched
-        self._save_pending = False    # a save was requested while deferred
+        self._index_dirty = False     # index changed since the last save
+        self._last_index_save: float | None = None   # _clock() of that save
+        _live_instances.add(self)
 
     # -- persistence --------------------------------------------------------
 
@@ -595,19 +618,37 @@ class Mnemosyne:
         finally:
             with self._lock:
                 self._defer_depth -= 1
-                if self._defer_depth == 0 and self._save_pending:
-                    self._save_pending = False
+                if self._defer_depth == 0 and self._index_dirty:
                     self._save_index()
 
     def _save_index(self) -> None:
         if self._defer_depth:
-            self._save_pending = True
+            self._index_dirty = True
             return
+        self._last_index_save = _clock()
         try:
             atomic_write_bytes(self._index_path, _encode_index(self._notes or {}))
             (self.vault / LEGACY_INDEX_FILE).unlink(missing_ok=True)
+            self._index_dirty = False
         except OSError:
             pass   # cache flush is best-effort; rebuilt on next load
+
+    def _index_changed(self) -> None:
+        """A single note changed: save now only if the last save is at least
+        ``INDEX_SAVE_INTERVAL`` old, otherwise leave the index dirty. Caller
+        holds the lock."""
+        last = self._last_index_save
+        if (not self._defer_depth and last is not None
+                and _clock() - last < INDEX_SAVE_INTERVAL):
+            self._index_dirty = True
+            return
+        self._save_index()
+
+    def flush(self) -> None:
+        """Write the index now if a coalesced change has not been saved yet."""
+        with self._lock:
+            if self._index_dirty:
+                self._save_index()
 
     def _save_dynamics(self) -> None:
         try:
@@ -760,7 +801,7 @@ class Mnemosyne:
             self._notes[s] = entry
             self._aliases = None
             self._add_postings(s, entry["terms"])
-            self._save_index()
+            self._index_changed()
 
     # -- accessors -------------------------------------------------------------
 
@@ -1162,7 +1203,7 @@ class Mnemosyne:
             self._notes[s] = {**e, "rel": rel, "zone": z,
                               "mtime": mtime, "size": size}
             self._aliases = None
-            self._save_index()
+            self._index_changed()
             return new
 
     # -- stats ------------------------------------------------------------------
