@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -140,6 +142,68 @@ def test_model_is_prepared_explicitly_and_only_once(tmp_path, monkeypatch):
     assert len(calls) == 1
     assert not any("onnx" in p for p in calls[0]["allow_patterns"])
     assert semantic.SemanticIndex(tmp_path)._encoder().tokenize("car") == [2]
+
+
+def test_prepare_pins_the_default_revision_and_records_it(tmp_path, monkeypatch):
+    seen = []
+    hub = types.ModuleType("huggingface_hub")
+
+    def fake_snapshot(repo_id, **kwargs):
+        seen.append((repo_id, kwargs))
+        return str(tmp_path / "snap")
+
+    def fake_convert(snapshot, out):
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "meta.json").write_text("{}", encoding="utf-8")
+
+    hub.snapshot_download = fake_snapshot
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)   # never downloads
+    monkeypatch.setattr("birkin_mnemosyne.static_model.prepare_isolated", fake_convert)
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
+    semantic.prepare()
+    assert seen[-1][0] == semantic.MODEL_NAME
+    assert seen[-1][1]["revision"] == semantic.MODEL_REVISION
+    assert semantic.prepared_revision() == semantic.MODEL_REVISION
+    semantic.prepare()
+    assert len(seen) == 1                                   # prepared once, not again
+    semantic.prepare("someone/else")                        # no pin known: unchanged
+    assert seen[-1][1]["revision"] is None
+    semantic.prepare("someone/else", revision="c" * 40)     # explicit pin wins
+    assert seen[-1][1]["revision"] == "c" * 40
+    assert semantic.prepared_revision("someone/else") == "c" * 40
+    semantic.prepare("someone/else", revision="c" * 40)
+    assert len(seen) == 3
+
+
+def test_default_model_revision_is_a_full_commit_sha():
+    assert len(semantic.MODEL_REVISION) == 40
+    assert set(semantic.MODEL_REVISION) <= set("0123456789abcdef")
+
+
+def _set_prepared_revision(tmp_path, monkeypatch, revision):
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path / "cache"))
+    out = semantic.model_dir()
+    out.mkdir(parents=True, exist_ok=True)
+    meta = {} if revision is None else {"revision": revision}
+    (out / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+
+@pytest.mark.parametrize("built_with", [None, "a" * 40], ids=["no-revision", "other-revision"])
+def test_vectors_from_another_model_revision_are_reembedded(
+        tmp_path, concept_model, monkeypatch, built_with):
+    (tmp_path / "vault").mkdir()
+    vault = _vault(tmp_path / "vault")
+    _set_prepared_revision(tmp_path, monkeypatch, built_with)
+    mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    calls = concept_model.calls
+    mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    assert concept_model.calls == calls + 1                 # same revision: reused
+    _set_prepared_revision(tmp_path, monkeypatch, "b" * 40)
+    hits = mnemosyne.Mnemosyne(vault, semantic=True).search("vehicle")
+    assert concept_model.calls == calls + 3                 # rebuilt (not an error) + query
+    assert hits[0]["slug"] == "car"
+    with np.load(vault / semantic.VECTORS_FILE) as data:
+        assert json.loads(str(data["meta"]))["revision"] == "b" * 40
 
 
 def test_model_failure_falls_back_to_bm25_with_warning(tmp_path, monkeypatch, caplog):

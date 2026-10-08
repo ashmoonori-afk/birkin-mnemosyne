@@ -245,8 +245,18 @@ Apple M1, macOS arm64 measurements, not service-level guarantees. Every arrow
 is **core -> semantic**. Install size is **0.18 MB -> 38.2 MB**, including the
 extra's dependencies but not the prepared model. The first preparation needs
 an approximately 530 MB download; the compact model is approximately 140 MB
-on disk. The memory budget was 150 MB on top of the core; the largest measured
-addition was 61 MB while indexing. The prepared-model start-up budget was
+on disk. Preparation does not delete the download: the raw model stays in the
+Hugging Face cache, so budget about 670 MB in total. The cache is
+`$HF_HUB_CACHE`, which defaults to `$HF_HOME/hub` and then to
+`~/.cache/huggingface/hub`; the model is the folder
+`models--minishlab--potion-multilingual-128M` inside it. Once the model is
+prepared you can reclaim the ~530 MB by deleting that folder (with
+huggingface_hub 1.x or newer, `hf cache rm model/minishlab/potion-multilingual-128M`
+does the same); the compact model keeps working, and only preparing it
+again downloads it anew. The default model is fetched at a pinned commit, and
+that commit is recorded with the prepared model and the vectors sidecar. The
+memory budget was 150 MB on top of the core; the largest measured addition was
+61 MB while indexing. The prepared-model start-up budget was
 1 s; the slowest semantic start in the reference timing run took 439 ms.
 
 #### Index and memory
