@@ -1,6 +1,6 @@
 import config
 import pytest
-from birkin_mnemosyne import VaultMemory
+from birkin_mnemosyne import VaultMemory, frontmatter
 
 
 def _mem():
@@ -33,6 +33,50 @@ def test_wikilink_neighbors():
 def test_add_link():
     m = _mem()
     m.write_note("A", "body a")
+    m.write_note("B", "body b")
+    assert m.add_link("A", "B") is True
+    assert "B" in m.neighbors("A")
+
+
+def _meta(m, title):
+    return frontmatter.parse(m.get_note(title))[0]
+
+
+def test_add_link_keeps_tags_and_expiry():
+    m = _mem()
+    m.write_note("A", "body a", tags=["a", "b"], ttl_days=30)
+    m.write_note("B", "body b")
+    before = _meta(m, "A")
+    assert before["tags"] == ["a", "b"] and before["expires_at"]
+    assert m.add_link("A", "B") is True
+    after = _meta(m, "A")
+    assert after["tags"] == ["a", "b"]
+    assert after["expires_at"] == before["expires_at"]
+
+
+def test_append_without_tags_or_ttl_keeps_both():
+    m = _mem()
+    m.write_note("A", "first", tags=["a", "b"], ttl_days=30)
+    before = _meta(m, "A")
+    m.write_note("A", "second", append=True)
+    after = _meta(m, "A")
+    assert after["tags"] == ["a", "b"]
+    assert after["expires_at"] == before["expires_at"]
+
+
+def test_explicit_empty_tags_clear_and_new_ttl_replaces_expiry():
+    m = _mem()
+    m.write_note("A", "first", tags=["a", "b"], ttl_days=30)
+    old = _meta(m, "A")["expires_at"]
+    m.write_note("A", "second", tags=[], ttl_days=90)
+    after = _meta(m, "A")
+    assert after["tags"] == []
+    assert after["expires_at"] and after["expires_at"] != old
+
+
+def test_add_link_tolerates_non_numeric_stored_confidence():
+    m = _mem()
+    m.write_note("A", "body a", confidence="high")
     m.write_note("B", "body b")
     assert m.add_link("A", "B") is True
     assert "B" in m.neighbors("A")
