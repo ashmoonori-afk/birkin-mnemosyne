@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__, frontmatter
 from .capacity import DEFAULT_BUDGET, CapacityBudget, capacity_report
-from .consolidation import Answer, Choice, Consolidation, RetireChoice
+from .consolidation import Answer, Choice, Consolidation, NoteSnapshot, RetireChoice
 from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
@@ -173,6 +173,17 @@ def _review_failure(exc: Exception, vault: Path) -> ToolError:
         for root in dict.fromkeys((str(vault.resolve()), str(vault))):
             detail = detail.replace(root, ".")
     return ToolError(f"review failed ({type(exc).__name__}): {detail}")
+
+
+_PREVIEW_CHARS = 300
+
+
+def _note_preview(note: NoteSnapshot) -> dict[str, Any]:
+    """Question payload form of a note: a body preview and its full length."""
+    return {"path": note.path, "title": note.title, "sha256": note.sha256,
+            "sources": list(note.sources),
+            "body_preview": note.body[:_PREVIEW_CHARS],
+            "body_chars": len(note.body)}
 
 
 def create_server(vault: Path, *, evidence_required: bool = False,
@@ -520,6 +531,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         Similarity is candidate evidence, not a claim that two facts conflict.
         Over the capacity budget, retire_questions ask the user to keep or
         retire (archive) old protected notes; ask them the same way.
+        Each note carries only a body_preview (first 300 characters) and
+        body_chars (full length): call memory_get_note for the full text
+        before proposing or applying a merge.
         """
         service = Consolidation(vault)
         try:
@@ -530,7 +544,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         except (OSError, UnicodeError, ValueError) as exc:
             raise _review_failure(exc, vault) from exc
         result: dict[str, Any] = {
-            "questions": [{**asdict(q), "question": q.text} for q in questions],
+            "questions": [
+                {"id": q.id, "first": _note_preview(q.first),
+                 "second": _note_preview(q.second), "reason": q.reason,
+                 "similarity": q.similarity, "question": q.text}
+                for q in questions],
             "choices": ["keep-both", "keep-first", "keep-second",
                         "current-first", "current-second", "drop-first",
                         "drop-second", "merge"]}
@@ -570,8 +588,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                     receipt = service.apply_retire(retire, choice)
                     dex.refresh()
                     return {"dry_run": False, **asdict(receipt)}
-                question = next((q for q in service.questions(500)
-                                 if q.id == question_id), None)
+                question = service.lookup(question_id) or next(
+                    (q for q in service.questions(500) if q.id == question_id), None)
                 if question is None:
                     raise ToolError("question is stale or unknown; ask again")
                 answer = Answer(question_id, choice, merged_body, survivor)

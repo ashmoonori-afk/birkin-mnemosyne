@@ -9,7 +9,11 @@ apply/undo. Journals recover handled failures, not power-loss atomicity.
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
+import threading
+from bisect import bisect_left
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -27,6 +31,18 @@ Choice = Literal[
     "drop-first", "drop-second", "merge",
 ]
 RetireChoice = Literal["keep", "retire"]
+
+#: Candidate partners kept per note (highest Jaccard similarity first, ties by
+#: path order). Bounds pair generation to O(n * k) instead of O(n^2).
+MAX_PAIRS_PER_NOTE = 20
+#: A token present in more than this many notes is too common to pair every
+#: note holding it; each such note is paired only with its MAX_PAIRS_PER_NOTE
+#: nearest neighbours before and after it (path order) among those notes, so
+#: a large cluster of near-identical notes still surfaces questions.
+MAX_TOKEN_DF = 200
+#: Questions remembered per vault so an answer can be resolved by id without
+#: rescanning the vault (see Consolidation.lookup).
+MAX_CACHED_QUESTIONS = 500
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +116,57 @@ def _retire_id(note: NoteSnapshot) -> str:
                  .encode("utf-8"))
 
 
+def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
+    """Index pairs (j < i) worth scoring: top partners per note by similarity.
+
+    Similarity here is Jaccard over the tokens a pair was found through; it
+    equals the final score whenever no token exceeds MAX_TOKEN_DF.
+    """
+    postings: dict[str, list[int]] = {}
+    for i, tokens in enumerate(terms):
+        for token in tokens:
+            postings.setdefault(token, []).append(i)
+    pairs: set[tuple[int, int]] = set()
+    for i, tokens in enumerate(terms):
+        shared: dict[int, int] = {}
+        for token in tokens:
+            posting = postings[token]
+            if len(posting) > MAX_TOKEN_DF:
+                at = bisect_left(posting, i)
+                posting = posting[max(0, at - MAX_PAIRS_PER_NOTE):
+                                  at + MAX_PAIRS_PER_NOTE + 1]
+            for j in posting:
+                if j != i:
+                    shared[j] = shared.get(j, 0) + 1
+        best = heapq.nsmallest(
+            MAX_PAIRS_PER_NOTE, shared.items(),
+            key=lambda item: (
+                -item[1] / (len(tokens) + len(terms[item[0]]) - item[1]), item[0]),
+        )
+        pairs.update((min(i, j), max(i, j)) for j, _ in best)
+    return pairs
+
+
+_CACHE_LOCK = threading.Lock()
+_QUESTION_CACHE: dict[str, OrderedDict[str, Question]] = {}
+
+
+def clear_question_cache() -> None:
+    """Forget every remembered question (a fresh process starts empty)."""
+    with _CACHE_LOCK:
+        _QUESTION_CACHE.clear()
+
+
+def _remember(vault: Path, questions: tuple[Question, ...]) -> None:
+    with _CACHE_LOCK:
+        cache = _QUESTION_CACHE.setdefault(str(vault), OrderedDict())
+        for question in questions:
+            cache[question.id] = question
+            cache.move_to_end(question.id)
+        while len(cache) > MAX_CACHED_QUESTIONS:
+            cache.popitem(last=False)
+
+
 class Consolidation:
     """Discover read-only candidate pairs; apply only an explicit bound answer."""
 
@@ -151,15 +218,8 @@ class Consolidation:
             self.skipped = tuple(sorted(skipped))
             notes.sort(key=lambda n: n.path)
             terms = [set(tokenize(n.body)) for n in notes]
-            inverted: dict[str, list[int]] = {}
-            pairs: set[tuple[int, int]] = set()
-            for i, tokens in enumerate(terms):
-                for token in tokens:
-                    for j in inverted.get(token, []):
-                        pairs.add((j, i))
-                    inverted.setdefault(token, []).append(i)
             result: list[Question] = []
-            for i, j in sorted(pairs):
+            for i, j in sorted(_candidate_pairs(terms)):
                 first, second = notes[i], notes[j]
                 common = terms[i] & terms[j]
                 union = terms[i] | terms[j]
@@ -173,7 +233,27 @@ class Consolidation:
                     "duplicate" if same else "overlap-or-conflict", similarity,
                 ))
             result.sort(key=lambda q: (-q.similarity, q.id))
-            return tuple(result[:limit])
+            found = tuple(result[:limit])
+            _remember(self.vault, found)
+            return found
+
+    def lookup(self, question_id: str) -> Question | None:
+        """Return a remembered question if both notes are byte-identical now.
+
+        None means the id was never listed in this process (rescan with
+        questions()). A remembered question whose notes changed or vanished
+        raises ReviewError; the entry ages out of the bounded cache.
+        """
+        with VaultLock(self.vault).hold():
+            with _CACHE_LOCK:
+                question = _QUESTION_CACHE.get(str(self.vault), {}).get(question_id)
+            if question is None:
+                return None
+            for note in (question.first, question.second):
+                path = self.vault / note.path
+                if not path.is_file() or _hash(path.read_bytes()) != note.sha256:
+                    raise ReviewError("question is stale or unknown; ask again")
+            return question
 
     def retire_questions(self, limit: int,
                          budget: CapacityBudget) -> tuple[RetireQuestion, ...]:

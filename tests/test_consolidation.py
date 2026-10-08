@@ -666,3 +666,64 @@ def test_retire_questions_skip_undecodable_notes(tmp_path):
     questions = service.retire_questions(10, CapacityBudget(1, None))
     assert [q.note.path for q in questions] == []
     assert service.skipped == ("home/old-address.md",)
+
+
+def _raw_note(vault: Path, name: str, body: str) -> None:
+    folder = vault / "inbox"
+    folder.mkdir(exist_ok=True)
+    (folder / f"{name}.md").write_text(
+        f"---\ntitle: {name}\n---\n\n{body}\n", encoding="utf-8")
+
+
+def test_common_token_candidate_pairs_are_bounded_per_note(tmp_path):
+    count = 150
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:03d}",
+                  f"alpha bravo charlie delta echo foxtrot uniq{n:03d}")
+    service = Consolidation(tmp_path)
+    questions = service.questions(count * count)
+    # Unbounded generation yields count * (count - 1) / 2 = 11175 pairs here.
+    assert 0 < len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
+    assert [q.id for q in questions] == [
+        q.id for q in Consolidation(tmp_path).questions(count * count)]
+
+
+def test_cluster_of_identical_notes_still_yields_bounded_questions(tmp_path):
+    count = 300
+    assert count > consolidation.MAX_TOKEN_DF
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:03d}",
+                  "alpha bravo charlie delta echo foxtrot golf hotel")
+    questions = Consolidation(tmp_path).questions(count * count)
+    assert 0 < len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
+    assert {q.reason for q in questions} == {"duplicate"}
+    # No note of the cluster is silently left without a question.
+    listed = {note.path for q in questions for note in (q.first, q.second)}
+    assert len(listed) == count
+
+
+def test_question_lookup_hits_cache_and_reverifies_notes(tmp_path):
+    consolidation.clear_question_cache()
+    _, service, question = seed(tmp_path)
+    assert service.lookup(question.id) == question
+    consolidation.clear_question_cache()
+    assert service.lookup(question.id) is None
+    question, = Consolidation(tmp_path).questions()
+    path = tmp_path / question.second.path
+    path.write_text(path.read_text("utf-8") + "\nEdited later.\n", "utf-8")
+    with pytest.raises(ReviewError, match="stale or unknown"):
+        service.lookup(question.id)
+    with pytest.raises(ReviewError, match="stale or unknown"):
+        service.lookup(question.id)
+
+
+def test_question_cache_is_bounded_per_vault(tmp_path, monkeypatch):
+    consolidation.clear_question_cache()
+    monkeypatch.setattr(consolidation, "MAX_CACHED_QUESTIONS", 2)
+    for n in range(4):
+        _raw_note(tmp_path, f"note-{n}", "alpha bravo charlie delta echo")
+    service = Consolidation(tmp_path)
+    questions = service.questions(10)
+    assert len(questions) == 6
+    cached = [q for q in questions if service.lookup(q.id) is not None]
+    assert len(cached) == 2

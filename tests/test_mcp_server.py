@@ -689,3 +689,91 @@ def test_over_budget_review_keeps_skipped_alongside_retire_keys(tmp_path):
     assert out["skipped"] == ["inbox/latin1-note.md"]
     assert len(out["retire_questions"]) == 1
     assert out["capacity"]["over_budget"]["protected"] is True
+
+
+def _two_rules(vault: Path) -> None:
+    remember(vault, "First rule", "Reviews precede release.", source="user:a")
+    remember(vault, "Second rule", "Reviews precede release.", source="user:b")
+
+
+def _forbid_rescan(monkeypatch) -> list[int]:
+    from birkin_mnemosyne import _mcp_app
+    calls: list[int] = []
+
+    def spy(self, limit=20):
+        calls.append(limit)
+        raise AssertionError("full questions() rescan")
+
+    monkeypatch.setattr(_mcp_app.Consolidation, "questions", spy)
+    return calls
+
+
+def test_review_apply_by_id_does_not_rescan_the_vault(tmp_path, monkeypatch):
+    _two_rules(tmp_path)
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    calls = _forbid_rescan(monkeypatch)
+    receipt = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "keep-first", "confirm": True,
+    })
+    assert receipt["state"] == "committed"
+    assert calls == []
+
+
+def test_review_apply_refuses_note_changed_after_listing_without_rescan(
+        tmp_path, monkeypatch):
+    _two_rules(tmp_path)
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    path = tmp_path / question["second"]["path"]
+    path.write_text(path.read_text("utf-8") + "\nEdited later.\n", "utf-8")
+    before = _files(tmp_path)
+    calls = _forbid_rescan(monkeypatch)
+    for confirm in (False, True):
+        message = err(tmp_path, "memory_review_apply", {
+            "question_id": question["id"], "choice": "keep-first",
+            "confirm": confirm,
+        })
+        assert "stale or unknown" in message
+    assert calls == []
+    assert _files(tmp_path) == before
+
+
+def test_review_apply_falls_back_to_rescan_on_cache_miss(tmp_path, monkeypatch):
+    from birkin_mnemosyne import _mcp_app, consolidation
+    _two_rules(tmp_path)
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    consolidation.clear_question_cache()
+    calls: list[int] = []
+    real = _mcp_app.Consolidation.questions
+
+    def spy(self, limit=20):
+        calls.append(limit)
+        return real(self, limit)
+
+    monkeypatch.setattr(_mcp_app.Consolidation, "questions", spy)
+    receipt = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "keep-first", "confirm": True,
+    })
+    assert receipt["state"] == "committed"
+    assert len(calls) == 1
+    consolidation.clear_question_cache()
+    assert "stale or unknown" in err(tmp_path, "memory_review_apply", {
+        "question_id": "0" * 64, "choice": "keep-first", "confirm": True,
+    })
+
+
+def test_review_questions_return_body_previews_not_full_bodies(tmp_path):
+    body = "Reviews precede release. " + "long detail " * 100
+    remember(tmp_path, "First rule", body, source="user:a")
+    remember(tmp_path, "Second rule", body, source="user:b")
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    for side in ("first", "second"):
+        note = question[side]
+        assert "body" not in note
+        assert note["body_preview"] == body.strip()[:300]
+        assert len(note["body_preview"]) == 300
+        assert note["body_chars"] == len(body.strip()) > 300
+        assert len(note["sha256"]) == 64
+        assert note["path"].endswith(".md")
+        assert note["sources"]
+        assert note["title"]
+    assert "Reviews precede release." in question["question"]
