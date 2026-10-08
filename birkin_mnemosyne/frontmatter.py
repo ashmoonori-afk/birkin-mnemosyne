@@ -47,7 +47,7 @@ def _indent(s: str) -> int:
     return len(s) - len(s.lstrip(" "))
 
 
-def _split_commas(s: str) -> list[str]:
+def _split_commas(s: str, quotes: bool = True) -> list[str]:
     out, depth, buf = [], 0, []
     in_str = esc = False
     for ch in s:
@@ -60,7 +60,7 @@ def _split_commas(s: str) -> list[str]:
             elif ch == '"':
                 in_str = False
             continue
-        if ch == '"' and not "".join(buf).strip():
+        if quotes and ch == '"' and not "".join(buf).strip():
             in_str = True
         elif ch in "[{":
             depth += 1
@@ -77,6 +77,7 @@ def _split_commas(s: str) -> list[str]:
 
 
 _UNESCAPE_RE = re.compile(r'\\([\\"])')
+_QUOTED_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
 _INT_RE = re.compile(r"-?(?:0|[1-9]\d*)")
 _FLOAT_RE = re.compile(r"-?(?:0|[1-9]\d*)\.\d+")
 
@@ -89,7 +90,17 @@ def _parse_value(s: str) -> Any:
         return s[1:-1]
     if s.startswith("[") and s.endswith("]"):
         inner = s[1:-1].strip()
-        return [_parse_value(x) for x in _split_commas(inner)] if inner else []
+        if not inner:
+            return []
+        items = _split_commas(inner)
+        if any(x.startswith('"') and not _QUOTED_RE.fullmatch(x) for x in items):
+            # The writer only emits well-formed quoted tokens, so this list
+            # predates quoting (e.g. ["D:\dir\", "x"]): split on commas and
+            # keep the inner text raw, exactly as before.
+            return [x[1:-1] if len(x) >= 2 and x[0] == x[-1] == '"'
+                    else _parse_value(x)
+                    for x in _split_commas(inner, quotes=False)]
+        return [_parse_value(x) for x in items]
     low = s.lower()
     if low in ("true", "false"):
         return low == "true"

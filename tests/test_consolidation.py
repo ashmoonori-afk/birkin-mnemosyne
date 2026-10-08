@@ -515,3 +515,17 @@ def test_lock_retry_reraises_non_contention_errors_immediately():
         vault_lock._acquire_with_retry(try_lock, sleep)
     assert raised.value.errno == errno.EBADF
     assert attempts == 1
+
+
+def test_merge_keeps_backslash_sources(tmp_path):
+    from birkin_mnemosyne import frontmatter
+    memory = VaultMemory({"vault_path": str(tmp_path)})
+    body = "Review every release before publishing."
+    memory.write_note("First policy", body, source="D:\\dir\\")
+    memory.write_note("Second policy", body, source="C:\\new\\tab")
+    service = Consolidation(tmp_path)
+    question = service.questions()[0]
+    service.apply(question, Answer(question.id, "merge", "Same policy.",
+                                   survivor="first"))
+    meta, _ = frontmatter.parse(memory.get_note("First policy"))
+    assert meta["sources"] == ["D:\\dir\\", "C:\\new\\tab"]

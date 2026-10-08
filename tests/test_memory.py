@@ -370,3 +370,34 @@ def test_source_with_literal_backslash_sequences_roundtrips():
     m.write_note("Multi", "body", source=srcs[0], tags=srcs)
     meta, _ = frontmatter.parse(m.get_note("Multi"))
     assert meta["tags"] == srcs
+
+
+def test_old_list_with_trailing_backslash_item_keeps_both_sources():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    raw = (
+        "---\ntitle: Trailing Dir\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 2\nsources: ["D:\\dir\\", "chat:2"]\n'
+        "tags: []\n---\n\nbody\n"
+    )
+    meta, _ = frontmatter.parse(raw)
+    assert meta["sources"] == ["D:\\dir\\", "chat:2"]
+    (m.vault / "trailing-dir.md").write_text(raw, encoding="utf-8")
+    m.reindex()
+    m.write_note("Trailing Dir", "body two", source="pr:new")
+    meta, _ = frontmatter.parse(m.get_note("Trailing Dir"))
+    assert meta["sources"] == ["D:\\dir\\", "chat:2", "pr:new"]
+    assert meta["version"] == 3
+
+
+def test_new_format_list_with_hard_values_still_roundtrips():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    hard = ['a", b', 'end\\", x', 'x"y\\', 'q\\"r', 'a, "']
+    m.write_note("Hard", "body", source=hard[0], tags=hard)
+    for s in hard[1:]:
+        m.write_note("Hard", "body", source=s, tags=hard)
+    meta, _ = frontmatter.parse(m.get_note("Hard"))
+    assert meta["tags"] == hard
+    assert meta["sources"] == hard
