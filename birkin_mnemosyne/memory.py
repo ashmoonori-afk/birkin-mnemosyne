@@ -21,7 +21,7 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 from __future__ import annotations
 
 import threading
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -75,6 +75,30 @@ def _vault_dir(cfg):
     return d
 
 
+def _iter_note_files(vault: Path) -> Iterator[Path]:
+    """Yield every .md at the vault root and one zone level down, skipping
+    dot-entries -- the same set :meth:`Mnemosyne._scan` indexes, so the
+    fallbacks never reach ``.trash/``, ``.obsidian/`` or nested folders."""
+    try:
+        top = sorted(vault.iterdir())
+    except OSError:
+        return
+    for e in top:
+        if e.name.startswith("."):
+            continue
+        if e.is_file():
+            if e.suffix == ".md":
+                yield e
+        elif e.is_dir():
+            try:
+                sub = sorted(e.iterdir())
+            except OSError:
+                continue
+            for f in sub:
+                if f.suffix == ".md" and f.is_file():
+                    yield f
+
+
 class VaultMemory:
     def __init__(self, cfg: dict[str, Any] | None = None):
         self.cfg = cfg or {}
@@ -113,7 +137,7 @@ class VaultMemory:
         p = self.vault / f"{s}.md"
         if p.is_file():
             return p
-        for f in self.vault.rglob("*.md"):   # index cold/missing fallback
+        for f in _iter_note_files(self.vault):   # index cold/missing fallback
             if _slug(f.stem) == s:
                 return f
         return None
@@ -158,7 +182,7 @@ class VaultMemory:
 
     def _purge_expired(self) -> int:
         removed = 0
-        for f in self.vault.rglob("*.md"):
+        for f in _iter_note_files(self.vault):
             try:
                 meta, _ = frontmatter.parse(
                     f.read_text(encoding="utf-8", errors="replace"))

@@ -244,3 +244,38 @@ def test_existing_nfd_named_file_stays_reachable_by_nfc_title(tmp_path):
     assert text is not None and "decomposed file name body" in text
     assert m.write_note(nfc, "added later", append=True) == hand
     assert len(_md_names(m.vault)) == 1
+
+
+_EXPIRED = "---\ntype: topic\nexpires_at: 2000-01-01\n---\nstale body\n"
+
+
+def _plant_hidden_and_nested(vault):
+    planted = []
+    for rel in (".trash/foo.md", ".obsidian/x.md", "a/b/deep.md"):
+        p = vault / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(_EXPIRED, encoding="utf-8")
+        planted.append(p)
+    return planted
+
+
+def test_get_note_fallback_skips_hidden_and_nested_folders(tmp_path):
+    vault = tmp_path / "v"
+    vault.mkdir()
+    _plant_hidden_and_nested(vault)
+    m = VaultMemory({"vault_path": str(vault)})
+    assert m.get_note("foo") is None
+    assert m.get_note("x") is None
+    assert m.get_note("deep") is None
+
+
+def test_purge_expired_leaves_hidden_and_nested_folders_alone(tmp_path):
+    vault = tmp_path / "v"
+    (vault / "knowledge").mkdir(parents=True)
+    planted = _plant_hidden_and_nested(vault)
+    zoned = vault / "knowledge" / "old.md"
+    zoned.write_text(_EXPIRED, encoding="utf-8")
+    m = VaultMemory({"vault_path": str(vault)})
+    assert m.purge_expired() == 1
+    assert not zoned.exists()
+    assert all(p.exists() for p in planted)
