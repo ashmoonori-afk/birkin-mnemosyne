@@ -88,6 +88,26 @@ def test_search_zone_inbox_finds_root_notes():
     assert [h["slug"] for h in hits] == ["loose-banana"]
 
 
+def test_search_zone_inbox_alias_ignores_case_and_whitespace():
+    m = _mem()
+    m.write_note("Loose banana", "banana split", zone="inbox")
+    m.write_note("Filed banana", "banana bread", zone="baking")
+    for alias in ("Inbox", " inbox ", "INBOX", ""):
+        hits = m.dex.search("banana", zone=alias)
+        assert [h["slug"] for h in hits] == ["loose-banana"], alias
+
+
+def test_rezone_accepts_trimmed_lowercased_names_but_not_bad_ones():
+    m = _mem()
+    m.write_note("Mover", "x", zone="baking")
+    assert m.rezone("Mover", "  DevOps ").parent.name == "devops"
+    assert m.rezone("Mover", " Inbox ").parent == _vault()
+    assert m.rezone("Mover", " _ARCHIVE ").parent.name == mnemosyne.ARCHIVE_ZONE
+    for bad in ("Ops Notes", "\u65e5\u672c\u8a9e", "a_b", "../escape"):
+        with pytest.raises(ValueError, match="zone"):
+            m.rezone("Mover", bad)
+
+
 def test_update_never_moves_an_existing_note():
     m = _mem()
     # legacy flat note (inbox = vault root)
