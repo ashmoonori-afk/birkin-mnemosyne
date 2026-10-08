@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+import errno
 import os
 import threading
-from collections.abc import Generator
+import time
+from collections.abc import Callable, Generator
 from pathlib import Path
 
 LOCK_FILE = ".mnemosyne-mcp.lock"
@@ -22,7 +24,11 @@ class _State:
 
 
 class VaultLock:
-    """Vault before note/index/profile locks; nested holds reuse the OS lock."""
+    """Vault before note/index/profile locks; nested holds reuse the OS lock.
+
+    Acquisition blocks until the lock is free on every platform; there is no
+    timeout.
+    """
 
     def __init__(self, vault: Path) -> None:
         self.path: Path = Path(vault).resolve() / LOCK_FILE
@@ -50,12 +56,42 @@ class VaultLock:
                     _unlock_file(handle.fileno())
 
 
+_CONTENDED = frozenset(
+    code for name in ("EACCES", "EDEADLK", "EDEADLOCK")
+    if (code := getattr(errno, name, None)) is not None
+)
+
+
+def _acquire_with_retry(
+    try_lock: Callable[[], None], sleep: Callable[[float], None],
+) -> None:
+    """Retry a non-blocking lock attempt while the lock is contended.
+
+    Only contention errnos are retried (capped backoff); any other OSError is
+    raised immediately.
+    """
+    delay = 0.05
+    while True:
+        try:
+            try_lock()
+        except OSError as exc:
+            if exc.errno not in _CONTENDED:
+                raise
+            sleep(delay)
+            delay = min(delay * 2, 0.5)
+        else:
+            return
+
+
 if os.name == "nt":
     import msvcrt
 
     def _lock_file(fd: int) -> None:
-        _ = os.lseek(fd, 0, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+        def try_lock() -> None:
+            _ = os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+
+        _acquire_with_retry(try_lock, time.sleep)
 
     def _unlock_file(fd: int) -> None:
         _ = os.lseek(fd, 0, os.SEEK_SET)
