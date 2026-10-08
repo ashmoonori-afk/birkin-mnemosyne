@@ -481,3 +481,81 @@ def test_unrelated_shared_topic_and_empty_notes_are_not_questions(tmp_path):
     memory.write_note("Rail history", "Rail engines were steam powered.")
     memory.write_note("Empty", "")
     assert Consolidation(tmp_path).questions() == ()
+
+
+def seed_protected(vault: Path):
+    memory = VaultMemory({"vault_path": str(vault)})
+    memory.write_note("Old address", "Lived on Elm street.", zone="home",
+                      links=["New address"])
+    memory.write_note("New address", "Lives on Oak avenue.", zone="home",
+                      links=["Old address"])
+    memory.dex.set_dynamics("old-address", {
+        "strength": 1.0, "stability": 1.0, "access_count": 0,
+        "last_access": "2025-01-02T00:00:00+00:00"})
+    return memory
+
+
+def test_retire_questions_only_when_over_budget(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    seed_protected(tmp_path)
+    service = Consolidation(tmp_path)
+    assert service.retire_questions(10, CapacityBudget(5, None)) == ()
+    question, = service.retire_questions(10, CapacityBudget(1, None))
+    assert question.note.path == "home/old-address.md"
+    assert question.reason == "over-capacity"
+    assert question.last_access == "2025-01-02T00:00:00+00:00"
+    assert question.access_count == 0
+    assert "2025-01-02" in question.text and "Old address" in question.text
+    assert question.id == consolidation._retire_id(question.note)
+
+
+def test_retire_answer_archives_through_journal_and_undo_restores(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    seed_protected(tmp_path)
+    before = images(tmp_path)
+    service = Consolidation(tmp_path)
+    question, = service.retire_questions(10, CapacityBudget(1, None))
+    receipt = service.apply_retire(question, "retire")
+    assert receipt.state == "committed"
+    assert not (tmp_path / "home/old-address.md").exists()
+    assert (tmp_path / "_archive/old-address.md").read_bytes() == \
+        before["home/old-address.md"]
+    manifest = json.loads((tmp_path / receipt.journal_path).read_text("utf-8"))
+    assert (manifest["question_id"], manifest["choice"]) == (question.id, "retire")
+    service.undo(receipt.transaction_id)
+    assert images(tmp_path) == before
+
+
+def test_retire_keep_changes_nothing(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    seed_protected(tmp_path)
+    before = images(tmp_path)
+    service = Consolidation(tmp_path)
+    question, = service.retire_questions(10, CapacityBudget(1, None))
+    service.apply_retire(question, "keep")
+    assert images(tmp_path) == before
+
+
+def test_retire_rejects_stale_snapshot_and_unknown_choice(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    memory = seed_protected(tmp_path)
+    service = Consolidation(tmp_path)
+    question, = service.retire_questions(10, CapacityBudget(1, None))
+    with pytest.raises(ReviewError):
+        service.apply_retire(question, "drop-first")
+    with pytest.raises(ReviewError):
+        service.apply_retire(replace(question, id="0" * 64), "retire")
+    memory.write_note("Old address", "Moved again.", append=True)
+    with pytest.raises(ReviewError, match="stale"):
+        service.apply_retire(question, "retire")
+    assert (tmp_path / "home/old-address.md").is_file()
+    assert not (tmp_path / "_archive").exists()
+
+
+def test_retire_questions_skip_undecodable_notes(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    seed_protected(tmp_path)
+    raw = (tmp_path / "home/old-address.md").read_bytes()
+    (tmp_path / "home/old-address.md").write_bytes(raw + b"\xff\xfe")
+    questions = Consolidation(tmp_path).retire_questions(10, CapacityBudget(1, None))
+    assert [q.note.path for q in questions] == []

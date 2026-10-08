@@ -73,9 +73,9 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_curation_catalog", "memory_curate",
         "memory_review_questions", "memory_review_apply", "memory_review_undo",
         "memory_identity_read", "memory_kibitzer_candidates",
-        "memory_startup_read", "memory_startup_verify"}
+        "memory_startup_read", "memory_startup_verify", "memory_capacity"}
     for name in ("memory_search", "memory_list", "memory_related",
-                 "memory_curation_catalog"):
+                 "memory_curation_catalog", "memory_capacity"):
         assert tools[name].annotations.read_only_hint is True
     for name in ("memory_remember", "memory_forget", "memory_curate",
                  "memory_get_note"):
@@ -450,3 +450,106 @@ def test_remember_create_refuses_file_the_index_has_not_seen(tmp_path,
               {"title": "Unseen", "body": "overwrite!"})
     assert "already exists" in msg
     assert target.read_bytes() == b"original bytes\n"
+
+
+def budgeted(vault: Path, budget, name: str, args: dict[str, Any] | None = None):
+    async def run():
+        async with Client(create_server(vault, budget=budget)) as client:
+            return await client.call_tool(name, args or {})
+    r = asyncio.run(run())
+    assert not r.is_error, r.content
+    return r.structured_content
+
+
+def _seed_protected(vault: Path) -> None:
+    remember(vault, "Old address", "Lived on Elm street.", zone="home",
+             links=["New address"])
+    remember(vault, "New address", "Lives on Oak avenue.", zone="home",
+             links=["Old address"])
+
+
+def test_capacity_tool_reports_protected_notes(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    _seed_protected(tmp_path)
+    remember(tmp_path, "Loose", "an unfiled note", zone="inbox")
+    out = ok(tmp_path, "memory_capacity")
+    assert (out["notes"], out["protected"]) == (3, 2)
+    assert out["over_budget"] == {"protected": False, "bytes": False}
+    assert out["warnings"] == []
+    out = budgeted(tmp_path, CapacityBudget(1, None), "memory_capacity")
+    assert out["over_budget"]["protected"] is True
+    assert out["warnings"]
+
+
+def test_review_questions_add_retire_keys_only_when_over_budget(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    _seed_protected(tmp_path)
+    under = ok(tmp_path, "memory_review_questions")
+    assert set(under) == {"questions", "choices"}
+    over = budgeted(tmp_path, CapacityBudget(1, None), "memory_review_questions")
+    assert over["retire_choices"] == ["keep", "retire"]
+    assert over["capacity"]["over_budget"]["protected"] is True
+    question, = over["retire_questions"]
+    assert question["reason"] == "over-capacity"
+    assert "budget" in question["question"]
+
+
+def test_retire_question_apply_dry_run_confirm_and_undo(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    budget = CapacityBudget(1, None)
+    _seed_protected(tmp_path)
+    before = _files(tmp_path)
+    question, = budgeted(tmp_path, budget,
+                         "memory_review_questions")["retire_questions"]
+    args = {"question_id": question["id"], "choice": "retire"}
+    preview = budgeted(tmp_path, budget, "memory_review_apply", args)
+    assert preview["dry_run"] is True
+    assert _files(tmp_path) == before
+    receipt = budgeted(tmp_path, budget, "memory_review_apply",
+                       {**args, "confirm": True})
+    assert receipt["state"] == "committed"
+    assert (tmp_path / "_archive" / Path(question["note"]["path"]).name).is_file()
+    ok(tmp_path, "memory_review_undo",
+       {"transaction_id": receipt["transaction_id"], "confirm": True})
+    assert _files(tmp_path) == before
+
+
+def test_retire_choice_needs_a_retire_question(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    _seed_protected(tmp_path)
+    async def run():
+        async with Client(create_server(
+                tmp_path, budget=CapacityBudget(5, None))) as client:
+            return await client.call_tool("memory_review_apply", {
+                "question_id": "0" * 64, "choice": "retire", "confirm": True})
+    r = asyncio.run(run())
+    assert r.is_error
+    assert "stale or unknown" in r.content[0].text
+
+
+def test_remember_warns_only_when_over_budget(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    _seed_protected(tmp_path)
+    out = remember(tmp_path, "Third", "under budget", zone="inbox")
+    assert "capacity_warning" not in out
+    out = budgeted(tmp_path, CapacityBudget(1, None), "memory_remember",
+                   {"title": "Fourth", "body": "over budget", "zone": "inbox"})
+    assert "protected notes" in out["capacity_warning"]
+
+
+def test_over_budget_never_moves_protected_notes_by_itself(tmp_path):
+    from birkin_mnemosyne.capacity import CapacityBudget
+    budget = CapacityBudget(1, 1)
+    _seed_protected(tmp_path)
+    before = _files(tmp_path)
+    budgeted(tmp_path, budget, "memory_capacity")
+    budgeted(tmp_path, budget, "memory_review_questions")
+    out = budgeted(tmp_path, budget, "memory_forget",
+                   {"note": "old-address", "confirm": True})
+    assert out["archived"] is False
+    assert out["dropped"][0]["reason"] == "protected note"
+    out = budgeted(tmp_path, budget, "memory_curate", {"plan": {
+        "plan_version": 1, "ops": [{"op": "archive", "slug": "old-address"}]},
+        "apply": True})
+    assert out["effected"] == []
+    assert _files(tmp_path) == before
