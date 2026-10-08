@@ -108,6 +108,33 @@ def test_user_question_review_via_real_mcp_client(tmp_path):
     assert _files(tmp_path) == before
 
 
+def test_review_undo_holds_vault_lock(tmp_path, monkeypatch):
+    from birkin_mnemosyne import consolidation
+    from birkin_mnemosyne.vault_lock import VaultLock
+
+    remember(tmp_path, "First rule", "Reviews precede release.", source="user:a")
+    remember(tmp_path, "Second rule", "Reviews precede release.", source="user:b")
+    question, = ok(tmp_path, "memory_review_questions")["questions"]
+    receipt = ok(tmp_path, "memory_review_apply", {
+        "question_id": question["id"], "choice": "keep-first", "confirm": True,
+    })
+
+    depths: list[int] = []
+    original = consolidation.Consolidation.undo
+
+    def recording_undo(
+        self: consolidation.Consolidation, transaction_id: str,
+    ) -> Any:
+        depths.append(VaultLock(tmp_path)._state.depth)
+        return original(self, transaction_id)
+
+    monkeypatch.setattr(consolidation.Consolidation, "undo", recording_undo)
+    ok(tmp_path, "memory_review_undo", {
+        "transaction_id": receipt["transaction_id"], "confirm": True,
+    })
+    assert depths and min(depths) >= 1
+
+
 def test_identity_reader_via_real_mcp_client(tmp_path):
     path = tmp_path / "AGENTS.md"
     path.write_text("# Agent\n## Voice\nLanguage: Korean\n## Old\nLanguage: English\n",

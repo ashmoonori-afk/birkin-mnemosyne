@@ -496,12 +496,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         """Restore byte-exact originals only if every post-image is unchanged."""
         if not confirm:
             return {"dry_run": True, "transaction_id": transaction_id}
-        try:
-            receipt = Consolidation(vault).undo(transaction_id)
-            dex.refresh()
-        except (ReviewError, OSError) as exc:
-            raise ToolError(str(exc)) from exc
-        return {"dry_run": False, **asdict(receipt)}
+        with lock.hold():
+            try:
+                receipt = Consolidation(vault).undo(transaction_id)
+                dex.refresh()
+            except (ReviewError, OSError) as exc:
+                raise ToolError(str(exc)) from exc
+            return {"dry_run": False, **asdict(receipt)}
 
     @server.tool(annotations=_READ)
     def memory_identity_read(
