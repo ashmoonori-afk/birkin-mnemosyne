@@ -359,7 +359,7 @@ def test_resources_and_prompt(tmp_path):
         return digest, note, prompt
     digest, note, prompt = _session(tmp_path, steps)
     assert "Tax filing" in digest.contents[0].text
-    assert note.contents[0].text.startswith("---\ntitle: Tax filing")
+    assert note.contents[0].text.startswith('---\ntitle: "Tax filing"')
     text = prompt.messages[0].content.text
     assert "memory_curate" in text and "tax-filing" in text
 

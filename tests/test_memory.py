@@ -279,3 +279,160 @@ def test_purge_expired_leaves_hidden_and_nested_folders_alone(tmp_path):
     assert m.purge_expired() == 1
     assert not zoned.exists()
     assert all(p.exists() for p in planted)
+
+
+# -- frontmatter quoting (M1-9 / M1-11) ----------------------------------------
+
+_AWKWARD_TITLES = [
+    "Nan", "Infinity", "Inf", "1e3", "007", "true", "null", "[a, b]",
+    'He said "hi" \\ bye',
+]
+
+
+@pytest.mark.parametrize("title", _AWKWARD_TITLES)
+def test_awkward_titles_roundtrip_unchanged(title):
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    m.write_note(title, "body text", source="seed")
+    meta, _ = frontmatter.parse(m.get_note(title))
+    assert meta["title"] == title
+    assert [n["title"] for n in m.list_notes()] == [title]
+    m.write_note(title, "second", source="seed2")
+    meta, _ = frontmatter.parse(m.get_note(title))
+    assert meta["version"] == 2
+    assert meta["sources"] == ["seed", "seed2"]
+
+
+def test_numeric_title_survives_add_link():
+    m = _mem()
+    m.write_note("007", "agent", source="s")
+    m.write_note("B", "other", source="s")
+    assert m.add_link("007", "B") is True
+    assert "B" in m.neighbors("007")
+
+
+def test_source_with_quote_and_tag_with_comma_roundtrip():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    src = 'https://x.test/?q="a"&b=\\c'
+    tags = ["a,b", "c]d", 'e"f', "plain"]
+    m.write_note("Quoted", "body", source=src, tags=tags)
+    meta, _ = frontmatter.parse(m.get_note("Quoted"))
+    assert meta["sources"] == [src]
+    assert meta["tags"] == tags
+    m.write_note("Quoted", "again", tags=tags)
+    meta, _ = frontmatter.parse(m.get_note("Quoted"))
+    assert meta["version"] == 2
+    assert meta["sources"] == [src]
+
+
+def test_multiline_title_cannot_break_header():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    m.write_note("Plan\n---\nnotes", "body", source="seed", tags=["t\n---"])
+    m.write_note("Plan\n---\nnotes", "body2", source="seed")
+    text = m.get_note("Plan --- notes")
+    meta, body = frontmatter.parse(text)
+    assert meta["version"] == 2
+    assert meta["sources"] == ["seed"]
+    assert meta["title"] == "Plan --- notes"
+    assert "---" not in body.replace("body2", "")
+    m.write_note("Plan --- notes", "body3", expected_version=2)
+
+
+def test_old_unquoted_frontmatter_still_parses():
+    from birkin_mnemosyne import frontmatter
+    old = (
+        "---\ntitle: Old Note\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 3\nsources: ["https://a.test", "b"]\n'
+        "tags: [x, y z]\nexpires_at: 2099-01-01\n---\n\nhello\n"
+    )
+    meta, body = frontmatter.parse(old)
+    assert meta["title"] == "Old Note"
+    assert meta["confidence"] == 0.7
+    assert meta["version"] == 3
+    assert meta["sources"] == ["https://a.test", "b"]
+    assert meta["tags"] == ["x", "y z"]
+    assert meta["created"] == "2026-01-02"
+    assert body.strip() == "hello"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("Nan", "Nan"), ("inf", "inf"), ("Infinity", "Infinity"),
+    ("1e3", "1e3"), ("007", "007"), ("42", 42), ("-3", -3),
+    ("0.7", 0.7), ("-1.5", -1.5), ("0", 0),
+])
+def test_parser_numeric_coercion_is_strict(raw, expected):
+    from birkin_mnemosyne import frontmatter
+    meta, _ = frontmatter.parse(f"---\nk: {raw}\n---\n")
+    assert meta["k"] == expected
+    assert type(meta["k"]) is type(expected)
+
+
+def test_old_note_with_backslash_sources_survives_rewrite():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    old_sources = ["D:\\notes\\todo", "C:\\Users\\x"]
+    raw = (
+        "---\ntitle: Old Paths\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 1\nsources: ["D:\\notes\\todo", "C:\\Users\\x"]\n'
+        "tags: []\n---\n\nbody\n"
+    )
+    (m.vault / "old-paths.md").write_text(raw, encoding="utf-8")
+    meta, _ = frontmatter.parse(raw)
+    assert meta["sources"] == old_sources
+    m.reindex()
+    m.write_note("Old Paths", "body two", source="extra")
+    meta, _ = frontmatter.parse(m.get_note("Old Paths"))
+    assert meta["sources"] == old_sources + ["extra"]
+    assert meta["version"] == 2
+    m.write_note("Old Paths", "body three")
+    meta, _ = frontmatter.parse(m.get_note("Old Paths"))
+    assert meta["sources"] == old_sources + ["extra"]
+
+
+def test_source_with_literal_backslash_sequences_roundtrips():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    srcs = ["a\\nb", 'q\\"r', "t\\\\u", "end\\", 'x"y\\', "\\u0041"]
+    for i, src in enumerate(srcs):
+        m.write_note(f"Esc {i}", "body", source=src, tags=[src])
+        meta, _ = frontmatter.parse(m.get_note(f"Esc {i}"))
+        assert meta["sources"] == [src]
+        assert meta["tags"] == [src]
+    m.write_note("Multi", "body", source=srcs[0], tags=srcs)
+    meta, _ = frontmatter.parse(m.get_note("Multi"))
+    assert meta["tags"] == srcs
+
+
+def test_old_list_with_trailing_backslash_item_keeps_both_sources():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    raw = (
+        "---\ntitle: Trailing Dir\ntype: topic\ncreated: 2026-01-02\n"
+        "updated: 2026-01-03\nconfidence: 0.7\npolarity: positive\n"
+        'version: 2\nsources: ["D:\\dir\\", "chat:2"]\n'
+        "tags: []\n---\n\nbody\n"
+    )
+    meta, _ = frontmatter.parse(raw)
+    assert meta["sources"] == ["D:\\dir\\", "chat:2"]
+    (m.vault / "trailing-dir.md").write_text(raw, encoding="utf-8")
+    m.reindex()
+    m.write_note("Trailing Dir", "body two", source="pr:new")
+    meta, _ = frontmatter.parse(m.get_note("Trailing Dir"))
+    assert meta["sources"] == ["D:\\dir\\", "chat:2", "pr:new"]
+    assert meta["version"] == 3
+
+
+def test_new_format_list_with_hard_values_still_roundtrips():
+    from birkin_mnemosyne import frontmatter
+    m = _mem()
+    hard = ['a", b', 'end\\", x', 'x"y\\', 'q\\"r', 'a, "']
+    m.write_note("Hard", "body", source=hard[0], tags=hard)
+    for s in hard[1:]:
+        m.write_note("Hard", "body", source=s, tags=hard)
+    meta, _ = frontmatter.parse(m.get_note("Hard"))
+    assert meta["tags"] == hard
+    assert meta["sources"] == hard

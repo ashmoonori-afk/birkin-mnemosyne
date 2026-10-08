@@ -47,10 +47,22 @@ def _indent(s: str) -> int:
     return len(s) - len(s.lstrip(" "))
 
 
-def _split_commas(s: str) -> list[str]:
+def _split_commas(s: str, quotes: bool = True) -> list[str]:
     out, depth, buf = [], 0, []
+    in_str = esc = False
     for ch in s:
-        if ch in "[{":
+        if in_str:   # inside a double-quoted token: commas/brackets are text
+            buf.append(ch)
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if quotes and ch == '"' and not "".join(buf).strip():
+            in_str = True
+        elif ch in "[{":
             depth += 1
         elif ch in "]}":
             depth -= 1
@@ -64,22 +76,42 @@ def _split_commas(s: str) -> list[str]:
     return [x.strip() for x in out if x.strip()]
 
 
+_UNESCAPE_RE = re.compile(r'\\([\\"])')
+_QUOTED_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+_INT_RE = re.compile(r"-?(?:0|[1-9]\d*)")
+_FLOAT_RE = re.compile(r"-?(?:0|[1-9]\d*)\.\d+")
+
+
 def _parse_value(s: str) -> Any:
     s = s.strip()
     if len(s) >= 2 and s[0] in "\"'" and s[-1] == s[0]:
+        if s[0] == '"':   # only \\ and \" are escapes; old data has neither
+            return _UNESCAPE_RE.sub(r"\1", s[1:-1])
         return s[1:-1]
     if s.startswith("[") and s.endswith("]"):
         inner = s[1:-1].strip()
-        return [_parse_value(x) for x in _split_commas(inner)] if inner else []
+        if not inner:
+            return []
+        items = _split_commas(inner)
+        if any(x.startswith('"') and not _QUOTED_RE.fullmatch(x) for x in items):
+            # The writer only emits well-formed quoted tokens, so this list
+            # predates quoting (e.g. ["D:\dir\", "x"]): split on commas and
+            # keep the inner text raw, exactly as before.
+            return [x[1:-1] if len(x) >= 2 and x[0] == x[-1] == '"'
+                    else _parse_value(x)
+                    for x in _split_commas(inner, quotes=False)]
+        return [_parse_value(x) for x in items]
     low = s.lower()
     if low in ("true", "false"):
         return low == "true"
     if low in ("null", "~", ""):
         return None
-    try:
-        return int(s) if re.fullmatch(r"-?\d+", s) else float(s)
-    except ValueError:
-        return s
+    # Strict numerics only: never nan/inf/exponent forms or leading-zero ids.
+    if _INT_RE.fullmatch(s):
+        return int(s)
+    if _FLOAT_RE.fullmatch(s):
+        return float(s)
+    return s
 
 
 def _parse_block(lines: list[str], i: int, base: int):

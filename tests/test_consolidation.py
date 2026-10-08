@@ -96,7 +96,7 @@ def test_merge_preserves_survivor_metadata_and_both_sources(tmp_path, survivor):
     assert "Review releases; the user approved this merge." in text
     assert ('"chat:first", "chat:second"' if survivor == "first" else
             '"chat:second", "chat:first"') in text
-    assert ("tags: [guard]" in text) == (survivor == "first")
+    assert ('tags: ["guard"]' in text) == (survivor == "first")
     assert not (tmp_path / retired_note.path).exists()
     assert (tmp_path / "_archive" / Path(retired_note.path).name).read_bytes() \
         == before[retired_note.path]
@@ -572,3 +572,17 @@ def test_non_numeric_version_merges_as_version_one(tmp_path):
     merged = memory.get_note(question.first.title)
     assert "version: 1\n" in merged
     assert "version: draft" not in merged
+
+
+def test_merge_keeps_backslash_sources(tmp_path):
+    from birkin_mnemosyne import frontmatter
+    memory = VaultMemory({"vault_path": str(tmp_path)})
+    body = "Review every release before publishing."
+    memory.write_note("First policy", body, source="D:\\dir\\")
+    memory.write_note("Second policy", body, source="C:\\new\\tab")
+    service = Consolidation(tmp_path)
+    question = service.questions()[0]
+    service.apply(question, Answer(question.id, "merge", "Same policy.",
+                                   survivor="first"))
+    meta, _ = frontmatter.parse(memory.get_note("First policy"))
+    assert meta["sources"] == ["D:\\dir\\", "C:\\new\\tab"]
