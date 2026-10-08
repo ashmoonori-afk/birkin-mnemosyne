@@ -38,8 +38,12 @@ RetireChoice = Literal["keep", "retire"]
 #: candidate generation is bounded by the next two constants.
 MAX_CANDIDATE_PAIRS = 50_000
 #: Bounded mode: candidate partners kept per note, ranked by true Jaccard
-#: similarity (ties by path order). Bounds pair generation to O(n * k).
+#: similarity (ties by path order). Bounds the pairs returned to O(n * k).
 MAX_PAIRS_PER_NOTE = 20
+#: Bounded mode: candidates per note, taken by shared-token count (ties by path
+#: order), that are ranked by true Jaccard. Bounds the full-score evaluations,
+#: and so the time spent under the vault lock, to O(n * k).
+PREFILTER_CANDIDATES = 80
 #: Bounded mode: a token present in more than this many notes is too common to
 #: pair every note holding it; each such note is paired only with its
 #: MAX_PAIRS_PER_NOTE nearest neighbours before and after it (path order)
@@ -131,11 +135,13 @@ def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
     """Index pairs (i < j) worth scoring.
 
     Within the MAX_CANDIDATE_PAIRS budget this is every pair sharing a token.
-    Above it, each note keeps its MAX_PAIRS_PER_NOTE partners with the highest
-    true Jaccard similarity (full token sets) among the candidates found via
-    its tokens' postings, where over-frequent tokens only reach the nearest
-    notes in path order. A duplicate that shares no rare token with a note and
-    lies outside every window of that note's common tokens can still be missed.
+    Above it, each note counts the tokens it shares with every note reached via
+    its tokens' postings (over-frequent tokens only reach the nearest notes in
+    path order), keeps the PREFILTER_CANDIDATES with the highest counts, and
+    ranks only those by true Jaccard similarity (full token sets), keeping the
+    best MAX_PAIRS_PER_NOTE. A duplicate that is not among the top shared-token
+    counts of a note (for example one sharing only a few rare tokens while
+    PREFILTER_CANDIDATES other notes share more) can still be missed.
     """
     postings: dict[str, list[int]] = {}
     for i, tokens in enumerate(terms):
@@ -146,17 +152,20 @@ def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
                 for a, i in enumerate(posting) for j in posting[:a]}
     pairs: set[tuple[int, int]] = set()
     for i, tokens in enumerate(terms):
-        near: set[int] = set()
+        shared: dict[int, int] = {}
         for token in tokens:
             posting = postings[token]
             if len(posting) > MAX_TOKEN_DF:
                 at = bisect_left(posting, i)
                 posting = posting[max(0, at - MAX_PAIRS_PER_NOTE):
                                   at + MAX_PAIRS_PER_NOTE + 1]
-            near.update(posting)
-        near.discard(i)
+            for j in posting:
+                if j != i:
+                    shared[j] = shared.get(j, 0) + 1
+        prefiltered = heapq.nsmallest(
+            PREFILTER_CANDIDATES, shared.items(), key=lambda item: (-item[1], item[0]))
         best = heapq.nsmallest(
-            MAX_PAIRS_PER_NOTE, near,
+            MAX_PAIRS_PER_NOTE, (j for j, _ in prefiltered),
             key=lambda j: (-_jaccard(tokens, terms[j]), j))
         pairs.update((min(i, j), max(i, j)) for j in best)
     return pairs

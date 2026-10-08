@@ -779,3 +779,33 @@ def test_small_vault_questions_match_the_unbounded_pairing(tmp_path):
     assert len(expected) == count * (count - 1) // 2
     questions = Consolidation(tmp_path).questions(10 ** 6)
     assert {q.id for q in questions} == expected
+
+
+def test_bounded_mode_limits_full_overlap_evaluations_per_note(tmp_path, monkeypatch):
+    import random
+
+    rng = random.Random(11)
+    count = 400
+    vocabulary = [_word("m", n) for n in range(40)]
+    bodies = []
+    for n in range(count):
+        bodies.append(" ".join(rng.sample(vocabulary, 15)))
+        _raw_note(tmp_path, f"n{n:04d}", bodies[-1])
+    frequencies = [sum(word in body.split() for body in bodies) for word in vocabulary]
+    # Mid-frequency tokens only: none is windowed, none is rare, and the
+    # unbounded pair count is far above the budget.
+    assert all(50 <= df <= consolidation.MAX_TOKEN_DF for df in frequencies)
+    assert sum(df * (df - 1) // 2 for df in frequencies) \
+        > consolidation.MAX_CANDIDATE_PAIRS
+    evaluations = 0
+    real = consolidation._jaccard
+
+    def counting(a, b):
+        nonlocal evaluations
+        evaluations += 1
+        return real(a, b)
+
+    monkeypatch.setattr(consolidation, "_jaccard", counting)
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    assert 0 < evaluations <= count * consolidation.PREFILTER_CANDIDATES
+    assert len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
