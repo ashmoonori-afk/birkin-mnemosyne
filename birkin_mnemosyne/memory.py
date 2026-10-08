@@ -205,6 +205,8 @@ class VaultMemory:
             existing_body = ""
             existing_polarity: str | None = None
             existing_version = 0
+            existing_tags: list[str] = []
+            existing_expiry: str | None = None
             if p.is_file():
                 old = p.read_text(encoding="utf-8", errors="replace")
                 meta, old_body = frontmatter.parse(old)
@@ -214,6 +216,10 @@ class VaultMemory:
                     sources = [str(s) for s in old_sources]
                 existing_body = old_body.strip()
                 existing_polarity = str(meta.get("polarity") or "") or None
+                old_tags = meta.get("tags")
+                if isinstance(old_tags, list):
+                    existing_tags = [str(t) for t in old_tags]
+                existing_expiry = str(meta.get("expires_at") or "") or None
                 try:
                     existing_version = int(meta.get("version") or 0)
                 except (TypeError, ValueError):
@@ -251,15 +257,19 @@ class VaultMemory:
                 if "## Related" not in body:
                     body += f"\n\n## Related\n{related}"
 
-            expires_at = None
+            # Omitted ``tags``/``ttl_days`` keep what the note already has; an
+            # explicit ``tags=[]`` clears the tags and an explicit ``ttl_days``
+            # sets a new expiry (``0`` removes it).
+            expires_at = existing_expiry if ttl_days is None else None
             if ttl_days is not None and int(ttl_days) > 0:
                 from datetime import timedelta
                 expires_at = (date.today() + timedelta(days=int(ttl_days))).isoformat()
+            note_tags = existing_tags if tags is None else tags
 
             fm = _compose_frontmatter(
                 title=title, note_type=note_type, created=created,
                 updated=_now_iso()[:10], confidence=confidence,
-                sources=sources, tags=tags or [], expires_at=expires_at,
+                sources=sources, tags=note_tags, expires_at=expires_at,
                 polarity=pol, version=existing_version + 1)
             _atomic_write(p, fm + body + "\n")
             self.dex.note_written(p)
@@ -349,10 +359,14 @@ class VaultMemory:
             body += f" · [[{to_title}]]"
         else:
             body += f"\n\n## Related\n[[{to_title}]]"
-        # rewrite preserving frontmatter
+        try:
+            confidence = float(meta.get("confidence", 0.7) or 0.7)
+        except (TypeError, ValueError):
+            confidence = 0.7
+        # rewrite preserving frontmatter (tags/expiry are kept by write_note)
         self.write_note(meta.get("title", from_title), body,
                         note_type=str(meta.get("type", "topic")),
-                        confidence=float(meta.get("confidence", 0.7) or 0.7))
+                        confidence=confidence)
         return True
 
     # -- palace maintenance --------------------------------------------------
