@@ -126,6 +126,14 @@ def _safe(vault: Path, relative: str) -> Path:
     return path
 
 
+def _journal_ref(vault: Path, path: Path) -> str:
+    """Vault-relative journal path for error text; never the absolute path."""
+    try:
+        return path.relative_to(vault).as_posix()
+    except ValueError:
+        return path.name
+
+
 def _refresh(vault: Path) -> None:
     Mnemosyne(vault).refresh()
 
@@ -186,11 +194,11 @@ def commit(
                 _save(path, manifest)
             except OSError:
                 # The prepared journal still contains all original bytes.
-                raise ReviewError(f"recovery required: {path}") from rollback_error
-            raise ReviewError(f"recovery required: {path}") from rollback_error
+                raise ReviewError(f"recovery required: {_journal_ref(vault, path)}") from rollback_error
+            raise ReviewError(f"recovery required: {_journal_ref(vault, path)}") from rollback_error
         manifest["state"] = "rolled-back"
         _save(path, manifest)
-        raise ReviewError(f"transaction rolled back: {path}") from exc
+        raise ReviewError(f"transaction rolled back: {_journal_ref(vault, path)}") from exc
     return Receipt(transaction_id, "committed", path.relative_to(vault).as_posix())
 
 
@@ -240,5 +248,5 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
         raw["state"] = "undone"
         _save(path, raw)
     except (OSError, ValueError) as exc:
-        raise ReviewError(f"recovery required: {path}") from exc
+        raise ReviewError(f"recovery required: {_journal_ref(vault, path)}") from exc
     return Receipt(transaction_id, "undone", path.relative_to(vault).as_posix())

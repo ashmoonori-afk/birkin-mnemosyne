@@ -218,8 +218,9 @@ def test_recovery_refuses_unrelated_edit_before_any_restoration(tmp_path, monkey
 
     with monkeypatch.context() as fault:
         fault.setattr(Path, "unlink", failing_unlink)
-        with pytest.raises(ReviewError, match="recovery required"):
+        with pytest.raises(ReviewError, match="recovery required") as caught:
             service.undo(receipt.transaction_id)
+    assert_vault_relative_journal(caught.value, tmp_path)
     target = tmp_path / question.second.path if edited == "source" else archive
     target.write_bytes(b"Unrelated user edit")
     before = images(tmp_path)
@@ -298,8 +299,9 @@ def test_handled_failure_rolls_back_all_note_images(tmp_path, monkeypatch, bound
 
     monkeypatch.setattr(review_journal, "atomic_write_bytes", failing_write)
     monkeypatch.setattr(review_journal, "_refresh", failing_refresh)
-    with pytest.raises(ReviewError, match="rolled back"):
+    with pytest.raises(ReviewError, match="rolled back") as caught:
         service.apply(question, Answer(question.id, "merge", "Explicit merged fact."))
+    assert_vault_relative_journal(caught.value, tmp_path)
     assert tripped
     assert images(tmp_path) == before
     journal = next((tmp_path / ".mnemosyne-reviews").glob("*.json"))
@@ -312,13 +314,38 @@ def test_recovery_required_journal_keeps_originals(tmp_path, monkeypatch):
     refresh = review_journal._refresh
     monkeypatch.setattr(review_journal, "_refresh",
                         lambda _vault: (_ for _ in ()).throw(OSError("index offline")))
-    with pytest.raises(ReviewError, match="recovery required"):
+    with pytest.raises(ReviewError, match="recovery required") as caught:
         service.apply(question, Answer(question.id, "merge", "User merged fact."))
+    assert_vault_relative_journal(caught.value, tmp_path)
     journal = next((tmp_path / ".mnemosyne-reviews").glob("*.json"))
     assert json.loads(journal.read_text("utf-8"))["state"] == "recovery-required"
     monkeypatch.setattr(review_journal, "_refresh", refresh)
     service.undo(journal.stem)
     assert images(tmp_path) == before
+
+
+def assert_vault_relative_journal(error, vault):
+    message = str(error)
+    assert ".mnemosyne-reviews/" in message
+    assert str(vault) not in message
+    assert str(vault.resolve()) not in message
+
+
+def test_unsaved_recovery_state_reports_vault_relative_journal(tmp_path, monkeypatch):
+    _, service, question = seed(tmp_path)
+    save = review_journal._save
+
+    def failing_save(path, manifest):
+        if manifest["state"] == "recovery-required":
+            raise OSError("injected journal write failure")
+        save(path, manifest)
+
+    monkeypatch.setattr(review_journal, "_refresh",
+                        lambda _vault: (_ for _ in ()).throw(OSError("index offline")))
+    monkeypatch.setattr(review_journal, "_save", failing_save)
+    with pytest.raises(ReviewError, match="recovery required") as caught:
+        service.apply(question, Answer(question.id, "merge", "User merged fact."))
+    assert_vault_relative_journal(caught.value, tmp_path)
 
 
 @pytest.fixture
