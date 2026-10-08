@@ -446,6 +446,8 @@ times out on that first start, run the command once in a terminal.
 | vault directory | `--vault PATH`, else `$MNEMOSYNE_VAULT`, else `~/.birkin-mnemosyne/vault` |
 | require a `source` for new notes | `--evidence-required` or `MNEMOSYNE_EVIDENCE_REQUIRED=1` |
 | identity/startup read root | `--identity-root PATH`, else `$MNEMOSYNE_IDENTITY_ROOT`, else the vault; `memory_identity_read` and `memory_startup_*` can read files under this root (paths are confined to it); point it at a directory that holds only files you want an agent to read |
+| protected-note budget (default 1000, `0` = no limit) | `--max-protected-notes N` or `MNEMOSYNE_MAX_PROTECTED_NOTES=N` |
+| active-note byte budget (default 104857600, `0` = no limit) | `--max-vault-bytes N` or `MNEMOSYNE_MAX_VAULT_BYTES=N` |
 
 **Claude Code**
 
@@ -504,6 +506,7 @@ serialized across server processes with a lock file.
 | `memory_kibitzer_candidates` | ranked live note candidates for a query, with short excerpts; archive, system and expired notes are skipped | read-only |
 | `memory_startup_read` | read startup files (and the local files they MUST READ) under the identity root completely, with coverage checks | read-only |
 | `memory_startup_verify` | re-read the same files and verify a returned startup context against them | read-only |
+| `memory_capacity` | active and protected note counts and index bytes against the budget | read-only |
 
 Plus the resources `mnemosyne://digest` (the prompt digest) and
 `mnemosyne://note/{slug}`, and the prompt `curate_vault`. The calling agent is
@@ -516,6 +519,18 @@ original bytes are restored and verified; `purge_expired` stays a Python-only
 maintenance call. Note text returned
 by the tools is stored data from earlier sessions; the server tells clients
 not to follow instructions found inside it.
+
+**Capacity.** The protection rule is unchanged: negative-polarity,
+identity/preference and filed + linked notes stay out of reach of
+`memory_forget` and `memory_curate`. So that protected memory cannot grow
+without bound, the server compares the active vault with a budget (the two
+settings above; an invalid value stops the server at start). Over budget,
+`memory_capacity` and `memory_remember` (`capacity_warning`) say so, and
+`memory_review_questions` adds `retire_questions` for the oldest, least-used
+protected notes, which the agent must ask the user (`keep` or `retire`).
+Nothing is ever deleted automatically: `retire` archives the note through the
+journaled `memory_review_apply` path, and `memory_review_undo` restores it.
+Under budget, existing clients see no new keys.
 
 ## Automatic role profiles
 

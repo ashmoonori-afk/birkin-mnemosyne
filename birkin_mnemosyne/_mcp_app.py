@@ -19,7 +19,8 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from . import __version__, frontmatter
-from .consolidation import Answer, Choice, Consolidation
+from .capacity import DEFAULT_BUDGET, CapacityBudget, capacity_report
+from .consolidation import Answer, Choice, Consolidation, RetireChoice
 from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
@@ -53,6 +54,8 @@ Long-term memory: a vault of Markdown notes ranked by BM25 plus usage decay.
 - Consolidation: memory_review_questions -> ask-user-questions -> explicit user
   choice -> memory_review_apply(confirm=true). Never invent answers.
   memory_review_undo restores exact originals if post-images remain unchanged.
+- Over capacity, memory_review_questions adds retire_questions: ask the user
+  each one like other review questions; never answer keep/retire yourself.
 - Startup material: memory_startup_read reads the complete supplied runbook,
   handoff, profile and JSON closure with fresh SHA checks and coverage proof.
   memory_startup_verify checks that returned context against current files.
@@ -173,7 +176,8 @@ def _review_failure(exc: Exception, vault: Path) -> ToolError:
 
 
 def create_server(vault: Path, *, evidence_required: bool = False,
-                  identity_root: Path | None = None) -> MCPServer:
+                  identity_root: Path | None = None,
+                  budget: CapacityBudget = DEFAULT_BUDGET) -> MCPServer:
     vault = Path(vault)
     mem = VaultMemory({"vault_path": str(vault),
                        "evidence_required": evidence_required})
@@ -397,11 +401,16 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
             fm, _ = frontmatter.parse(path.read_text(encoding="utf-8"))
-        return {"slug": s, "path": path.relative_to(vault).as_posix(),
-                "version": int(fm.get("version") or 0),
-                "created": existing is None,
-                "near_duplicates": [{"slug": d, "similarity": sim}
-                                    for d, sim in duplicates]}
+            warnings = capacity_report(dex, budget)["warnings"]
+        out: dict[str, Any] = {
+            "slug": s, "path": path.relative_to(vault).as_posix(),
+            "version": int(fm.get("version") or 0),
+            "created": existing is None,
+            "near_duplicates": [{"slug": d, "similarity": sim}
+                                for d, sim in duplicates]}
+        if warnings:
+            out["capacity_warning"] = " ".join(warnings)
+        return out
 
     @server.tool(annotations=_READ)
     def memory_related(
@@ -493,6 +502,14 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         return _outcome(out)
 
     @server.tool(annotations=_READ)
+    def memory_capacity() -> dict[str, Any]:
+        """Active note count, protected-note count and index bytes against
+        the configured budget. Over budget, memory_review_questions adds
+        retire questions for the user; nothing is ever deleted automatically.
+        """
+        return capacity_report(dex, budget)
+
+    @server.tool(annotations=_READ)
     def memory_review_questions(
         limit: Annotated[int, Field(ge=1, le=100)] = 20,
     ) -> dict[str, Any]:
@@ -501,10 +518,15 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         Present each question with the host's ask-user-questions tool. Do not
         invent an answer. Then memory_review_apply with that explicit choice.
         Similarity is candidate evidence, not a claim that two facts conflict.
+        Over the capacity budget, retire_questions ask the user to keep or
+        retire (archive) old protected notes; ask them the same way.
         """
         service = Consolidation(vault)
         try:
             questions = service.questions(limit)
+            report = capacity_report(dex, budget)
+            retire = (service.retire_questions(limit, budget)
+                      if report["warnings"] else ())
         except (OSError, UnicodeError, ValueError) as exc:
             raise _review_failure(exc, vault) from exc
         result: dict[str, Any] = {
@@ -512,13 +534,18 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             "choices": ["keep-both", "keep-first", "keep-second",
                         "current-first", "current-second", "drop-first",
                         "drop-second", "merge"]}
+        if report["warnings"]:
+            result["capacity"] = report
+            result["retire_questions"] = [
+                {**asdict(q), "question": q.text} for q in retire]
+            result["retire_choices"] = ["keep", "retire"]
         if service.skipped:
             result["skipped"] = list(service.skipped)
         return result
 
     @server.tool(annotations=_mutating("Apply explicit review answer", destructive=True))
     def memory_review_apply(
-        question_id: str, choice: Choice,
+        question_id: str, choice: Choice | RetireChoice,
         merged_body: str = "", survivor: Literal["first", "second"] = "first",
         confirm: bool = False,
     ) -> dict[str, Any]:
@@ -527,10 +554,22 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         current-first/second keeps that note; drop-first/second archives it.
         merge requires the user-approved body and survivor. Metadata of the
         survivor remains; both original byte images and sources are retained.
+        keep/retire answer a retire question; retire archives that note.
         """
         with lock.hold():
             service = Consolidation(vault)
             try:
+                if choice in ("keep", "retire"):
+                    retire = next((q for q in service.retire_questions(500, budget)
+                                   if q.id == question_id), None)
+                    if retire is None:
+                        raise ToolError("question is stale or unknown; ask again")
+                    if not confirm:
+                        return {"dry_run": True, "question_id": question_id,
+                                "choice": choice}
+                    receipt = service.apply_retire(retire, choice)
+                    dex.refresh()
+                    return {"dry_run": False, **asdict(receipt)}
                 question = next((q for q in service.questions(500)
                                  if q.id == question_id), None)
                 if question is None:

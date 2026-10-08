@@ -63,3 +63,27 @@ def test_report_header_names_active_and_missing_optional_suites(monkeypatch):
     assert conftest.pytest_report_header(None) == (
         "optional suites: mcp=off (mcp missing) semantic=off (numpy missing) "
         "static_model=off (numpy, safetensors missing)")
+
+
+def test_capacity_budget_flags_override_env():
+    from birkin_mnemosyne.capacity import CapacityBudget
+    env = {"MNEMOSYNE_MAX_PROTECTED_NOTES": "7",
+           "MNEMOSYNE_MAX_VAULT_BYTES": "900"}
+    args = mcp_server._parser().parse_args([])
+    assert mcp_server.resolve_budget(args, env) == CapacityBudget(7, 900)
+    args = mcp_server._parser().parse_args(
+        ["--max-protected-notes", "0", "--max-vault-bytes", "50"])
+    assert mcp_server.resolve_budget(args, env) == CapacityBudget(0, 50)
+
+
+def test_invalid_capacity_env_fails_at_start(tmp_path):
+    r = subprocess.run(
+        [sys.executable, "-c",
+         "from birkin_mnemosyne.mcp_server import main; "
+         f"raise SystemExit(main(['--vault', {str(tmp_path)!r}]))"],
+        capture_output=True, text=True, timeout=60, check=False,
+        env={**__import__("os").environ,
+             "MNEMOSYNE_MAX_PROTECTED_NOTES": "many"})
+    assert r.returncode == 2
+    assert "MNEMOSYNE_MAX_PROTECTED_NOTES" in r.stderr
+    assert r.stdout == ""
