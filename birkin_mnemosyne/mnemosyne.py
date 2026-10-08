@@ -482,11 +482,25 @@ def _entry_expired(entry: dict[str, Any], today: date) -> bool:
 _live_instances: weakref.WeakSet[Mnemosyne] = weakref.WeakSet()
 
 
+EXIT_LOCK_TIMEOUT = 1.0   # s an exit flush waits for an engine lock
+
+
 def _flush_live_instances() -> None:
-    """atexit hook: write every instance's coalesced index; never raises."""
+    """atexit hook: write every dirty instance's coalesced index; never
+    raises and never hangs. Clean instances are skipped without touching
+    their lock; a dirty one whose lock stays busy for ``EXIT_LOCK_TIMEOUT``
+    (e.g. a daemon thread died holding it) is skipped, because the index is
+    a cache that ``refresh()`` rebuilds from the note files."""
     for eng in list(_live_instances):
         try:
-            eng.flush()
+            if not eng._index_dirty:
+                continue
+            if not eng._lock.acquire(timeout=EXIT_LOCK_TIMEOUT):
+                continue
+            try:
+                eng.flush()
+            finally:
+                eng._lock.release()
         except Exception:   # interpreter exit must stay quiet
             pass
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 import config
 
 import json
+import threading
 import zlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -747,7 +748,46 @@ def test_exit_hook_flushes_live_instances_and_never_raises(monkeypatch):
         raise RuntimeError("boom")
 
     bad = _engine()
+    bad._index_dirty = True              # only dirty instances are flushed
     monkeypatch.setattr(bad, "flush", broken)
     mnemosyne._live_instances.add(bad)
     mnemosyne._flush_live_instances()    # must swallow the broken instance
+    assert len(_cached_slugs()) == 3
+
+
+def test_exit_hook_skips_busy_and_clean_instances_without_hanging(monkeypatch):
+    _fake_clock(monkeypatch)
+    m = _mem()
+    for i in range(3):
+        m.write_note(f"Busy {i}", f"busy body {i}")
+    eng = m.dex
+    assert eng._index_dirty and len(_cached_slugs()) < 3
+    saves = _count_index_saves(monkeypatch, eng)
+    monkeypatch.setattr(mnemosyne, "EXIT_LOCK_TIMEOUT", 0)
+
+    held, release = threading.Event(), threading.Event()
+
+    def hold_lock() -> None:
+        with eng._lock:
+            held.set()
+            release.wait(timeout=10)
+
+    holder = threading.Thread(target=hold_lock, daemon=True)
+    holder.start()
+    assert held.wait(timeout=10)
+    try:
+        mnemosyne._flush_live_instances()    # dirty + lock busy: skipped
+        assert saves == []
+        assert len(_cached_slugs()) < 3
+
+        eng._index_dirty = False             # clean: never touches the lock
+        monkeypatch.setattr(mnemosyne, "EXIT_LOCK_TIMEOUT", 60)
+        mnemosyne._flush_live_instances()
+        assert saves == []
+    finally:
+        release.set()
+        holder.join(timeout=10)
+    eng._index_dirty = True
+    mnemosyne._flush_live_instances()        # lock free again: saved
+    assert saves == [1]
     assert len(_cached_slugs()) == 3
