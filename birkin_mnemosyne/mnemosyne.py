@@ -35,6 +35,7 @@ Two sidecar files live next to the notes:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import math
@@ -44,13 +45,14 @@ import threading
 import time
 import unicodedata
 import zlib
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from . import frontmatter
 from .atomic import atomic_write, atomic_write_bytes
+from .vault_lock import VaultLock
 
 log = logging.getLogger(__name__)
 
@@ -497,17 +499,61 @@ class Mnemosyne:
 
         self._load_dynamics()
 
-    def _load_dynamics(self) -> None:
+    def _load_dynamics(self, quarantine: bool = False) -> None:
+        """(Re)read the dynamics file into ``self._dyn``.
+
+        A missing or unreadable file is a clean start. A file that is not
+        valid UTF-8 JSON of the expected shape is never silently replaced:
+        with ``quarantine`` (callers about to write, under the vault lock) it
+        is first renamed to ``.corrupt-<UTC timestamp>``; read-only loads just
+        warn and leave the file for the next writer to preserve.
+        """
         dyn: dict[str, Any] = {"notes": {}, "zones": {}}
         try:
             raw = json.loads(self._dyn_path.read_text(encoding="utf-8"))
-            if isinstance(raw.get("notes"), dict):
-                dyn["notes"] = raw["notes"]
-            if isinstance(raw.get("zones"), dict):
-                dyn["zones"] = raw["zones"]
-        except (OSError, json.JSONDecodeError, AttributeError):
-            pass
+        except OSError:
+            raw = {}   # absent or unreadable: nothing to preserve
+        except ValueError:   # JSONDecodeError and UnicodeDecodeError
+            raw = None
+        if isinstance(raw, dict) and all(
+                isinstance(raw.get(k, {}), dict) for k in dyn):
+            for k in dyn:
+                dyn[k] = raw.get(k, {})
+        elif quarantine:
+            self._quarantine_dynamics()
+        else:
+            log.warning("ignoring corrupt dynamics file %s", self._dyn_path)
         self._dyn = dyn
+
+    def _quarantine_dynamics(self) -> None:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        target = self._dyn_path.with_name(f"{DYNAMICS_FILE}.corrupt-{stamp}")
+        n = 0
+        while target.exists():   # same-microsecond collision: stay unique
+            n += 1
+            target = target.with_name(f"{DYNAMICS_FILE}.corrupt-{stamp}-{n}")
+        try:
+            os.replace(self._dyn_path, target)
+        except OSError as exc:
+            log.warning("corrupt dynamics file %s could not be backed up: %s",
+                        self._dyn_path, exc)
+            return
+        log.warning("corrupt dynamics file moved to %s; starting fresh", target)
+
+    @contextlib.contextmanager
+    def _dynamics_txn(self) -> Iterator[None]:
+        """Vault lock (before the engine lock, as everywhere) around a
+        read-modify-write of the dynamics file. Other processes may have
+        written since we loaded, so re-read inside the lock; the caller then
+        applies only its own change to that fresh state."""
+        with contextlib.ExitStack() as stack:
+            try:
+                stack.enter_context(VaultLock(self.vault).hold())
+            except OSError:
+                pass   # e.g. read-only vault: stay best-effort, never fail a read
+            with self._lock:
+                self._load_dynamics(quarantine=True)
+                yield
 
     def _save_index(self) -> None:
         try:
@@ -701,9 +747,7 @@ class Mnemosyne:
 
     def set_dynamics(self, s: str, dyn: dict[str, Any]) -> None:
         """Overwrite one note's dynamics (maintenance/test seam)."""
-        with self._lock:
-            if self._dyn is None:
-                self._load()
+        with self._dynamics_txn():
             assert self._dyn is not None
             self._dyn["notes"][s] = dict(dyn)
             self._save_dynamics()
@@ -717,16 +761,17 @@ class Mnemosyne:
     def record_access(self, s: str, now: datetime | None = None) -> None:
         """Potentiate a note + bump its zone EMA. Unknown slugs are a no-op."""
         now = now or datetime.now(timezone.utc)
-        with self._lock:
+        with self._dynamics_txn():
             if self._notes is None:
                 self._load()
-            assert self._notes is not None and self._dyn is not None
+            assert self._notes is not None
             e = self._notes.get(s)
             if e is None:
                 self.refresh()
                 e = self._notes.get(s)
                 if e is None:
                     return
+            assert self._dyn is not None
             self._dyn["notes"][s] = potentiate(self.dynamics_of(s), now)
             z = e["zone"]
             zs = self._dyn["zones"].get(z) or {}
@@ -986,8 +1031,6 @@ class Mnemosyne:
         if z and z != ARCHIVE_ZONE and not ZONE_RE.fullmatch(z):
             raise ValueError(f"invalid zone name {zone!r} "
                              "(want ^[a-z0-9][a-z0-9-]{{0,31}}$)")
-        from .vault_lock import VaultLock
-
         with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
             assert self._notes is not None
