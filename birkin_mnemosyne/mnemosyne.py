@@ -966,18 +966,22 @@ class Mnemosyne:
                 return (1 + W_DYN * eff / STRENGTH_CAP
                         + W_ZONE * pri.get(notes[s]["zone"], 0.0))
 
-            try:   # inbox is stored as ""; a filter never raises
-                want_zone = (None if zone is None
-                             else normalize_zone(zone, allow_archive=True))
-            except ValueError:
-                want_zone = zone
+            # inbox is stored as ""; a hand-made mixed-case folder keeps its
+            # literal name, so match the normalised name or the name as given
+            # (a filter never raises).
+            want_zones = {zone}
+            if zone is not None:
+                try:
+                    want_zones.add(normalize_zone(zone, allow_archive=True))
+                except ValueError:
+                    pass
 
             def visible(s: str) -> bool:
                 e = notes[s]
                 if _entry_expired(e, expiry_today):
                     return False
                 if zone is not None:
-                    return e["zone"] == want_zone
+                    return e["zone"] in want_zones
                 return e["zone"] != ARCHIVE_ZONE or include_archive
 
             def fuse(lexical: dict[str, float]) -> tuple[

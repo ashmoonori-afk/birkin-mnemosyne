@@ -97,6 +97,20 @@ def test_search_zone_inbox_alias_ignores_case_and_whitespace():
         assert [h["slug"] for h in hits] == ["loose-banana"], alias
 
 
+def test_search_zone_still_matches_hand_made_mixed_case_folder_by_name():
+    m = _mem()
+    d = _vault() / "DevOps"
+    d.mkdir()
+    (d / "pager.md").write_text(
+        "---\ntitle: Pager\ntype: topic\n---\npager banana rotation\n",
+        encoding="utf-8")
+    m.write_note("Other banana", "banana bread", zone="baking")
+    m.reindex()
+    assert m.dex.entries()["pager"]["zone"] == "DevOps"
+    hits = m.dex.search("banana", zone="DevOps")
+    assert [h["slug"] for h in hits] == ["pager"]
+
+
 def test_rezone_accepts_trimmed_lowercased_names_but_not_bad_ones():
     m = _mem()
     m.write_note("Mover", "x", zone="baking")
