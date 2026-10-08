@@ -109,7 +109,9 @@ TYPE_ZONE = {
 
 def slug(title: str) -> str:
     """Filesystem/wikilink slug (single source; memory.py re-exports)."""
-    s = re.sub(r"[^\w\s-]", "", title.strip().lower())
+    # NFC so a decomposed title (macOS file names) and its composed form
+    # name the same note; NFKC would change slugs of ordinary NFC titles.
+    s = re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFC", title).strip().lower())
     s = re.sub(r"[\s_-]+", "-", s).strip("-")
     return s or "note"
 
@@ -467,6 +469,7 @@ class Mnemosyne:
         self._sem: Any = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
+        self._aliases: dict[str, str] | None = None   # slug(stem) -> stem, lazy
         self._dyn: dict[str, Any] | None = None
         self._postings: dict[str, dict[str, int]] = {}
         self._total_doclen: int = 0
@@ -490,6 +493,7 @@ class Mnemosyne:
         except (OSError, ValueError, zlib.error, AttributeError):
             notes = {}   # missing, older or corrupt cache: refresh() rebuilds it
         self._notes = notes
+        self._aliases = None
         self._postings = {}
         for s, e in notes.items():
             self._add_postings(s, e.get("terms") or {})
@@ -629,6 +633,7 @@ class Mnemosyne:
                 self._add_postings(s, entry["terms"])
                 changed = True
             if changed:
+                self._aliases = None
                 self._save_index()
 
     def rebuild(self) -> dict[str, int]:
@@ -637,6 +642,7 @@ class Mnemosyne:
             if self._dyn is None:
                 self._load_dynamics()   # skip parsing the index we discard
             self._notes = {}
+            self._aliases = None
             self._postings = {}
             self._total_doclen = self._doc_count = 0
             self._avgdl = 0.0
@@ -663,6 +669,7 @@ class Mnemosyne:
             self._adjust_doclen(
                 old.get("doclen", 0) if old else 0, entry["doclen"], int(old is None))
             self._notes[s] = entry
+            self._aliases = None
             self._add_postings(s, entry["terms"])
             self._save_index()
 
@@ -676,16 +683,53 @@ class Mnemosyne:
             self.refresh()
             return dict(self._notes or {})
 
+    def _alias_map(self) -> dict[str, str]:
+        """slug(stem) -> stem for every note whose file stem is not already
+        its own slug (hand-made ``My Note.md``, decomposed Unicode names).
+        Collisions keep the newest file, like duplicate stems in ``_scan``.
+        Built lazily; every index mutation resets it. Caller holds the lock."""
+        if self._aliases is None:
+            newest: dict[str, tuple[float, str]] = {}
+            for stem, e in (self._notes or {}).items():
+                a = slug(stem)
+                cur = newest.get(a)
+                if a != stem and (cur is None or e.get("mtime", 0.0) > cur[0]):
+                    newest[a] = (e.get("mtime", 0.0), stem)
+            self._aliases = {a: stem for a, (_, stem) in newest.items()}
+        return self._aliases
+
+    def _key(self, title_or_slug: str) -> str | None:
+        """Index key for a key, title or slug. Caller holds the lock."""
+        notes = self._notes or {}
+        if title_or_slug in notes:
+            return title_or_slug
+        s = slug(title_or_slug)
+        if s in notes:
+            return s
+        return self._alias_map().get(s)
+
+    def key_for(self, title_or_slug: str) -> str | None:
+        """The index key (file stem) of the note a title names, or None.
+
+        The index is keyed by raw file stems, search returns those stems as
+        titles, and callers hand titles back, so an exact key wins, then the
+        title's slug, then the stem whose slug it is."""
+        with self._lock:
+            self.refresh()
+            return self._key(title_or_slug)
+
     def note_meta(self, s: str) -> dict[str, Any] | None:
         with self._lock:
             self.refresh()
-            e = (self._notes or {}).get(s)
+            k = self._key(s)
+            e = (self._notes or {}).get(k) if k is not None else None
             return dict(e) if e else None
 
     def resolve_rel(self, s: str) -> str | None:
         with self._lock:
             self.refresh()
-            e = (self._notes or {}).get(s)
+            k = self._key(s)
+            e = (self._notes or {}).get(k) if k is not None else None
             return e["rel"] if e else None
 
     def dynamics_of(self, s: str) -> dict[str, Any]:
@@ -992,6 +1036,7 @@ class Mnemosyne:
         with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
             assert self._notes is not None
+            s = self._key(s) or s
             e = self._notes.get(s)
             if e is None:
                 raise ValueError(f"no note with slug {s!r}")
@@ -1023,6 +1068,7 @@ class Mnemosyne:
                 mtime, size = e["mtime"], e["size"]
             self._notes[s] = {**e, "rel": rel, "zone": z,
                               "mtime": mtime, "size": size}
+            self._aliases = None
             self._save_index()
             return new
 

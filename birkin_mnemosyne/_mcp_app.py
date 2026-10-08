@@ -152,12 +152,14 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     server = MCPServer(name="birkin-mnemosyne", version=__version__,
                        instructions=INSTRUCTIONS)
 
-    def _require_note(note: str) -> dict[str, Any]:
-        meta = dex.note_meta(slug(note))
-        if meta is None:
+    def _require_note(note: str) -> tuple[str, dict[str, Any]]:
+        """(index key, entry) of the note a title or slug names."""
+        key = dex.key_for(note)
+        meta = dex.note_meta(key) if key is not None else None
+        if key is None or meta is None:
             raise ToolError(f"no note {note!r} (slug {slug(note)!r}); "
                             "use memory_search or memory_list")
-        return meta
+        return key, meta
 
     def _read(meta: dict[str, Any]) -> tuple[dict[str, Any], str]:
         text = (vault / meta["rel"]).read_text(encoding="utf-8",
@@ -227,17 +229,17 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
         Reading marks the note as used, which strengthens it in future
         ranking. Pass `version` back as expected_version to replace it."""
-        meta = _require_note(note)
+        key, meta = _require_note(note)
         try:
             fm, body = _read(meta)
         except OSError as exc:
             raise ToolError(f"cannot read note: {exc}") from exc
-        dex.record_access(slug(note))
+        dex.record_access(key)
         try:
             version = int(fm.get("version") or 0)
         except (TypeError, ValueError):
             version = 0
-        return {"slug": slug(note), "title": meta["title"],
+        return {"slug": key, "title": meta["title"],
                 "zone": meta["zone"] or "inbox", "type": meta["type"],
                 "polarity": meta["polarity"], "version": version,
                 "tags": meta["tags"], "links": meta["links"],
@@ -314,7 +316,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         if new_zone == ARCHIVE_ZONE:
             raise ToolError("cannot write into _archive; use memory_forget")
         with lock.hold():
-            existing = dex.note_meta(s)
+            existing = dex.note_meta(title)
+            if existing is not None:
+                s = dex.key_for(title) or s
             current = 0
             if existing is not None:
                 fm, _ = _read(existing)
@@ -327,6 +331,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                     f"note {s!r} already exists (version {current}). Use "
                     "mode='append', or mode='replace' with "
                     f"expected_version={current} after reading it.")
+            if mode == "create" and mem._resolve_path(
+                    title, note_type or "topic", new_zone).is_file():
+                # the index missed a file that is there: never overwrite it
+                raise ToolError(f"note {s!r} already exists on disk; "
+                                "use mode='append' or mode='replace'")
             if mode != "create" and existing is None:
                 raise ToolError(f"no note {s!r} to {mode}; use mode='create'")
             if mode == "replace" and expected_version is None:
@@ -364,11 +373,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     ) -> dict[str, Any]:
         """Mechanical link candidates for a note (similar, not yet linked).
         Decide yourself which are genuinely related."""
-        _require_note(note)
+        key, _ = _require_note(note)
         return {"candidates": [
             {"slug": h["slug"], "title": h["title"],
              "zone": h["zone"] or "inbox", "summary": h["summary"]}
-            for h in dex.related(slug(note), limit=limit)]}
+            for h in dex.related(key, limit=limit)]}
 
     @server.tool(annotations=_mutating("Forget (archive)", destructive=True))
     def memory_forget(
@@ -383,7 +392,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         notes (negative polarity, identity/preference types, filed + linked
         notes) and the per-call archive cap are enforced. Dry run unless
         confirm=true."""
-        s = slug(note)
+        s = dex.key_for(note) or slug(note)
         plan = {"plan_version": PLAN_VERSION, "summary": reason,
                 "ops": [{"op": "archive", "slug": s, "reason": reason}]}
         with lock.hold():
@@ -405,15 +414,15 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         if target == ARCHIVE_ZONE:
             raise ToolError("restore target cannot be _archive")
         with lock.hold():
-            meta = _require_note(note)
+            key, meta = _require_note(note)
             if meta["zone"] != ARCHIVE_ZONE:
-                raise ToolError(f"note {slug(note)!r} is not archived "
+                raise ToolError(f"note {key!r} is not archived "
                                 f"(zone {meta['zone'] or 'inbox'!r})")
             try:
-                path = dex.rezone(slug(note), target or "")
+                path = dex.rezone(key, target or "")
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
-        return {"slug": slug(note), "zone": target or "inbox",
+        return {"slug": key, "zone": target or "inbox",
                 "path": path.relative_to(vault).as_posix()}
 
     @server.tool(annotations=_READ)
