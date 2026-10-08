@@ -25,8 +25,8 @@ Design (every choice measured in benchmarks/retrieval, dev split):
 - Fusion: reciprocal-rank fusion of the BM25 and semantic rankings.
 
 Sidecar ``.mnemosyne-vectors.npz`` is a rebuildable cache keyed by model
-name, dimension and chunk size, refreshed by stat fingerprint like the BM25
-index.
+name, model revision, dimension and chunk size, refreshed by stat fingerprint
+like the BM25 index.
 """
 
 from __future__ import annotations
@@ -47,6 +47,9 @@ from .atomic import atomic_write_bytes
 log = logging.getLogger(__name__)
 
 MODEL_NAME = "minishlab/potion-multilingual-128M"
+# commit of MODEL_NAME that :func:`prepare` downloads; a branch name would
+# trust whatever the repo serves on the day of preparation
+MODEL_REVISION = "73908c3438cf03b6a01bcb9611d62b23d0726f08"
 DIM = 256
 CHUNK_CHARS = 400
 # the repo also ships a 512 MB ONNX export that is never read
@@ -77,18 +80,42 @@ def prepared(model_name: str = MODEL_NAME) -> bool:
     return (model_dir(model_name) / "meta.json").exists()
 
 
-def prepare(model_name: str = MODEL_NAME) -> Path:
+def prepared_revision(model_name: str = MODEL_NAME) -> str | None:
+    """Commit the prepared ``model_name`` was downloaded at (None when it is
+    not prepared, or was prepared before the revision was recorded)."""
+    try:
+        raw = json.loads((model_dir(model_name) / "meta.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    revision = raw.get("revision") if isinstance(raw, dict) else None
+    return revision if isinstance(revision, str) else None
+
+
+def prepare(model_name: str = MODEL_NAME, revision: str | None = None) -> Path:
     """Download ``model_name`` (~530 MB, once) and convert it to its compact
     form. Run it explicitly (``python -m birkin_mnemosyne.semantic``): a search
-    never downloads or converts, it uses BM25 until the model is prepared."""
+    never downloads or converts, it uses BM25 until the model is prepared.
+
+    The default model is fetched at :data:`MODEL_REVISION`; another model is
+    fetched at its default branch unless ``revision`` is given. An explicit
+    ``revision`` different from the prepared one prepares the model again. The
+    raw download stays in the Hugging Face cache (see the README footprint)."""
     out = model_dir(model_name)
-    if not prepared(model_name):
-        from huggingface_hub import snapshot_download
+    if prepared(model_name) and (revision is None
+                                 or prepared_revision(model_name) == revision):
+        return out
+    if revision is None and model_name == MODEL_NAME:
+        revision = MODEL_REVISION
+    from huggingface_hub import snapshot_download
 
-        from .static_model import prepare_isolated
+    from .static_model import prepare_isolated
 
-        snapshot = snapshot_download(model_name, allow_patterns=MODEL_FILES)
-        prepare_isolated(Path(snapshot), out)
+    snapshot = snapshot_download(model_name, revision=revision, allow_patterns=MODEL_FILES)
+    prepare_isolated(Path(snapshot), out)
+    meta_path = out / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["revision"] = revision
+    atomic_write_bytes(meta_path, json.dumps(meta).encode("utf-8"))
     return out
 
 
@@ -142,6 +169,7 @@ class SemanticIndex:
 
     def _meta(self) -> dict[str, Any]:
         return {"version": FORMAT_VERSION, "model": self.model_name,
+                "revision": prepared_revision(self.model_name),
                 "dim": self.dim, "chunk": CHUNK_CHARS}
 
     # -- model / encoding ---------------------------------------------------
