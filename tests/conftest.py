@@ -2,7 +2,33 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
+
+# optional suite -> top-level modules its tests importorskip (looked up with
+# find_spec only, so the header never imports a heavy package)
+OPTIONAL_SUITES = (
+    ("mcp", ("mcp",)),
+    ("semantic", ("numpy",)),
+    ("static_model", ("numpy", "safetensors")),
+)
+
+
+def pytest_report_header(config) -> str:
+    """One line saying which optional suites run and which skip, and why."""
+    parts = []
+    for suite, modules in OPTIONAL_SUITES:
+        missing = [m for m in modules if importlib.util.find_spec(m) is None]
+        parts.append(f"{suite}=off ({', '.join(missing)} missing)" if missing
+                     else f"{suite}=on")
+    return "optional suites: " + " ".join(parts)
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
+    # -q hides the report header, so repeat the line where -q users see it
+    if config.option.verbose < 0:
+        terminalreporter.write_line(pytest_report_header(config))
 
 
 @pytest.fixture(autouse=True)

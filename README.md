@@ -317,6 +317,14 @@ Core (no optional runtime dependencies):
 python benchmarks/retrieval/bench_retrieval.py --sizes 160 1000 10000 --install-size
 ```
 
+`--install-size` needs network access: it builds and installs the package
+into a fresh virtual environment (with uv when `uv` is on PATH, otherwise
+pip) to measure the footprint. Offline, run the same benchmark without it:
+
+```bash
+python benchmarks/retrieval/bench_retrieval.py --sizes 160 1000 10000
+```
+
 Search-time query expansion, replaying the committed expansions of two
 writers (no model call, no optional dependency):
 
@@ -353,7 +361,8 @@ See RESULTS.md for the full query-kind tables, query counts, rejected ideas
 and footprint methodology. Additional checks and offline examples:
 
 ```bash
-pytest -q                                # MCP tests skip without [mcp]
+pytest -q                                # MCP, semantic and static-model suites skip
+                                         # without [mcp] / [semantic]; output names them
 python examples/quickstart.py            # write, search, decay
 python examples/automatic_profiles.py    # profile review and persistence
 python benchmarks/bench_safety_matrix.py # defense-layer ablation

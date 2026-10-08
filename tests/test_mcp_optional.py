@@ -45,3 +45,21 @@ def test_resolve_vault_precedence(tmp_path, monkeypatch):
     default = mcp_server.resolve_vault()
     assert default == (tmp_path / ".birkin-mnemosyne" / "vault").resolve()
     assert default.is_dir()
+
+
+def test_report_header_names_active_and_missing_optional_suites(monkeypatch):
+    import importlib.util
+
+    import conftest
+
+    present = {"mcp", "numpy"}
+    monkeypatch.setattr(importlib.util, "find_spec",
+                        lambda name: object() if name in present else None)
+    assert conftest.pytest_report_header(None) == (
+        "optional suites: mcp=on semantic=on "
+        "static_model=off (safetensors missing)")
+
+    present = set()
+    assert conftest.pytest_report_header(None) == (
+        "optional suites: mcp=off (mcp missing) semantic=off (numpy missing) "
+        "static_model=off (numpy, safetensors missing)")
