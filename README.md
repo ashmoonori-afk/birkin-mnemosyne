@@ -577,7 +577,15 @@ my_vault/
   _archive/                     # soft-forgotten notes
   .mnemosyne-index.json.z        # rebuildable compressed index cache
   .mnemosyne-dynamics.json       # persistent usage state
+  .mnemosyne-vectors.npz         # rebuildable semantic vector cache
+  .mnemosyne-reviews/            # review undo journal (<transaction-id>.json)
+  .mnemosyne-mcp.lock            # cross-process writer lock
 ```
+
+The index cache and the vectors file are rebuilt automatically and the lock
+file is recreated, so all three are safe to delete. Keep
+`.mnemosyne-dynamics.json` (usage history) and `.mnemosyne-reviews/` (needed to
+undo review answers) when backing up or syncing a vault.
 
 `VaultMemory({"vault_path": "my_vault"})` selects the vault. The legacy `vault`
 configuration key is also accepted; without either key the default is
