@@ -666,3 +666,146 @@ def test_retire_questions_skip_undecodable_notes(tmp_path):
     questions = service.retire_questions(10, CapacityBudget(1, None))
     assert [q.note.path for q in questions] == []
     assert service.skipped == ("home/old-address.md",)
+
+
+def _raw_note(vault: Path, name: str, body: str) -> None:
+    folder = vault / "inbox"
+    folder.mkdir(exist_ok=True)
+    (folder / f"{name}.md").write_text(
+        f"---\ntitle: {name}\n---\n\n{body}\n", encoding="utf-8")
+
+
+def test_common_token_candidate_pairs_are_bounded_per_note(tmp_path):
+    count = 150
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:03d}",
+                  f"alpha bravo charlie delta echo foxtrot uniq{n:03d}")
+    service = Consolidation(tmp_path)
+    questions = service.questions(count * count)
+    # Unbounded generation yields count * (count - 1) / 2 = 11175 pairs here.
+    assert 0 < len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
+    assert [q.id for q in questions] == [
+        q.id for q in Consolidation(tmp_path).questions(count * count)]
+
+
+def test_cluster_of_identical_notes_still_yields_bounded_questions(tmp_path):
+    count = 300
+    assert count > consolidation.MAX_TOKEN_DF
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:03d}",
+                  "alpha bravo charlie delta echo foxtrot golf hotel")
+    questions = Consolidation(tmp_path).questions(count * count)
+    assert 0 < len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
+    assert {q.reason for q in questions} == {"duplicate"}
+    # No note of the cluster is silently left without a question.
+    listed = {note.path for q in questions for note in (q.first, q.second)}
+    assert len(listed) == count
+
+
+def test_question_lookup_hits_cache_and_reverifies_notes(tmp_path):
+    consolidation.clear_question_cache()
+    _, service, question = seed(tmp_path)
+    assert service.lookup(question.id) == question
+    consolidation.clear_question_cache()
+    assert service.lookup(question.id) is None
+    question, = Consolidation(tmp_path).questions()
+    path = tmp_path / question.second.path
+    path.write_text(path.read_text("utf-8") + "\nEdited later.\n", "utf-8")
+    with pytest.raises(ReviewError, match="stale or unknown"):
+        service.lookup(question.id)
+    with pytest.raises(ReviewError, match="stale or unknown"):
+        service.lookup(question.id)
+
+
+def test_question_cache_is_bounded_per_vault(tmp_path, monkeypatch):
+    consolidation.clear_question_cache()
+    monkeypatch.setattr(consolidation, "MAX_CACHED_QUESTIONS", 2)
+    for n in range(4):
+        _raw_note(tmp_path, f"note-{n}", "alpha bravo charlie delta echo")
+    service = Consolidation(tmp_path)
+    questions = service.questions(10)
+    assert len(questions) == 6
+    cached = [q for q in questions if service.lookup(q.id) is not None]
+    assert len(cached) == 2
+
+
+def _word(prefix: str, n: int) -> str:
+    """A short alphabetic token (at most five letters, so it has no stem)."""
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    return prefix + letters[n // 26 % 26] + letters[n % 26] + "x"
+
+
+def test_far_exact_duplicate_survives_bounding_with_over_cap_common_tokens(tmp_path):
+    import random
+
+    rng = random.Random(7)
+    common = [_word("w", n) for n in range(30)]
+    bodies = []
+    for n in range(250):
+        held = [word for word in common if rng.random() < 0.9]
+        unique = [f"u{'abcdefghijklmnopqrstuvwxyz'[n // 676 % 26]}"
+                  f"{'abcdefghijklmnopqrstuvwxyz'[n // 26 % 26]}"
+                  f"{'abcdefghijklmnopqrstuvwxyz'[n % 26]}{k}"
+                  for k in "abcd"]
+        bodies.append(" ".join(held + unique))
+        _raw_note(tmp_path, f"n{n:04d}", bodies[-1])
+    _raw_note(tmp_path, "zz-duplicate-of-n0005", bodies[5])
+    # Every common token is above the cap, so bounding is in effect.
+    assert min(sum(word in body.split() for body in bodies)
+               for word in common) > consolidation.MAX_TOKEN_DF
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    far = [q for q in questions
+           if {q.first.path, q.second.path}
+           == {"inbox/n0005.md", "inbox/zz-duplicate-of-n0005.md"}]
+    assert [q.reason for q in far] == ["duplicate"]
+    assert far[0].similarity == 1.0
+
+
+def test_small_vault_questions_match_the_unbounded_pairing(tmp_path):
+    count = 30
+    body = "alpha bravo charlie delta echo foxtrot golf hotel"
+    for n in range(count):
+        _raw_note(tmp_path, f"note-{n:02d}", body)
+    assert count - 1 > consolidation.MAX_PAIRS_PER_NOTE
+    paths = sorted(p.relative_to(tmp_path).as_posix()
+                   for p in tmp_path.rglob("*.md"))
+
+    def snapshot(path: str):
+        return consolidation.NoteSnapshot(
+            path, "", consolidation._hash((tmp_path / path).read_bytes()), body, ())
+
+    expected = {consolidation._question_id(snapshot(a), snapshot(b))
+                for i, a in enumerate(paths) for b in paths[i + 1:]}
+    assert len(expected) == count * (count - 1) // 2
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    assert {q.id for q in questions} == expected
+
+
+def test_bounded_mode_limits_full_overlap_evaluations_per_note(tmp_path, monkeypatch):
+    import random
+
+    rng = random.Random(11)
+    count = 400
+    vocabulary = [_word("m", n) for n in range(40)]
+    bodies = []
+    for n in range(count):
+        bodies.append(" ".join(rng.sample(vocabulary, 15)))
+        _raw_note(tmp_path, f"n{n:04d}", bodies[-1])
+    frequencies = [sum(word in body.split() for body in bodies) for word in vocabulary]
+    # Mid-frequency tokens only: none is windowed, none is rare, and the
+    # unbounded pair count is far above the budget.
+    assert all(50 <= df <= consolidation.MAX_TOKEN_DF for df in frequencies)
+    assert sum(df * (df - 1) // 2 for df in frequencies) \
+        > consolidation.MAX_CANDIDATE_PAIRS
+    evaluations = 0
+    real = consolidation._jaccard
+
+    def counting(a, b):
+        nonlocal evaluations
+        evaluations += 1
+        return real(a, b)
+
+    monkeypatch.setattr(consolidation, "_jaccard", counting)
+    questions = Consolidation(tmp_path).questions(10 ** 6)
+    assert 0 < evaluations <= count * consolidation.PREFILTER_CANDIDATES
+    assert len(questions) <= count * consolidation.MAX_PAIRS_PER_NOTE
