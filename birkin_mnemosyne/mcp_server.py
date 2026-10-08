@@ -11,9 +11,17 @@ import argparse
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 from . import __version__
+from .capacity import (
+    ENV_MAX_BYTES,
+    ENV_MAX_PROTECTED,
+    CapacityBudget,
+    budget_from_env,
+    parse_limit,
+)
 
 DEFAULT_VAULT = "~/.birkin-mnemosyne/vault"
 _SDK_MODULES = {"mcp", "mcp_types", "pydantic", "anyio"}
@@ -42,13 +50,36 @@ def _parser() -> argparse.ArgumentParser:
                    .strip().lower() in _TRUTHY,
                    help="refuse to create a note without a `source` "
                    "(or set MNEMOSYNE_EVIDENCE_REQUIRED=1)")
+    p.add_argument("--max-protected-notes", metavar="N",
+                   help="protected-note budget; over it, review questions ask "
+                   f"to retire old ones (default 1000, 0 = no limit; or "
+                   f"${ENV_MAX_PROTECTED})")
+    p.add_argument("--max-vault-bytes", metavar="N",
+                   help="active-note byte budget (default 104857600, 0 = no "
+                   f"limit; or ${ENV_MAX_BYTES})")
     p.add_argument("--version", action="version",
                    version=f"birkin-mnemosyne {__version__}")
     return p
 
 
+def resolve_budget(args: argparse.Namespace,
+                   environ: Mapping[str, str] = os.environ) -> CapacityBudget:
+    """Env budget with CLI flags overriding; invalid values raise."""
+    env = budget_from_env(environ)
+    return CapacityBudget(
+        parse_limit("--max-protected-notes", args.max_protected_notes)
+        if args.max_protected_notes is not None else env.max_protected,
+        parse_limit("--max-vault-bytes", args.max_vault_bytes)
+        if args.max_vault_bytes is not None else env.max_bytes)
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
+    try:
+        budget = resolve_budget(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     # stdout is the MCP protocol channel; every log line goes to stderr.
     logging.basicConfig(stream=sys.stderr, level=logging.INFO,
                         format="mnemosyne-mcp: %(message)s")
@@ -66,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     identity_raw = args.identity_root or os.environ.get("MNEMOSYNE_IDENTITY_ROOT")
     identity_root = Path(identity_raw).expanduser().resolve() if identity_raw else None
     create_server(vault, evidence_required=args.evidence_required,
-                  identity_root=identity_root).run("stdio")
+                  identity_root=identity_root, budget=budget).run("stdio")
     return 0
 
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 
 from . import frontmatter
+from .capacity import CapacityBudget, retire_candidates
 from .memory import _one_line, _yaml_str
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, tokenize
 from .review_journal import Change, Receipt, ReviewError, commit, undo_receipt
@@ -25,6 +26,7 @@ Choice = Literal[
     "keep-both", "keep-first", "keep-second", "current-first", "current-second",
     "drop-first", "drop-second", "merge",
 ]
+RetireChoice = Literal["keep", "retire"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +56,26 @@ class Question:
 
 
 @dataclass(frozen=True, slots=True)
+class RetireQuestion:
+    """Over capacity: ask whether to keep or archive one protected note."""
+
+    id: str
+    note: NoteSnapshot
+    reason: Literal["over-capacity"]
+    last_access: str
+    access_count: int
+
+    @property
+    def text(self) -> str:
+        used = self.last_access[:10] or "never"
+        return (
+            f"Protected note {self.note.title!r} was last used {used} "
+            f"({self.access_count} uses); the vault is over its protected-"
+            "note budget. Keep it or retire it to _archive?"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Answer:
     question_id: str
     choice: Choice
@@ -70,6 +92,12 @@ def _question_id(first: NoteSnapshot, second: NoteSnapshot) -> str:
         [(n.path, n.sha256) for n in (first, second)],
         ensure_ascii=False, separators=(",", ":"),
     ).encode("utf-8"))
+
+
+def _retire_id(note: NoteSnapshot) -> str:
+    return _hash(json.dumps([note.path, note.sha256, "retire"],
+                            ensure_ascii=False, separators=(",", ":"))
+                 .encode("utf-8"))
 
 
 class Consolidation:
@@ -146,6 +174,66 @@ class Consolidation:
                 ))
             result.sort(key=lambda q: (-q.similarity, q.id))
             return tuple(result[:limit])
+
+    def retire_questions(self, limit: int,
+                         budget: CapacityBudget) -> tuple[RetireQuestion, ...]:
+        """Ask about the oldest/least-used protected notes, only when over
+        budget. Read-only; undecodable notes are skipped."""
+        with VaultLock(self.vault).hold():
+            self.dex.refresh()
+            result: list[RetireQuestion] = []
+            for row in retire_candidates(self.dex, budget, limit):
+                relative = str(row["rel"])
+                raw = (self.vault / relative).read_bytes()
+                try:
+                    parsed, body = frontmatter.parse(raw.decode("utf-8"))
+                except (UnicodeError, ValueError):
+                    self.skipped = tuple(sorted({*self.skipped, relative}))
+                    continue
+                meta: dict[str, str | int | float | bool | None | list[str]] = parsed
+                sources = meta.get("sources")
+                note = NoteSnapshot(
+                    path=relative, title=str(row["title"]),
+                    sha256=_hash(raw), body=body.strip(),
+                    sources=tuple(sources) if isinstance(sources, list) else (),
+                )
+                result.append(RetireQuestion(
+                    _retire_id(note), note, "over-capacity",
+                    str(row["last_access"]), int(row["access_count"]),
+                ))
+            return tuple(result)
+
+    def apply_retire(self, question: RetireQuestion,
+                     choice: RetireChoice) -> Receipt:
+        """Journal the explicit answer; ``retire`` archives the unchanged
+        note through the same reversible path as pair ``drop-*`` choices."""
+        if choice not in {"keep", "retire"}:
+            raise ReviewError("unknown answer choice")
+        note = question.note
+        if question.id != _retire_id(note):
+            raise ReviewError("answer does not bind to this question")
+        with VaultLock(self.vault).hold():
+            self.dex.refresh()
+            path = (self.vault / note.path).resolve()
+            if not path.is_relative_to(self.vault) or path.is_symlink():
+                raise ReviewError("unsafe note path")
+            if self.dex.resolve_rel(path.stem) != note.path or \
+                    note.path.startswith(("_archive/", ".")):
+                raise ReviewError("note is not active at the offered path")
+            if not path.is_file():
+                raise ReviewError("stale question; ask again")
+            raw = path.read_bytes()
+            if _hash(raw) != note.sha256:
+                raise ReviewError("stale question; ask again")
+            target = note.path
+            if choice == "retire":
+                target = f"{ARCHIVE_ZONE}/{Path(note.path).name}"
+                if (self.vault / target).exists():
+                    raise ReviewError("archive destination already exists")
+            receipt = commit(self.vault, question.id, choice, "", "first",
+                             (Change(note.path, target, raw, raw),))
+            self.dex.refresh()
+            return receipt
 
     def apply(self, question: Question, answer: Answer) -> Receipt:
         """Validate both snapshots, journal exact answer, then soft-retire notes."""
