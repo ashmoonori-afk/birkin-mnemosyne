@@ -8,6 +8,8 @@ from . import mnemosyne
 from .curation_contract import (
     ARCHIVE_CAP_FRACTION,
     ARCHIVE_CAP_MIN,
+    DENSE_LINK_LIMIT,
+    MAX_DENSE_LINKS,
     OPS,
     PROTECT_TYPES,
     GateResult,
@@ -107,6 +109,15 @@ def validate_clamp(plan: dict[str, Any], dex: Mnemosyne,
 
 def _dense_zone_links(accepted: list[dict[str, Any]],
                       snap: dict[str, dict]) -> list[dict[str, Any]]:
+    """Expand rezones into links between each moved note and its zone-mates.
+
+    Only pairs that include a note this plan moved into the zone are added
+    (not every pair of the zone), each moved note gets at most
+    ``DENSE_LINK_LIMIT`` new links, and one plan adds at most
+    ``MAX_DENSE_LINKS``. Zone-mates are chosen deterministically: the other
+    notes moved into the same zone first, then the remaining zone-mates, each
+    group in sorted slug order.
+    """
     touched_zones = {
         op["zone"] for op in accepted
         if op.get("op") == "rezone" and isinstance(op.get("zone"), str)
@@ -135,12 +146,15 @@ def _dense_zone_links(accepted: list[dict[str, Any]],
         for s, e in snap.items()
         if _linkable(s)
     }
+    moved: set[str] = set()
     for op in accepted:
         kind = op.get("op")
         if kind == "rezone":
             slug = str(op["slug"])
             if _linkable(slug):
                 final_zone[slug] = str(op["zone"])
+                if str(snap[slug].get("zone") or "") != str(op["zone"]):
+                    moved.add(slug)
         elif kind == "archive":
             final_zone[str(op["slug"])] = mnemosyne.ARCHIVE_ZONE
 
@@ -150,16 +164,26 @@ def _dense_zone_links(accepted: list[dict[str, Any]],
         if op.get("op") == "link"
     }
     expanded = list(accepted)
+    added_total = 0
     for zone in sorted(touched_zones):
         if zone == mnemosyne.ARCHIVE_ZONE:
             continue
         slugs = sorted(s for s, z in final_zone.items() if z == zone)
-        for i, a in enumerate(slugs):
-            for b in slugs[i + 1:]:
+        movers = [s for s in slugs if s in moved]
+        for m in movers:
+            added = 0
+            mates = ([s for s in movers if s != m]
+                     + [s for s in slugs if s != m and s not in moved])
+            for other in mates:
+                if added >= DENSE_LINK_LIMIT or added_total >= MAX_DENSE_LINKS:
+                    break
+                a, b = sorted((m, other))
                 pair = frozenset((a, b))
                 if pair in pairs:
                     continue
                 expanded.append({"op": "link", "a": a, "b": b,
                                  "reason": f"dense zone link: {zone}"})
                 pairs.add(pair)
+                added += 1
+                added_total += 1
     return expanded

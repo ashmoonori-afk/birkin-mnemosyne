@@ -115,9 +115,9 @@ to null:
 
 Guidance - placement is everything; linking is automatic:
 - Your MAIN job is to assign notes to the correct topical zone. The
-  deterministic executor will add reciprocal dense links between all safe notes
-  you place in the same touched zone, so you do NOT need to emit a link op for
-  every pair. Correct zone judgment is the most important output.
+  deterministic executor will add reciprocal dense links between each safe note
+  you move into a zone and that zone's notes (a small bounded number per moved
+  note), so you do NOT need to emit a link op for every pair. Correct zone judgment is the most important output.
 - One zone per SPECIFIC subject - split sibling variants. Two notes share a zone
   only if they are about the same specific subject, not just the same broad
   category. Two different tools, products, sports, or techniques are SEPARATE

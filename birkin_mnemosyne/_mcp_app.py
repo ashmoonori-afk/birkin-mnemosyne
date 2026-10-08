@@ -136,7 +136,8 @@ def _zone_name(zone: str | None) -> str | None:
 def _outcome(out: CurationOutcome) -> dict[str, Any]:
     return {"dry_run": out.dry_run, "archive_cap": out.archive_cap,
             "accepted": out.accepted, "dropped": out.dropped,
-            "effected": out.effected, "plan_ops": out.plan_ops}
+            "effected": out.effected, "plan_ops": out.plan_ops,
+            "dense_links": out.dense_links}
 
 
 def create_server(vault: Path, *, evidence_required: bool = False,
