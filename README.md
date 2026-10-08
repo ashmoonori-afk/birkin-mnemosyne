@@ -582,8 +582,12 @@ my_vault/
   .mnemosyne-mcp.lock            # cross-process writer lock
 ```
 
-The index cache and the vectors file are rebuilt automatically and the lock
-file is recreated, so all three are safe to delete. Keep
+The index cache, the vectors file and the lock file are safe to delete only
+while no Mnemosyne process is using the vault. The caches are rebuilt
+automatically (without the vectors file, the next semantic search re-embeds the
+whole vault) and the lock file is recreated, but deleting the lock file while
+another process holds it breaks mutual exclusion on Linux and macOS. Keep the
+lock file and the vectors file out of git and file sync. Keep
 `.mnemosyne-dynamics.json` (usage history) and `.mnemosyne-reviews/` (needed to
 undo review answers) when backing up or syncing a vault.
 
