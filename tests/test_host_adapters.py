@@ -2,10 +2,14 @@
 
 import importlib.util
 import json
+import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+
+from birkin_mnemosyne import MemoryIndex, MemoryIndexError
 
 SOURCE = Path(__file__).resolve().parents[1] / "integrations" / "hermes" / "provider.py"
 spec = importlib.util.spec_from_file_location("mnemosyne_hermes_operations", SOURCE)
@@ -150,3 +154,135 @@ def test_shutdown_does_not_delete_notes_and_rejects_calls(provider, tmp_path):
     provider.shutdown()
     assert not call(provider, "birkin_memory_search", query="Durable")["success"]
     assert len(list((tmp_path / "birkin-mnemosyne" / "vault").rglob("*.md"))) == 1
+
+
+def vault_home(home):
+    return Path(home) / "birkin-mnemosyne" / "vault"
+
+
+def seed_index(home, count, **register):
+    vault = vault_home(home)
+    vault.mkdir(parents=True, exist_ok=True)
+    index = MemoryIndex(vault)
+    for number in range(count):
+        (vault / f"topic-{number}.md").write_text(f"Rule for task {number}.\n", encoding="utf-8")
+        index.register(f"When handling task {number}", f"topic-{number}.md", **register)
+    return index
+
+
+def assert_all_entries(block, count):
+    for number in range(count):
+        assert f"When handling task {number} -> topic-{number}.md" in block
+
+
+def test_index_survives_empty_prefetch_and_block_rebuild(tmp_path):
+    seed_index(tmp_path, 12, max_tokens=1)
+    instance = module.VaultProvider()
+    instance.initialize("session", hermes_home=str(tmp_path))
+    try:
+        assert instance.prefetch("") == ""
+        assert instance.prefetch("nothing matches this") == ""
+        first = instance.system_prompt_block()
+        rebuilt = instance.system_prompt_block()
+        assert_all_entries(first, 12)
+        assert_all_entries(rebuilt, 12)
+        assert first == rebuilt
+    finally:
+        instance.shutdown()
+
+
+def test_index_survives_new_provider_initialization(tmp_path):
+    seed_index(tmp_path, 12)
+    for _ in range(2):
+        instance = module.VaultProvider()
+        instance.initialize("restart", hermes_home=str(tmp_path))
+        try:
+            assert_all_entries(instance.system_prompt_block(), 12)
+        finally:
+            instance.shutdown()
+
+
+def test_index_entries_stay_complete_under_one_token_budget(tmp_path):
+    index = seed_index(tmp_path, 12, max_tokens=1)
+    instance = module.VaultProvider()
+    instance.initialize("session", hermes_home=str(tmp_path))
+    try:
+        block = instance.system_prompt_block()
+        assert_all_entries(block, 12)
+        assert index.read().over_budget
+        assert index.read().warnings
+    finally:
+        instance.shutdown()
+
+
+def test_required_index_missing_state_raises(tmp_path):
+    index = seed_index(tmp_path, 3)
+    instance = module.VaultProvider()
+    instance.initialize("session", hermes_home=str(tmp_path), require_memory_index=True)
+    assert_all_entries(instance.system_prompt_block(), 3)
+    instance.shutdown()
+    shutil.rmtree(index.directory)
+    restarted = module.VaultProvider()
+    restarted.initialize("session", hermes_home=str(tmp_path), require_memory_index=True)
+    try:
+        with pytest.raises(MemoryIndexError):
+            restarted.system_prompt_block()
+    finally:
+        restarted.shutdown()
+
+
+@pytest.mark.parametrize("value", [1, 0, "true", "false", None, 1.0, []])
+def test_invalid_require_memory_index_is_rejected(tmp_path, value):
+    instance = module.VaultProvider()
+    with pytest.raises(module.InvalidArgument):
+        instance.initialize("session", hermes_home=str(tmp_path), require_memory_index=value)
+
+
+def test_disabled_index_keeps_legacy_prompt_block(tmp_path):
+    instance = module.VaultProvider()
+    instance.initialize("session", hermes_home=str(tmp_path))
+    try:
+        assert instance.system_prompt_block() == module._PROMPT
+        assert instance.system_prompt_block() == module._PROMPT
+        assert not (vault_home(tmp_path) / ".mnemosyne-memory-index").exists()
+    finally:
+        instance.shutdown()
+
+
+def test_trigger_routing_reaches_document_through_existing_tool(tmp_path):
+    instance = module.VaultProvider()
+    instance.initialize("session", hermes_home=str(tmp_path))
+    try:
+        call(instance, "birkin_memory_remember", title="Tea order", body="Jasmine tea is the usual drink.")
+        MemoryIndex(vault_home(tmp_path)).register("ordering tea", "tea-order")
+        block = instance.system_prompt_block()
+        assert "ordering tea -> knowledge/tea-order.md" in block
+        assert "birkin_memory_get_note" in block
+        assert "birkin_memory_search" in block
+        result = call(instance, "birkin_memory_get_note", title="knowledge/tea-order.md")
+        assert result["success"]
+        assert "Jasmine tea" in result["body"]
+    finally:
+        instance.shutdown()
+
+
+def test_registered_long_document_path_is_readable_and_advertised(tmp_path):
+    home = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
+    vault = vault_home(home)
+    vault.mkdir(parents=True)
+    document = "d" * 210 + ".md"
+    (vault / document).write_bytes(b"Complete long-path rule.")
+    MemoryIndex(vault).register("long path task", document)
+    instance = module.VaultProvider()
+    instance.initialize("long-path", hermes_home=str(home))
+    try:
+        assert document in instance.system_prompt_block()
+        schemas = {s["name"]: s["parameters"] for s in instance.get_tool_schemas()}
+        boundary = schemas["birkin_memory_get_note"]["properties"]["title"]
+        assert boundary.get("maxLength", len(document)) >= len(document)
+        result = call(instance, "birkin_memory_get_note", title=document)
+        assert result["success"] and result["body"] == "Complete long-path rule."
+        assert not call(instance, "birkin_memory_remember",
+                        title="n" * 201, body="Not a registered path.")["success"]
+    finally:
+        instance.shutdown()
