@@ -7,7 +7,7 @@ from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .atomic import atomic_write_bytes
+from .atomic import atomic_create_bytes
 from .identity_reader import parse_sections
 from .memory_index import (
     IndexEntry,
@@ -130,7 +130,7 @@ def split_note(
                 raise MemoryIndexError(
                     f"split destination already exists: {path.relative_to(index.root).as_posix()}")
         for path, content in zip(targets, contents):
-            atomic_write_bytes(path, content)
+            atomic_create_bytes(path, content)
         for topic in topics:
             _ = index.register(topic.trigger, topic.document, max_tokens=max_tokens)
         registered = set(index.read().entries)
@@ -153,7 +153,7 @@ def split_note(
             "source_bytes": len(raw), "notice_sha256": digest(notice),
             "topics": [asdict(topic) for topic in topics],
         }
-        atomic_write_bytes(receipt_path, (
+        atomic_create_bytes(receipt_path, (
             json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
         ).encode("utf-8"))
         backup = commit(

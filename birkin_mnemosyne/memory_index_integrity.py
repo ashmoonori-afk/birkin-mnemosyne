@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from .memory_index import IndexEntry, MemoryIndex, MemoryIndexError, decode_index_json
-from .memory_index_migration import TopicSpan
+from .memory_index_migration import NOTICE_PREFIX, TopicSpan
 from .startup_coverage import digest
 
 
@@ -97,16 +98,35 @@ def check_index(root: str | Path) -> IndexCheck:
         except (MemoryIndexError, OSError, UnicodeError):
             dangling.append(entry)
     managed_sources: set[str] = set()
+    notices: dict[str, Path] = {}
+    verified_receipts: dict[Path, str] = {}
     receipts = index.directory / "splits"
+    for document in sorted(documents):
+        try:
+            text = index.document_path(document).read_bytes().decode("utf-8")
+            if text.startswith(NOTICE_PREFIX):
+                notice = re.match(re.escape(NOTICE_PREFIX) + r"([a-f0-9]{64}) -->\n", text)
+                if notice is None:
+                    errors.append(f"routing notice lacks its coverage receipt: {document}")
+                else:
+                    notices[document] = receipts / f"{notice[1]}.json"
+        except (OSError, UnicodeError, MemoryIndexError) as exc:
+            detail = exc.strerror if isinstance(exc, OSError) else str(exc)
+            errors.append(f"{document}: {detail}")
     if receipts.is_symlink():
         errors.append("split receipts must not be a symlink")
     else:
         for path in sorted(receipts.glob("*.json")):
             try:
-                managed_sources.add(_coverage_source(index, path, set(view.entries)))
+                source = _coverage_source(index, path, set(view.entries))
+                managed_sources.add(source)
+                verified_receipts[path] = source
             except (MemoryIndexError, OSError, UnicodeError) as exc:
                 detail = exc.strerror if isinstance(exc, OSError) else str(exc)
                 errors.append(f"{path.relative_to(index.root).as_posix()}: {detail}")
+    for document, receipt in notices.items():
+        if verified_receipts.get(receipt) != document:
+            errors.append(f"routing notice lacks its valid coverage receipt: {document}")
     return IndexCheck(
         view.enabled, len(view.entries), len(documents),
         tuple(sorted(documents - linked - managed_sources)), tuple(dangling), tuple(errors),

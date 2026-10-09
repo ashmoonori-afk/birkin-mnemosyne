@@ -16,6 +16,7 @@ from birkin_mnemosyne import (
     split_note,
 )
 from birkin_mnemosyne import memory_index_migration as migration
+from birkin_mnemosyne import review_journal as journal
 from birkin_mnemosyne.review_journal import ReviewError, undo_receipt
 
 SOURCE = (
@@ -106,7 +107,7 @@ def test_destination_collision_refuses_before_any_write(tmp_path):
 
 def test_topic_write_failure_keeps_original_source(tmp_path, monkeypatch):
     path = note(tmp_path)
-    original_write = migration.atomic_write_bytes
+    original_write = migration.atomic_create_bytes
     calls = 0
 
     def fail_second_topic(target, raw):
@@ -115,7 +116,7 @@ def test_topic_write_failure_keeps_original_source(tmp_path, monkeypatch):
         if calls == 2:
             raise OSError("injected topic write failure")
         original_write(target, raw)
-    monkeypatch.setattr(migration, "atomic_write_bytes", fail_second_topic)
+    monkeypatch.setattr(migration, "atomic_create_bytes", fail_second_topic)
     with pytest.raises(OSError, match="injected"):
         split_note(tmp_path, "memory.md", apply=True)
     assert path.read_bytes() == SOURCE
@@ -199,3 +200,107 @@ def test_unsafe_source_and_invalid_budget_do_not_change_notes(tmp_path):
             split_note(tmp_path, document, apply=True, max_tokens=maximum)
     assert {k: v for k, v in tree(tmp_path).items()
             if k != ".mnemosyne-mcp.lock"} == before
+
+
+def test_registered_source_cannot_hide_a_missing_receipt(tmp_path):
+    note(tmp_path)
+    MemoryIndex(tmp_path).register("all rules", "memory.md")
+    report = split_note(tmp_path, "memory.md", apply=True)
+    (tmp_path / report.coverage_receipt).unlink()
+    (tmp_path / report.topics[-1].document).write_bytes(b"Unrelated replacement.")
+    checked = check_index(tmp_path)
+    assert not checked.ok
+    assert checked.errors
+
+
+def test_source_edit_during_journal_preparation_survives(tmp_path, monkeypatch):
+    path = note(tmp_path)
+    original_save = journal._save
+    external = b"Owner revision after the journal was prepared."
+
+    def save_then_edit(target, manifest):
+        original_save(target, manifest)
+        if manifest["state"] == "prepared":
+            path.write_bytes(external)
+    monkeypatch.setattr(journal, "_save", save_then_edit)
+    with pytest.raises(ReviewError):
+        split_note(tmp_path, "memory.md", apply=True)
+    assert path.read_bytes() == external
+    assert external in tree(tmp_path).values()
+    assert check_index(tmp_path).errors
+
+
+@pytest.mark.parametrize("destination", ["topic", "receipt"])
+def test_destination_arriving_after_preflight_is_preserved(tmp_path, monkeypatch, destination):
+    path = note(tmp_path)
+    original_create = migration.atomic_create_bytes
+    arrivals = []
+    external = b"Existing owner data must not be overwritten."
+
+    def create_after_arrival(target, raw):
+        if not arrivals and (target.suffix == ".json") == (destination == "receipt"):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(external)
+            arrivals.append(target)
+        original_create(target, raw)
+    monkeypatch.setattr(migration, "atomic_create_bytes", create_after_arrival)
+    with pytest.raises(FileExistsError):
+        split_note(tmp_path, "memory.md", apply=True)
+    assert len(arrivals) == 1 and arrivals[0].read_bytes() == external
+    assert path.read_bytes() == SOURCE
+
+
+def test_notice_requires_its_own_receipt_not_another_valid_receipt(tmp_path):
+    note(tmp_path)
+    (tmp_path / "other.md").write_bytes(b"# Other\nRule: separate.")
+    MemoryIndex(tmp_path).register("all rules", "memory.md")
+    first = split_note(tmp_path, "memory.md", apply=True)
+    other = split_note(tmp_path, "other.md", apply=True)
+    (tmp_path / first.coverage_receipt).write_bytes(
+        (tmp_path / other.coverage_receipt).read_bytes())
+    assert not check_index(tmp_path).ok
+
+
+@pytest.mark.parametrize("arrival", ["replacement", "captured-edit"])
+def test_late_source_revision_survives_final_publication(tmp_path, monkeypatch, arrival):
+    path = note(tmp_path)
+    create = journal.atomic_create_bytes
+    external = b"Owner revision at final publication."
+
+    def write_external_then_publish(target, raw, **kwargs):
+        if target == path:
+            if arrival == "replacement":
+                target.write_bytes(external)
+            else:
+                captured = next((tmp_path / ".mnemosyne-reviews").rglob("source.snapshot"))
+                captured.write_bytes(external)
+        create(target, raw, **kwargs)
+    monkeypatch.setattr(journal, "atomic_create_bytes", write_external_then_publish)
+    if arrival == "replacement":
+        with pytest.raises(ReviewError):
+            split_note(tmp_path, "memory.md", apply=True)
+        assert path.read_bytes() == external
+    else:
+        with pytest.raises(ReviewError):
+            split_note(tmp_path, "memory.md", apply=True)
+        assert external in [
+            p.read_bytes() for p in (tmp_path / ".mnemosyne-reviews").rglob("*.snapshot")]
+    assert external in tree(tmp_path).values()
+
+
+def test_error_after_notice_publication_restores_the_original(tmp_path, monkeypatch):
+    path = note(tmp_path)
+    create = journal.atomic_create_bytes
+    failed = False
+
+    def publish_then_fail(target, raw, **kwargs):
+        nonlocal failed
+        create(target, raw, **kwargs)
+        if target == path and not failed:
+            failed = True
+            raise OSError("injected error after publication")
+    monkeypatch.setattr(journal, "atomic_create_bytes", publish_then_fail)
+    with pytest.raises(ReviewError):
+        split_note(tmp_path, "memory.md", apply=True)
+    assert failed
+    assert path.read_bytes() == SOURCE

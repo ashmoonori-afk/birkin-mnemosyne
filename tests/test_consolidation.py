@@ -279,17 +279,24 @@ def test_handled_failure_rolls_back_all_note_images(tmp_path, monkeypatch, bound
     _, service, question = seed(tmp_path)
     before = images(tmp_path)
     write = review_journal.atomic_write_bytes
+    create = review_journal.atomic_create_bytes
     refresh = review_journal._refresh
     tripped = False
 
     def failing_write(path, data):
         nonlocal tripped
-        target = path.suffix == ".md" if boundary == "merge-write" else \
-            path.suffix == ".json" and b'"state": "committed"' in data
-        if boundary != "refresh" and target and not tripped:
+        target = path.suffix == ".json" and b'"state": "committed"' in data
+        if boundary == "final-receipt" and target and not tripped:
             tripped = True
             raise OSError("injected transaction boundary")
         write(path, data)
+
+    def failing_create(path, data, **kwargs):
+        nonlocal tripped
+        if boundary == "merge-write" and not tripped:
+            tripped = True
+            raise OSError("injected transaction boundary")
+        create(path, data, **kwargs)
 
     def failing_refresh(vault):
         nonlocal tripped
@@ -299,6 +306,7 @@ def test_handled_failure_rolls_back_all_note_images(tmp_path, monkeypatch, bound
         refresh(vault)
 
     monkeypatch.setattr(review_journal, "atomic_write_bytes", failing_write)
+    monkeypatch.setattr(review_journal, "atomic_create_bytes", failing_create)
     monkeypatch.setattr(review_journal, "_refresh", failing_refresh)
     with pytest.raises(ReviewError, match="rolled back") as caught:
         service.apply(question, Answer(question.id, "merge", "Explicit merged fact."))

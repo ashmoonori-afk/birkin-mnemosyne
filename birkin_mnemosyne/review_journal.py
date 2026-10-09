@@ -5,14 +5,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import re
+import stat
+import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypeAlias, TypedDict
 
-from .atomic import atomic_write_bytes
+from .atomic import atomic_create_bytes, atomic_write_bytes, sync_directory
 from .mnemosyne import Mnemosyne
 
 State = Literal["prepared", "committed", "rolled-back", "recovery-required", "undone"]
@@ -138,10 +141,49 @@ def _refresh(vault: Path) -> None:
     Mnemosyne(vault).refresh()
 
 
-def _restore(vault: Path, changes: tuple[Change, ...]) -> None:
+def _replace_captured(
+    captures: Path, source: Path, expected: bytes, replacement: bytes,
+) -> None:
+    """Keep the actual overwritten inode, not just an earlier source snapshot."""
+    if captures.is_symlink() or not captures.resolve().is_relative_to(captures.parent.parent):
+        raise ReviewError("unsafe source capture directory")
+    captures.mkdir(parents=True, exist_ok=True)
+    directory = Path(tempfile.mkdtemp(dir=captures, prefix=f"{source.stem[:24]}-"))
+    captured = directory / "source.snapshot"
+    _ = source.rename(captured)
+    try:
+        if captured.is_symlink():
+            raise ReviewError("source became a symlink at the destructive handoff")
+        with captured.open("rb+") as stream:
+            actual = stream.read()
+            os.fsync(stream.fileno())
+        sync_directory(directory)
+        sync_directory(captures)
+        sync_directory(captures.parent)
+        sync_directory(source.parent)
+        if actual != expected:
+            raise ReviewError("source changed at the destructive handoff")
+        atomic_create_bytes(source, replacement, mode=stat.S_IMODE(captured.stat().st_mode))
+        if captured.read_bytes() != expected:
+            raise ReviewError("captured source changed during publication")
+    except (OSError, ValueError):
+        try:
+            os.link(captured, source)
+            sync_directory(source.parent)
+        except FileExistsError:
+            # A new arrival owns this path. Its predecessor remains captured.
+            pass
+        raise
+
+
+def _restore(vault: Path, changes: tuple[Change, ...], captures: Path) -> None:
     for change in changes:
         source, target = _safe(vault, change.source), _safe(vault, change.target)
-        atomic_write_bytes(source, change.before)
+        if source == target:
+            if source.read_bytes() != change.before:
+                _replace_captured(captures, source, change.after, change.before)
+        else:
+            atomic_write_bytes(source, change.before)
         if target != source and target.exists():
             if target.read_bytes() != change.after:
                 raise ReviewError(f"archive changed during recovery: {change.target}")
@@ -156,6 +198,7 @@ def commit(
     """Caller holds canonical vault lock; original bytes precede all mutations."""
     transaction_id = uuid.uuid4().hex
     path = vault / ".mnemosyne-reviews" / f"{transaction_id}.json"
+    captures = path.with_suffix(".sources")
     manifest: Manifest = {
         "version": 1, "transaction_id": transaction_id,
         "question_id": question_id, "choice": choice,
@@ -174,20 +217,25 @@ def commit(
                 (source != target and target.exists()):
             raise ReviewError("transaction precondition changed")
     _save(path, manifest)
+    attempted: list[Change] = []
     try:
         for change in changes:
             source, target = _safe(vault, change.source), _safe(vault, change.target)
             if source != target:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 _ = source.rename(target)
+                attempted.append(change)
             elif change.before != change.after:
-                atomic_write_bytes(target, change.after)
+                # Publication can succeed before a later I/O error. Restoration
+                # checks the current image and skips an already-restored source.
+                attempted.append(change)
+                _replace_captured(captures, target, change.before, change.after)
         _refresh(vault)
         manifest["state"] = "committed"
         _save(path, manifest)
     except (OSError, ValueError) as exc:
         try:
-            _restore(vault, changes)
+            _restore(vault, tuple(attempted), captures)
         except (OSError, ValueError) as rollback_error:
             manifest["state"] = "recovery-required"
             try:
@@ -244,7 +292,7 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
     raw["state"] = "recovery-required"
     _save(path, raw)
     try:
-        _restore(vault, tuple(changes))
+        _restore(vault, tuple(changes), path.with_suffix(".sources"))
         raw["state"] = "undone"
         _save(path, raw)
     except (OSError, ValueError) as exc:

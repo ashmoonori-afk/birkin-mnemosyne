@@ -146,3 +146,19 @@ def test_temp_file_removed_on_non_oserror_failure(tmp_path):
     with pytest.raises(UnicodeEncodeError):
         atomic.atomic_write(tmp_path / "n.md", "\ud800")  # lone surrogate
     assert list(tmp_path.iterdir()) == []
+
+
+def test_exclusive_publication_preserves_a_late_destination(tmp_path, monkeypatch):
+    target = tmp_path / "note.md"
+    link = os.link
+    external = b"Other writer's complete document."
+
+    def late_link(source, destination):
+        assert Path(source).read_bytes() == b"New complete document."
+        Path(destination).write_bytes(external)
+        link(source, destination)
+    monkeypatch.setattr(os, "link", late_link)
+    with pytest.raises(FileExistsError):
+        atomic.atomic_create_bytes(target, b"New complete document.")
+    assert target.read_bytes() == external
+    assert list(tmp_path.iterdir()) == [target]
