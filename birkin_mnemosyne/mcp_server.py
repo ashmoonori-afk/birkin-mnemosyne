@@ -50,6 +50,12 @@ def _parser() -> argparse.ArgumentParser:
                    .strip().lower() in _TRUTHY,
                    help="refuse to create a note without a `source` "
                    "(or set MNEMOSYNE_EVIDENCE_REQUIRED=1)")
+    p.add_argument("--require-memory-index", action="store_true",
+                   default=os.environ.get("MNEMOSYNE_REQUIRE_MEMORY_INDEX", "")
+                   .strip().lower() in _TRUTHY,
+                   help="fail startup when the always-loaded memory INDEX "
+                   "marker is missing, even across a restart "
+                   "(or set MNEMOSYNE_REQUIRE_MEMORY_INDEX=1)")
     p.add_argument("--max-protected-notes", metavar="N",
                    help="protected-note budget; over it, review questions ask "
                    f"to retire old ones (default 1000, 0 = no limit; or "
@@ -92,12 +98,14 @@ def main(argv: list[str] | None = None) -> int:
                   "extra: pip install \"birkin-mnemosyne[mcp]\"", exc.name)
         return 2
     vault = resolve_vault(args.vault)
-    log.info("serving vault %s (evidence_required=%s)", vault,
-             args.evidence_required)
+    log.info("serving vault %s (evidence_required=%s, require_memory_index=%s)",
+             vault, args.evidence_required, args.require_memory_index)
     identity_raw = args.identity_root or os.environ.get("MNEMOSYNE_IDENTITY_ROOT")
     identity_root = Path(identity_raw).expanduser().resolve() if identity_raw else None
     create_server(vault, evidence_required=args.evidence_required,
-                  identity_root=identity_root, budget=budget).run("stdio")
+                  identity_root=identity_root,
+                  require_memory_index=args.require_memory_index,
+                  budget=budget).run("stdio")
     return 0
 
 
