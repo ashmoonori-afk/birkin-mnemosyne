@@ -74,13 +74,16 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_review_questions", "memory_review_apply", "memory_review_undo",
         "memory_identity_read", "memory_kibitzer_candidates",
         "memory_startup_read", "memory_startup_verify", "memory_capacity",
-        "memory_index_register", "memory_index_read", "memory_open_trigger"}
+        "memory_index_register", "memory_index_read", "memory_open_trigger",
+        "memory_index_check", "memory_index_split"}
     for name in ("memory_search", "memory_list", "memory_related",
                  "memory_curation_catalog", "memory_capacity",
-                 "memory_index_read", "memory_open_trigger"):
+                 "memory_index_read", "memory_open_trigger",
+                 "memory_index_check"):
         assert tools[name].annotations.read_only_hint is True
     for name in ("memory_remember", "memory_forget", "memory_curate",
-                 "memory_get_note", "memory_index_register"):
+                 "memory_get_note", "memory_index_register",
+                 "memory_index_split"):
         assert tools[name].annotations.read_only_hint is False
     schema = tools["memory_remember"].input_schema
     assert schema["required"] == ["title", "body"]

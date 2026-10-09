@@ -82,12 +82,13 @@ def _invalid_constant(value: str) -> JsonValue:
     raise MemoryIndexError(f"invalid JSON constant: {value}")
 
 
-_decode: Callable[[str], JsonValue] = json.JSONDecoder(
+decode_index_json: Callable[[str], JsonValue] = json.JSONDecoder(
     object_pairs_hook=_unique_object, parse_constant=_invalid_constant,
 ).decode
 
 
-def _budget(value: int) -> int:
+def validate_index_budget(value: int) -> int:
+    """Shared positive-token budget boundary for registration and migration."""
     if type(value) is not int or value < 1:
         raise MemoryIndexError("max_tokens must be a positive integer")
     return value
@@ -131,7 +132,7 @@ class MemoryIndex:
             return None
         self.required = True
         try:
-            raw = _decode(self.path.read_bytes().decode("utf-8"))
+            raw = decode_index_json(self.path.read_bytes().decode("utf-8"))
         except (OSError, UnicodeError, ValueError) as exc:
             raise MemoryIndexError("enabled memory INDEX is missing or invalid") from exc
         match raw:
@@ -139,7 +140,7 @@ class MemoryIndex:
                 if type(version) is not int or version != 1 or \
                         set(raw) != {"version", "max_tokens", "entries"}:
                     raise MemoryIndexError("invalid memory INDEX version or fields")
-                budget = _budget(maximum)
+                budget = validate_index_budget(maximum)
                 entries: list[IndexEntry] = []
                 for row in rows:
                     match row:
@@ -195,7 +196,7 @@ class MemoryIndex:
             state = self._state()
             maximum, previous = state if state is not None else (DEFAULT_INDEX_TOKENS, ())
             if max_tokens is not None:
-                maximum = _budget(max_tokens)
+                maximum = validate_index_budget(max_tokens)
             path = self.document_path(entry.document)
             if not path.is_file() and "/" not in document and "\\" not in document:
                 relative = Mnemosyne(self.root).resolve_rel(document)
