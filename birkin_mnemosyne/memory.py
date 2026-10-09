@@ -39,6 +39,7 @@ from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
 from . import frontmatter
 from .vault_lock import VaultLock
+from .memory_index import MemoryIndex
 
 VALID_TYPES = {"person", "project", "preference", "fact", "topic", "session"}
 VALID_POLARITIES = {"positive", "negative"}
@@ -428,6 +429,7 @@ class VaultMemory:
         hottest notes, agents reach for search anyway, and each digest line
         costs every turn.
         """
+        index_context = MemoryIndex(self.vault).render()
         dex = self.dex
         now = datetime.now(timezone.utc)
         by_zone: dict[str, list[tuple[float, dict[str, Any]]]] = {}
@@ -437,7 +439,7 @@ class VaultMemory:
             by_zone.setdefault(e["zone"], []).append(
                 (dex.effective_of(s, now), e))
         if not by_zone:
-            return ""
+            return index_context
         pri = dex.zone_priorities(today=now.date())
         mid = sorted((z for z in by_zone if z not in ("", IDENTITY_ZONE)),
                      key=lambda z: (-pri.get(z, 0.0), z))
@@ -463,7 +465,7 @@ class VaultMemory:
                 left -= 1
                 if left <= 0:
                     break
-        return "\n".join(lines)
+        return index_context + ("\n" if index_context else "") + "\n".join(lines)
 
 # -- module helpers --------------------------------------------------------
 

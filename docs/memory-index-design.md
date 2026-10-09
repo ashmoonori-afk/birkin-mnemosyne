@@ -217,15 +217,16 @@ startup or comprehensive rule compliance.
 
 ## Delivery and QA
 
-Three focused PRs, each passing the repository's full 21-job OS/Python/extra
+Four focused PRs, each passing the repository's full 21-job OS/Python/extra
 matrix, independently reviewed by GPT-6.1 Sol on its exact head, with no
 unresolved blocking comments before merge:
 
-1. Durable INDEX, startup/digest/host integration, capacity, on-demand API/MCP,
+1. Durable INDEX, startup/digest integration, capacity, on-demand library API,
    and never-droppable regression tests.
-2. Integrity checker and lossless split/coverage helper with interruption and
+2. MCP and Hermes adapters, with real transport and restart checks.
+3. Integrity checker and lossless split/coverage helper with interruption and
    preservation tests.
-3. Reproducible fictional measurements, frozen dual-author evaluation, usage
+4. Reproducible fictional measurements, frozen dual-author evaluation, usage
    documentation, and evidence.
 
 No version bump, release, or PyPI publication.

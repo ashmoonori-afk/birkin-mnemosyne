@@ -16,6 +16,7 @@ from typing import Any
 
 from .curation import _snapshot
 from .curation_gate import _is_protected
+from .memory_index import MemoryIndex
 from .mnemosyne import Mnemosyne, _parse_dt
 
 ENV_MAX_PROTECTED = "MNEMOSYNE_MAX_PROTECTED_NOTES"
@@ -73,6 +74,7 @@ def _scan(dex: Mnemosyne) -> tuple[dict[str, dict[str, Any]], set[str]]:
 
 def capacity_report(dex: Mnemosyne, budget: CapacityBudget) -> dict[str, Any]:
     active, protected = _scan(dex)
+    index = MemoryIndex(dex.vault).read()
     size = sum(int(e.get("size") or 0) for e in active.values())
     over = {"protected": _over(len(protected), budget.max_protected),
             "bytes": _over(size, budget.max_bytes)}
@@ -88,9 +90,16 @@ def capacity_report(dex: Mnemosyne, budget: CapacityBudget) -> dict[str, Any]:
             f"{budget.max_bytes}; ask the user which old protected notes to "
             "retire (memory_review_questions). Nothing is deleted "
             "automatically.")
+    warnings.extend(index.warnings)
     return {"notes": len(active), "protected": len(protected), "bytes": size,
             "budget": {"max_protected": budget.max_protected,
                        "max_bytes": budget.max_bytes},
+            "always_loaded": {
+                "enabled": index.enabled, "index_entries": len(index.entries),
+                "estimated_tokens": index.estimated_tokens,
+                "max_tokens": index.max_tokens, "over_budget": index.over_budget,
+                "estimator": "ceil(UTF-8 bytes / 4)",
+            },
             "over_budget": over, "warnings": warnings}
 
 

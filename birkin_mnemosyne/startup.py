@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TypeAlias
 
 from .identity_reader import parse_sections
+from .memory_index import INDEX_SOURCE, MemoryIndex, estimated_tokens
 from .startup_coverage import (
     BlockRecord,
     Coverage,
@@ -35,6 +36,7 @@ class StartupBundle:
     context: str
     coverage: Coverage
     cache_hit: bool
+    estimated_tokens: int = 0
 
 
 def active_lines(text: str) -> Generator[str, None, None]:
@@ -194,21 +196,33 @@ def _blocks(path: str, data: bytes) -> list[BlockRecord]:
 class StartupReader:
     """Bounded derived cache; every call rereads all local source bytes."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, memory_index_root: str | Path | None = None,
+                 require_index: bool = False) -> None:
         self.root: Path = Path(root).resolve()
+        self.memory_index: MemoryIndex = MemoryIndex(
+            self.root if memory_index_root is None else memory_index_root,
+            required=require_index,
+        )
         self._lock: threading.RLock = threading.RLock()
         self._key: tuple[tuple[str, str], ...] = ()
         self._context: str = ""
 
     def _sources(self, paths: Sequence[str]) -> dict[str, bytes]:
-        if not paths or isinstance(paths, str):
+        if isinstance(paths, str):
+            raise StartupError("supply a nonempty list of startup paths")
+        index = self.memory_index.read()
+        if not paths and not index.enabled:
             raise StartupError("supply a nonempty list of startup paths")
         for path in paths:
             if any(part in {".", ".."} or part.startswith(".")
                    for part in path.replace("\\", "/").split("/")):
                 raise StartupError(f"refusing hidden path {path!r}")
         pending = [self.root / path for path in paths]
-        sources: dict[str, bytes] = {}
+        sources: dict[str, bytes] = (
+            {INDEX_SOURCE: index.context.encode("utf-8")} if index.enabled else {}
+        )
+        if sum(len(data) for data in sources.values()) > 1_048_576:
+            raise StartupError("complete memory INDEX exceeds the startup byte budget")
         while pending:
             path = pending.pop(0).resolve()
             if not path.is_relative_to(self.root):
@@ -250,7 +264,7 @@ class StartupReader:
             coverage = verify_context(self._context, sources)
             if not coverage.complete:
                 raise StartupError("returned startup context failed byte/line coverage")
-            return StartupBundle(self._context, coverage, hit)
+            return StartupBundle(self._context, coverage, hit, estimated_tokens(self._context))
 
     def verify(self, context: str, paths: Sequence[str]) -> Coverage:
         """Independently read the requested closure; reject altered/missing/foreign blocks."""
