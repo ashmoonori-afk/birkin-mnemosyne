@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -202,13 +203,14 @@ def test_index_survives_new_provider_initialization(tmp_path):
 
 
 def test_index_entries_stay_complete_under_one_token_budget(tmp_path):
-    seed_index(tmp_path, 12, max_tokens=1)
+    index = seed_index(tmp_path, 12, max_tokens=1)
     instance = module.VaultProvider()
     instance.initialize("session", hermes_home=str(tmp_path))
     try:
         block = instance.system_prompt_block()
         assert_all_entries(block, 12)
-        assert "WARNING" in block
+        assert index.read().over_budget
+        assert index.read().warnings
     finally:
         instance.shutdown()
 
@@ -260,5 +262,27 @@ def test_trigger_routing_reaches_document_through_existing_tool(tmp_path):
         result = call(instance, "birkin_memory_get_note", title="knowledge/tea-order.md")
         assert result["success"]
         assert "Jasmine tea" in result["body"]
+    finally:
+        instance.shutdown()
+
+
+def test_registered_long_document_path_is_readable_and_advertised(tmp_path):
+    home = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
+    vault = vault_home(home)
+    vault.mkdir(parents=True)
+    document = "d" * 210 + ".md"
+    (vault / document).write_bytes(b"Complete long-path rule.")
+    MemoryIndex(vault).register("long path task", document)
+    instance = module.VaultProvider()
+    instance.initialize("long-path", hermes_home=str(home))
+    try:
+        assert document in instance.system_prompt_block()
+        schemas = {s["name"]: s["parameters"] for s in instance.get_tool_schemas()}
+        boundary = schemas["birkin_memory_get_note"]["properties"]["title"]
+        assert boundary.get("maxLength", len(document)) >= len(document)
+        result = call(instance, "birkin_memory_get_note", title=document)
+        assert result["success"] and result["body"] == "Complete long-path rule."
+        assert not call(instance, "birkin_memory_remember",
+                        title="n" * 201, body="Not a registered path.")["success"]
     finally:
         instance.shutdown()

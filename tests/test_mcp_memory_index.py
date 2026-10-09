@@ -16,8 +16,10 @@ import pytest
 pytest.importorskip("mcp")
 
 from mcp import Client
+from mcp.shared.exceptions import MCPError
+from mcp.types import INTERNAL_ERROR
 
-from birkin_mnemosyne import MemoryIndexError
+from birkin_mnemosyne import MemoryIndex, MemoryIndexError
 from birkin_mnemosyne._mcp_app import INSTRUCTIONS, create_server
 from birkin_mnemosyne.memory_index import INDEX_SOURCE
 
@@ -70,8 +72,9 @@ def _instructions(vault: Path, **kwargs) -> str:
     return _session(vault, steps, **kwargs)
 
 
-def test_index_register_read_open_round_trip(tmp_path):
-    (tmp_path / "topic.md").write_text("# Topic\nRule one.\n", encoding="utf-8")
+@pytest.mark.parametrize("raw", [b"# Topic\nRule one.\n", b"# Topic\r\nRule one.\r\n"])
+def test_index_register_read_open_round_trip(tmp_path, raw):
+    (tmp_path / "topic.md").write_bytes(raw)
     registered = register(tmp_path, "When reviewing", "topic.md")
     assert registered["enabled"] is True
     assert registered["entries"] == [
@@ -86,7 +89,7 @@ def test_index_register_read_open_round_trip(tmp_path):
     opened = ok(tmp_path, "memory_open_trigger", {"query": "when reviewing"})
     assert opened["matched_by"] == "exact"
     assert [(d["path"], d["content"]) for d in opened["documents"]] == [
-        ("topic.md", "# Topic\nRule one.\n")]
+        ("topic.md", raw.decode("utf-8"))]
 
 
 def test_registration_is_idempotent_and_has_no_removal_tool(tmp_path):
@@ -219,3 +222,46 @@ def test_digest_resource_includes_the_index(tmp_path):
         return await client.read_resource("mnemosyne://digest")
     digest_resource = _session(tmp_path, steps)
     assert "- When task 1 -> topic-1.md" in digest_resource.contents[0].text
+
+
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_reused_server_initialization_reads_current_index(tmp_path, mode):
+    (tmp_path / "first.md").write_bytes(b"First complete rule.")
+    (tmp_path / "second.md").write_bytes(b"Second complete rule.")
+    server = create_server(tmp_path)
+
+    async def run():
+        async with Client(server, mode=mode) as client:
+            result = await client.call_tool("memory_index_register", {
+                "trigger": "first task", "document": "first.md"})
+            assert not result.is_error
+        MemoryIndex(tmp_path).register("second task", "second.md", max_tokens=1)
+        async with Client(server, mode=mode) as restarted:
+            assert "first task -> first.md" in restarted.instructions
+            assert "second task -> second.md" in restarted.instructions
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+@pytest.mark.parametrize("mutation", ["missing", "corrupt", "missing-marker"])
+def test_reused_server_initialization_rejects_lost_state(tmp_path, mode, mutation):
+    _enabled(tmp_path, 1)
+    server = create_server(tmp_path)
+    state = tmp_path / ".mnemosyne-memory-index" / "index.json"
+
+    async def run():
+        async with Client(server, mode=mode):
+            pass
+        if mutation == "corrupt":
+            state.write_bytes(b"{invalid")
+        else:
+            state.unlink()
+            if mutation == "missing-marker":
+                state.parent.rmdir()
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(MCPError, check=lambda error: error.code == INTERNAL_ERROR),
+            flatten_subgroups=True,
+        ):
+            async with Client(server, mode=mode):
+                pytest.fail("initialization must not succeed with lost INDEX state")
+    asyncio.run(run())

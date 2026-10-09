@@ -35,14 +35,15 @@ class InvalidArgument(ValueError):
         super().__init__(f"{field}: {reason}")
 
 
-def _text(value: Json, field: str, maximum: int, *, single_line: bool = False) -> str:
+def _text(value: Json, field: str, maximum: int | None, *, single_line: bool = False) -> str:
     match value:
         case str() as text:
             text = text.strip()
         case _:
             raise InvalidArgument(field, "must be a string")
-    if not text or len(text) > maximum:
-        raise InvalidArgument(field, f"must contain 1 to {maximum} characters")
+    if not text or (maximum is not None and len(text) > maximum):
+        reason = "must not be empty" if maximum is None else f"must contain 1 to {maximum} characters"
+        raise InvalidArgument(field, reason)
     if single_line and any(ord(char) < 32 or ord(char) == 127 for char in text):
         raise InvalidArgument(field, "must not contain control characters")
     return text
@@ -132,10 +133,10 @@ class VaultProvider:
             },
             {
                 "name": "birkin_memory_get_note",
-                "description": "Read a selected local note's complete body.",
+                "description": "Read a local note by title/slug or an exact registered INDEX path.",
                 "parameters": {
                     "type": "object",
-                    "properties": {"title": title},
+                    "properties": {"title": {"type": "string", "minLength": 1}},
                     "required": ["title"],
                     "additionalProperties": False,
                 },
@@ -192,7 +193,7 @@ class VaultProvider:
     def _get_note(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
         if set(args) - {"title"}:
             raise InvalidArgument("arguments", "unknown note field")
-        title = _text(args.get("title"), "title", 200, single_line=True)
+        title = _text(args.get("title"), "title", None, single_line=True)
         index = self._index
         if index is not None and any(entry.document == title for entry in index.read().entries):
             try:
@@ -200,6 +201,7 @@ class VaultProvider:
             except (OSError, UnicodeError) as exc:
                 raise MemoryIndexError(f"cannot read INDEX document: {title!r}") from exc
         else:
+            title = _text(title, "title", 200, single_line=True)
             note = memory.get_note(title)
         if note is None:
             return {"success": False, "error": "Note not found"}
