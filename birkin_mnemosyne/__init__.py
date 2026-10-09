@@ -36,6 +36,11 @@ from typing import Any
 __version__ = "0.5.0"
 
 _EXPORTS = {
+    "MemoryIndex": "birkin_mnemosyne.memory_index",
+    "MemoryIndexError": "birkin_mnemosyne.memory_index",
+    "IndexEntry": "birkin_mnemosyne.memory_index",
+    "IndexView": "birkin_mnemosyne.memory_index",
+    "OpenResult": "birkin_mnemosyne.memory_index",
     "KibitzerAdapter": "birkin_mnemosyne.kibitzer",
     "RecallDocument": "birkin_mnemosyne.kibitzer",
     "RecallCandidate": "birkin_mnemosyne.kibitzer",
