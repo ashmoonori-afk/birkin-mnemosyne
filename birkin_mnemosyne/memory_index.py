@@ -10,8 +10,25 @@ from pathlib import Path, PureWindowsPath
 from typing import Final, Literal, TypeAlias
 
 from .atomic import atomic_write_bytes
+from .memory_triggers import IndexEntry, MemoryIndexError, match_entries
 from .mnemosyne import Mnemosyne, bm25_scores, tokenize
 from .vault_lock import VaultLock
+
+__all__ = [
+    "DEFAULT_INDEX_TOKENS",
+    "INDEX_DIRECTORY",
+    "INDEX_SOURCE",
+    "IndexEntry",
+    "IndexView",
+    "JsonValue",
+    "MemoryIndex",
+    "MemoryIndexError",
+    "OpenResult",
+    "OpenedDocument",
+    "decode_index_json",
+    "estimated_tokens",
+    "validate_index_budget",
+]
 
 INDEX_DIRECTORY: Final = ".mnemosyne-memory-index"
 INDEX_SOURCE: Final = ".mnemosyne-memory-index/context"
@@ -20,30 +37,9 @@ JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | \
     dict[str, "JsonValue"]
 
 
-class MemoryIndexError(ValueError):
-    """Invalid or incomplete routing state must never become an empty INDEX."""
-
-    def __init__(self, reason: str) -> None:
-        self.reason: str = reason
-        super().__init__(reason)
-
-
 def estimated_tokens(text: str) -> int:
     """A declared UTF-8-bytes/4 estimate, not model-specific token accounting."""
     return (len(text.encode("utf-8")) + 3) // 4
-
-
-@dataclass(frozen=True, slots=True)
-class IndexEntry:
-    trigger: str
-    document: str
-
-    def __post_init__(self) -> None:
-        for name, text in (("trigger", self.trigger), ("document", self.document)):
-            if not text.strip() or \
-                    text != text.strip() or len(text.splitlines()) != 1 or \
-                    any(ord(c) < 32 or ord(c) == 127 for c in text):
-                raise MemoryIndexError(f"{name} must be a nonempty single-line string")
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +183,10 @@ class MemoryIndex:
 
     def render(self) -> str:
         return self.read().context
+
+    def match(self, task: str) -> tuple[IndexEntry, ...]:
+        """Select every task-matched route without a cutoff or search fallback."""
+        return match_entries(self.read().entries, task)
 
     def register(self, trigger: str, document: str, *,
                  max_tokens: int | None = None) -> IndexView:

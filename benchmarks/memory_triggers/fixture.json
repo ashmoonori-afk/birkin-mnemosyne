@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "scope": "Fictional task-to-document delivery, not general semantic understanding.",
+  "documents": {
+    "engineering/database.md": "# Database migrations\nMigration batches must include a schema compatibility check.\nDATABASE_COMPLETE\n",
+    "operations/deployment.md": "# Deployment\nCheck the target environment before deployment.\nDEPLOY_COMPLETE\n",
+    "operations/rollback.md": "# Rollback\nKeep the previous artifact available for rollback.\nROLLBACK_COMPLETE\n",
+    "operations/approval.md": "# Approval\nRecord the operator approval before deployment.\nAPPROVAL_COMPLETE\n",
+    "operations/smoke.md": "# Smoke check\nRun a smoke check after the deployment.\nSMOKE_COMPLETE\n",
+    "storage/retention.md": "# Retention\nKeep seven daily snapshots and verify restores.\nRETENTION_COMPLETE\n",
+    "interface/accessibility.md": "# Accessibility\nEvery icon button needs an accessible name.\nACCESSIBILITY_COMPLETE\n",
+    "engineering/compiler.md": "# Compiler diagnostics\nKeep diagnostics visible and resolve the source error.\nCOMPILER_COMPLETE\n",
+    "billing/taxes.md": "# Invoice taxes\nUse the invoice jurisdiction to determine the tax category.\nTAXES_COMPLETE\n",
+    "preferences/tea.md": "# Tea\nChoose a jasmine blend without added sugar.\nTEA_COMPLETE\n",
+    "astronomy/collimation.md": "# Telescope calibration\nUse the reference star before aligning the optical axis.\nTELESCOPE_COMPLETE\n",
+    "operations/localized.md": "# 배포 검증\n검증 결과를 확인한 뒤 다음 단계로 이동한다.\nLOCALIZED_COMPLETE\n"
+  },
+  "routes": [
+    {"trigger": "When preparing a database migration", "document": "engineering/database.md"},
+    {"trigger": "When reviewing deployment rollback", "document": "operations/deployment.md"},
+    {"trigger": "When reviewing deployment rollback", "document": "operations/rollback.md"},
+    {"trigger": "When reviewing deployment rollback", "document": "operations/approval.md"},
+    {"trigger": "When reviewing deployment rollback", "document": "operations/smoke.md"},
+    {"trigger": "rollback deployment", "document": "operations/rollback.md"},
+    {"trigger": "When checking retention policies", "document": "storage/retention.md"},
+    {"trigger": "When changing accessibility labels", "document": "interface/accessibility.md"},
+    {"trigger": "When diagnosing compiler errors", "document": "engineering/compiler.md"},
+    {"trigger": "When editing invoice taxes", "document": "billing/taxes.md"},
+    {"trigger": "When choosing a tea blend", "document": "preferences/tea.md"},
+    {"trigger": "When calibrating a telescope", "document": "astronomy/collimation.md"},
+    {"trigger": "배포 검증", "document": "operations/localized.md"}
+  ],
+  "tasks": [
+    {"id": "database", "task": "Prepare a database migration.", "required": ["engineering/database.md"]},
+    {"id": "deployment-all", "task": "Review the deployment rollback plan.", "required": ["operations/deployment.md", "operations/rollback.md", "operations/approval.md", "operations/smoke.md"]},
+    {"id": "deployment-exact", "task": "When reviewing deployment rollback", "required": ["operations/deployment.md", "operations/rollback.md", "operations/approval.md", "operations/smoke.md"]},
+    {"id": "deduplicated-body", "task": "Check rollback deployment.", "required": ["operations/deployment.md", "operations/rollback.md", "operations/approval.md", "operations/smoke.md"]},
+    {"id": "retention", "task": "Check retention policies.", "required": ["storage/retention.md"]},
+    {"id": "accessibility", "task": "Change the accessibility labels.", "required": ["interface/accessibility.md"]},
+    {"id": "compiler", "task": "Diagnose the compiler errors.", "required": ["engineering/compiler.md"]},
+    {"id": "invoice", "task": "Edit the invoice taxes.", "required": ["billing/taxes.md"]},
+    {"id": "tea", "task": "Choose a tea blend.", "required": ["preferences/tea.md"]},
+    {"id": "telescope", "task": "Calibrate a telescope.", "required": ["astronomy/collimation.md"]},
+    {"id": "localized", "task": "배포 검증을 진행해 주세요.", "required": ["operations/localized.md"]},
+    {"id": "two-topics", "task": "Check retention policies and invoice taxes.", "required": ["storage/retention.md", "billing/taxes.md"]},
+    {"id": "common-words-only", "task": "When should I do this?", "required": []},
+    {"id": "unrelated-cooking", "task": "How long should dried noodles boil?", "required": []},
+    {"id": "unrelated-arithmetic", "task": "Calculate 17 times 29.", "required": []},
+    {"id": "word-boundary", "task": "Explain what steaming means.", "required": []}
+  ],
+  "grown": {
+    "topic_count": 12,
+    "documents_per_topic": 20,
+    "aliases_per_document": 2,
+    "path_pattern": "guides/topic-{topic:02d}/procedure-{document:03d}.md",
+    "trigger_patterns": [
+      "When handling topic {topic:02d} procedure {document:03d}",
+      "Topic {topic:02d} procedure {document:03d} checklist"
+    ],
+    "body_pattern": "# Topic {topic:02d} procedure {document:03d}\nKeep the procedure complete.\n",
+    "token_budget": 2000,
+    "scope": "The same 480 durable mappings and 240 documents before and after; no leaf removal."
+  },
+  "protocol": {
+    "freeze": "Created before implementing or running a new matching algorithm.",
+    "routing_inputs": "Only task text and registered triggers; never required paths.",
+    "positive_hit": "Every required document is returned with its complete body before action.",
+    "negative_hit": "No automatic document is returned.",
+    "extras": "Record unexpected returned documents separately; do not hide overmatching.",
+    "before": "Release startup delivery and explicit open(task, limit=3), reported separately.",
+    "after": "Task-aware managed surface with the same source corpus and frozen cases.",
+    "cost": "Whole StartupReader.context and rendered index measured independently with o200k_base.",
+    "limits": "This is a small lexical fixture, not general agent-compliance or billing evidence."
+  }
+}
