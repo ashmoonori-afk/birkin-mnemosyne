@@ -1,0 +1,1006 @@
+{
+  "version": 1,
+  "product_tree": "97cf12942083ab3619207b017cc90a7c074f0002",
+  "benchmark_sha256": {
+    "run.py": "30677c3074d6455f7c4ca656484946b50c5b38131367dfe5ba0b6184c99e0e22",
+    "sample.py": "a4a4ae12b71efa19fa0d0624d2d3747d2cd6e1b4e32f017e93841505eccf97f3",
+    "baseline.py": "285c06f3b50863887b8f33cef616ef4636b7f1e484b652a6987bbc4836a131bd",
+    "baseline.json": "8c622b0c71f343cbcbd2896f104ebb48c3b54c687e9b6df9bd3f8c288cb49716",
+    "PROTOCOL.md": "c9925fea3686cd8f2f7f8f671114d617cce3359b556bbb374d951add674be868"
+  },
+  "frozen_input_sha256": {
+    "benchmarks/retrieval/_probe.py": "cd209e67fc107397edbaa4e492d51cdd64ee4ef99e3db06626b1475e4cb46304",
+    "benchmarks/retrieval/bench_retrieval.py": "13b9e8ecbd6661784ef3c4c3be6f557c43c4b290f8341e963cf8ca57bc2134fe",
+    "benchmarks/retrieval/queries_claude-fable-5.1.json": "8d4482bed608c67dbd1d9ab8efe13019eb7c957963e9f13f11100e7f619ee389",
+    "benchmarks/retrieval/queries_gpt-6.1-sol.json": "2d0181cdba04478970726f8637d6b9c4431b753846409bcb4587bdf62137a904",
+    "benchmarks/retrieval/retrieval_corpus.py": "361be2a3d725ecf13ff7aa49be82d34ce489dd49a7a05f7424749478e2ec0cb4",
+    "benchmarks/round3/_probe.py": "3327c93f764383609eb753725ae48ac2851946f75c3ed332042a851335c25331",
+    "benchmarks/round3/answerer.py": "09c1bf477732ede088c04761962fb762d5d3ffc0c99af5f755bcef7c9c1ba756",
+    "benchmarks/round3/frozen_claude_consolidation.json": "38a8a6b4b9a7cef12650a394f2ea67134d0d26aba97c3fa4ad50917b2d3685ac",
+    "benchmarks/round3/frozen_claude_identity.json": "998c794dcf80c73cc932b90cc6706d064d870a955ac4e3ef32113ec22f803ce5",
+    "benchmarks/round3/frozen_claude_startup.json": "74a3099bd7016b7801a2f47962efca0e480edf86757e0c41a7ef2a3b31ef2e11",
+    "benchmarks/round3/frozen_sol.json": "8d27cf0d821057426b2f83ddb6308e939a0c5af14ce96f7bc348cf4013c374cd",
+    "benchmarks/round3/frozen_sol_startup.json": "fba3f906867466e04423371ed986804337059276240ff348680f5736576cfc47",
+    "benchmarks/round3/run.py": "7bdeb1eeaebb50fd6a046a72ebd4002df36e2fd3f2991ce5f2c4bdb82b8f5425",
+    "benchmarks/round3/startup_answerer.py": "661fb564cba68ada4296ab13247852d2006ce31c3dda7f988b31310ab2213a4d"
+  },
+  "frozen_manifest_sha256": "260d13c0c4155212276079dfa7b14d053497cfcb011636c6c033ff7686343fa8",
+  "synthetic": {
+    "before": {
+      "characters": 165667,
+      "utf8_bytes": 165667,
+      "estimated_tokens": 41417,
+      "o200k_base_tokens": 45128
+    },
+    "after": {
+      "characters": 5079,
+      "utf8_bytes": 5079,
+      "estimated_tokens": 1270,
+      "o200k_base_tokens": 1781
+    },
+    "complete_index": {
+      "characters": 1946,
+      "utf8_bytes": 1946,
+      "estimated_tokens": 487,
+      "o200k_base_tokens": 630
+    },
+    "source_sizes": {
+      "memory.md": {
+        "characters": 39902,
+        "utf8_bytes": 39902,
+        "estimated_tokens": 9976,
+        "o200k_base_tokens": 9598
+      },
+      "manual.md": {
+        "characters": 32204,
+        "utf8_bytes": 32204,
+        "estimated_tokens": 8051,
+        "o200k_base_tokens": 7776
+      },
+      "handoff.md": {
+        "characters": 83643,
+        "utf8_bytes": 83643,
+        "estimated_tokens": 20911,
+        "o200k_base_tokens": 23203
+      }
+    },
+    "coverage": [
+      {
+        "source": "memory.md",
+        "bytes": 39902,
+        "lines": 345,
+        "topics": 10,
+        "source_sha256": "ba468bd87fed8420e4522e529d513cab5c5bb3580193921483cd813c7d72681d",
+        "byte_exact": true
+      },
+      {
+        "source": "manual.md",
+        "bytes": 32204,
+        "lines": 313,
+        "topics": 11,
+        "source_sha256": "872d2459641948e89046a4a9ce43d22d3ffff22a6f463cacb8f509fa5e4efe8d",
+        "byte_exact": true
+      },
+      {
+        "source": "handoff.md",
+        "bytes": 83643,
+        "lines": 715,
+        "topics": 9,
+        "source_sha256": "18988e0cd3dcae672694755f05d58486f600624167b778ea2cad52ccd29b4196",
+        "byte_exact": true
+      }
+    ],
+    "integrity": {
+      "enabled": true,
+      "entries": 30,
+      "documents": 33,
+      "orphan_documents": [],
+      "dangling_entries": [],
+      "errors": [],
+      "ok": true
+    },
+    "index_entries": 30,
+    "index_budget": 2000,
+    "index_over_budget": false,
+    "scope": "Whole StartupReader.context including instructions and certificates.",
+    "temporary_vault_removed": true
+  },
+  "authors": [
+    {
+      "author": "gpt-6.1-sol",
+      "fixture": "benchmarks/round3/frozen_sol.json",
+      "fixture_sha256": "8d27cf0d821057426b2f83ddb6308e939a0c5af14ce96f7bc348cf4013c374cd",
+      "summary": {
+        "all": {
+          "total": 12,
+          "before_correct": 12,
+          "after_correct": 12
+        },
+        "positive": {
+          "total": 11,
+          "before_correct": 11,
+          "after_correct": 11
+        },
+        "abstention": {
+          "total": 1,
+          "before_correct": 1,
+          "after_correct": 1
+        },
+        "regressions": [],
+        "improvements": []
+      },
+      "rows": [
+        {
+          "id": "language",
+          "query": "Conversation preferred language",
+          "positive": true,
+          "before_answer": "Korean",
+          "after_answer": "Korean",
+          "expected": "Korean",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-002.md"
+          ],
+          "loaded_context_sha256": "917bb8329079120bb6763b950ea67c8816fd1e3969a00a5e6d4834bb113fb2fe",
+          "additional_document_bodies": {
+            "characters": 167,
+            "utf8_bytes": 167,
+            "estimated_tokens": 42,
+            "o200k_base_tokens": 34
+          },
+          "opened_payload": {
+            "characters": 271,
+            "utf8_bytes": 271,
+            "estimated_tokens": 68,
+            "o200k_base_tokens": 67
+          },
+          "total_task_context": {
+            "characters": 954,
+            "utf8_bytes": 958,
+            "estimated_tokens": 240,
+            "o200k_base_tokens": 277
+          }
+        },
+        {
+          "id": "style",
+          "query": "Conversation response style",
+          "positive": true,
+          "before_answer": "concise",
+          "after_answer": "concise",
+          "expected": "concise",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-002.md"
+          ],
+          "loaded_context_sha256": "917bb8329079120bb6763b950ea67c8816fd1e3969a00a5e6d4834bb113fb2fe",
+          "additional_document_bodies": {
+            "characters": 167,
+            "utf8_bytes": 167,
+            "estimated_tokens": 42,
+            "o200k_base_tokens": 34
+          },
+          "opened_payload": {
+            "characters": 271,
+            "utf8_bytes": 271,
+            "estimated_tokens": 68,
+            "o200k_base_tokens": 67
+          },
+          "total_task_context": {
+            "characters": 954,
+            "utf8_bytes": 958,
+            "estimated_tokens": 240,
+            "o200k_base_tokens": 277
+          }
+        },
+        {
+          "id": "test",
+          "query": "Build workflow test command",
+          "positive": true,
+          "before_answer": "python -m pytest -q",
+          "after_answer": "python -m pytest -q",
+          "expected": "python -m pytest -q",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-003.md"
+          ],
+          "loaded_context_sha256": "50d28e3f7a72495c4bacf6cf4a6e4b88eb44a01f690a97d42662a4d7874bb3f5",
+          "additional_document_bodies": {
+            "characters": 185,
+            "utf8_bytes": 185,
+            "estimated_tokens": 47,
+            "o200k_base_tokens": 41
+          },
+          "opened_payload": {
+            "characters": 289,
+            "utf8_bytes": 289,
+            "estimated_tokens": 73,
+            "o200k_base_tokens": 74
+          },
+          "total_task_context": {
+            "characters": 972,
+            "utf8_bytes": 976,
+            "estimated_tokens": 244,
+            "o200k_base_tokens": 284
+          }
+        },
+        {
+          "id": "approval",
+          "query": "Build workflow before release",
+          "positive": true,
+          "before_answer": "require approval",
+          "after_answer": "require approval",
+          "expected": "require approval",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-003.md"
+          ],
+          "loaded_context_sha256": "50d28e3f7a72495c4bacf6cf4a6e4b88eb44a01f690a97d42662a4d7874bb3f5",
+          "additional_document_bodies": {
+            "characters": 185,
+            "utf8_bytes": 185,
+            "estimated_tokens": 47,
+            "o200k_base_tokens": 41
+          },
+          "opened_payload": {
+            "characters": 289,
+            "utf8_bytes": 289,
+            "estimated_tokens": 73,
+            "o200k_base_tokens": 74
+          },
+          "total_task_context": {
+            "characters": 972,
+            "utf8_bytes": 976,
+            "estimated_tokens": 244,
+            "o200k_base_tokens": 284
+          }
+        },
+        {
+          "id": "region",
+          "query": "Deployment region",
+          "positive": true,
+          "before_answer": "Seoul",
+          "after_answer": "Seoul",
+          "expected": "Seoul",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-004.md"
+          ],
+          "loaded_context_sha256": "7c6ce00af48ae2ab76c98dca3035fa98eac9c1528e883f93ec962057f5331c77",
+          "additional_document_bodies": {
+            "characters": 158,
+            "utf8_bytes": 158,
+            "estimated_tokens": 40,
+            "o200k_base_tokens": 36
+          },
+          "opened_payload": {
+            "characters": 262,
+            "utf8_bytes": 262,
+            "estimated_tokens": 66,
+            "o200k_base_tokens": 69
+          },
+          "total_task_context": {
+            "characters": 945,
+            "utf8_bytes": 949,
+            "estimated_tokens": 238,
+            "o200k_base_tokens": 279
+          }
+        },
+        {
+          "id": "port",
+          "query": "Deployment service port",
+          "positive": true,
+          "before_answer": "9090",
+          "after_answer": "9090",
+          "expected": "9090",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-004.md"
+          ],
+          "loaded_context_sha256": "7c6ce00af48ae2ab76c98dca3035fa98eac9c1528e883f93ec962057f5331c77",
+          "additional_document_bodies": {
+            "characters": 158,
+            "utf8_bytes": 158,
+            "estimated_tokens": 40,
+            "o200k_base_tokens": 36
+          },
+          "opened_payload": {
+            "characters": 262,
+            "utf8_bytes": 262,
+            "estimated_tokens": 66,
+            "o200k_base_tokens": 69
+          },
+          "total_task_context": {
+            "characters": 945,
+            "utf8_bytes": 949,
+            "estimated_tokens": 238,
+            "o200k_base_tokens": 279
+          }
+        },
+        {
+          "id": "secret",
+          "query": "Safety secret policy",
+          "positive": true,
+          "before_answer": "never include credentials in public notes",
+          "after_answer": "never include credentials in public notes",
+          "expected": "never include credentials in public notes",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-006.md"
+          ],
+          "loaded_context_sha256": "db4ab13d35ad39ebfb65bb61c028bace0c3807a11af371e9171c27a7c0f52aeb",
+          "additional_document_bodies": {
+            "characters": 167,
+            "utf8_bytes": 167,
+            "estimated_tokens": 42,
+            "o200k_base_tokens": 34
+          },
+          "opened_payload": {
+            "characters": 270,
+            "utf8_bytes": 270,
+            "estimated_tokens": 68,
+            "o200k_base_tokens": 67
+          },
+          "total_task_context": {
+            "characters": 953,
+            "utf8_bytes": 957,
+            "estimated_tokens": 240,
+            "o200k_base_tokens": 277
+          }
+        },
+        {
+          "id": "korean",
+          "query": "연락 방식",
+          "positive": true,
+          "before_answer": "비동기 메시지",
+          "after_answer": "비동기 메시지",
+          "expected": "비동기 메시지",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-008.md"
+          ],
+          "loaded_context_sha256": "0d30f25f65993c6187e9711bc46ca01bb68a2b4ca54d800aaf2a732444339df3",
+          "additional_document_bodies": {
+            "characters": 121,
+            "utf8_bytes": 145,
+            "estimated_tokens": 37,
+            "o200k_base_tokens": 34
+          },
+          "opened_payload": {
+            "characters": 224,
+            "utf8_bytes": 248,
+            "estimated_tokens": 62,
+            "o200k_base_tokens": 67
+          },
+          "total_task_context": {
+            "characters": 907,
+            "utf8_bytes": 935,
+            "estimated_tokens": 234,
+            "o200k_base_tokens": 277
+          }
+        },
+        {
+          "id": "exception",
+          "query": "Exceptions release exception",
+          "positive": true,
+          "before_answer": "emergency patches still require approval",
+          "after_answer": "emergency patches still require approval",
+          "expected": "emergency patches still require approval",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-009.md"
+          ],
+          "loaded_context_sha256": "25bff2571adefcf731da32aa3e04e174913c7618b7671b4febe5ea3cd0ef0b5b",
+          "additional_document_bodies": {
+            "characters": 173,
+            "utf8_bytes": 173,
+            "estimated_tokens": 44,
+            "o200k_base_tokens": 33
+          },
+          "opened_payload": {
+            "characters": 275,
+            "utf8_bytes": 275,
+            "estimated_tokens": 69,
+            "o200k_base_tokens": 65
+          },
+          "total_task_context": {
+            "characters": 958,
+            "utf8_bytes": 962,
+            "estimated_tokens": 241,
+            "o200k_base_tokens": 275
+          }
+        },
+        {
+          "id": "owner",
+          "query": "Meridian owner",
+          "positive": true,
+          "before_answer": "Mara",
+          "after_answer": "Mara",
+          "expected": "Mara",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-001.md"
+          ],
+          "loaded_context_sha256": "f571ec8f1ed23afca0938a7ec72f81bdcdc04849a0d8b8934c0dce206e00cec7",
+          "additional_document_bodies": {
+            "characters": 112,
+            "utf8_bytes": 112,
+            "estimated_tokens": 28,
+            "o200k_base_tokens": 25
+          },
+          "opened_payload": {
+            "characters": 214,
+            "utf8_bytes": 214,
+            "estimated_tokens": 54,
+            "o200k_base_tokens": 58
+          },
+          "total_task_context": {
+            "characters": 897,
+            "utf8_bytes": 901,
+            "estimated_tokens": 226,
+            "o200k_base_tokens": 268
+          }
+        },
+        {
+          "id": "absent",
+          "query": "Deployment pager telephone",
+          "positive": false,
+          "before_answer": null,
+          "after_answer": null,
+          "expected": null,
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-004.md"
+          ],
+          "loaded_context_sha256": "7c6ce00af48ae2ab76c98dca3035fa98eac9c1528e883f93ec962057f5331c77",
+          "additional_document_bodies": {
+            "characters": 158,
+            "utf8_bytes": 158,
+            "estimated_tokens": 40,
+            "o200k_base_tokens": 36
+          },
+          "opened_payload": {
+            "characters": 262,
+            "utf8_bytes": 262,
+            "estimated_tokens": 66,
+            "o200k_base_tokens": 69
+          },
+          "total_task_context": {
+            "characters": 945,
+            "utf8_bytes": 949,
+            "estimated_tokens": 238,
+            "o200k_base_tokens": 279
+          }
+        },
+        {
+          "id": "obsolete",
+          "query": "Archive obsolete guidance service port",
+          "positive": true,
+          "before_answer": "8080",
+          "after_answer": "8080",
+          "expected": "8080",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-2625798e60bf-005.md"
+          ],
+          "loaded_context_sha256": "0b00b7e9966fed311fd8ccce20b0f4a4b7832277075c29f51552d6a603b03da8",
+          "additional_document_bodies": {
+            "characters": 211,
+            "utf8_bytes": 211,
+            "estimated_tokens": 53,
+            "o200k_base_tokens": 47
+          },
+          "opened_payload": {
+            "characters": 316,
+            "utf8_bytes": 316,
+            "estimated_tokens": 79,
+            "o200k_base_tokens": 80
+          },
+          "total_task_context": {
+            "characters": 999,
+            "utf8_bytes": 1003,
+            "estimated_tokens": 251,
+            "o200k_base_tokens": 290
+          }
+        }
+      ],
+      "always_loaded_before": {
+        "characters": 655,
+        "utf8_bytes": 679,
+        "estimated_tokens": 170,
+        "o200k_base_tokens": 146
+      },
+      "always_loaded_after": {
+        "characters": 682,
+        "utf8_bytes": 686,
+        "estimated_tokens": 172,
+        "o200k_base_tokens": 210
+      },
+      "temporary_vault_removed": true,
+      "scope": "Constrained extraction, not agent compliance. Before is the full original Markdown. After residency is the complete rendered INDEX; task totals add the full serialized OpenResult, including paths."
+    },
+    {
+      "author": "anthropic-subscription/claude-opus-5-5",
+      "fixture": "benchmarks/round3/frozen_claude_identity.json",
+      "fixture_sha256": "998c794dcf80c73cc932b90cc6706d064d870a955ac4e3ef32113ec22f803ce5",
+      "summary": {
+        "all": {
+          "total": 12,
+          "before_correct": 12,
+          "after_correct": 12
+        },
+        "positive": {
+          "total": 10,
+          "before_correct": 10,
+          "after_correct": 10
+        },
+        "abstention": {
+          "total": 2,
+          "before_correct": 2,
+          "after_correct": 2
+        },
+        "regressions": [],
+        "improvements": []
+      },
+      "rows": [
+        {
+          "id": "i01",
+          "query": "What is Lumen's default language in the Voice section?",
+          "positive": true,
+          "before_answer": "English",
+          "after_answer": "English",
+          "expected": "English",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-001.md",
+            "topics/agents-be9177a3f0bd-000.md"
+          ],
+          "loaded_context_sha256": "9754f8621c4671a5b44b70dce9e8ea7ae27c878f64e567bc4fbea6517867e087",
+          "additional_document_bodies": {
+            "characters": 555,
+            "utf8_bytes": 555,
+            "estimated_tokens": 139,
+            "o200k_base_tokens": 127
+          },
+          "opened_payload": {
+            "characters": 729,
+            "utf8_bytes": 729,
+            "estimated_tokens": 183,
+            "o200k_base_tokens": 189
+          },
+          "total_task_context": {
+            "characters": 1667,
+            "utf8_bytes": 1677,
+            "estimated_tokens": 420,
+            "o200k_base_tokens": 493
+          }
+        },
+        {
+          "id": "i02",
+          "query": "한국어 응대 섹션의 기본 언어는?",
+          "positive": true,
+          "before_answer": "한국어",
+          "after_answer": "한국어",
+          "expected": "한국어",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-002.md"
+          ],
+          "loaded_context_sha256": "d2411ca29d243a5d88939a5fd4641e3db4ec09ccbb64f700348216375fbc4221",
+          "additional_document_bodies": {
+            "characters": 203,
+            "utf8_bytes": 255,
+            "estimated_tokens": 64,
+            "o200k_base_tokens": 59
+          },
+          "opened_payload": {
+            "characters": 309,
+            "utf8_bytes": 361,
+            "estimated_tokens": 91,
+            "o200k_base_tokens": 95
+          },
+          "total_task_context": {
+            "characters": 1247,
+            "utf8_bytes": 1309,
+            "estimated_tokens": 328,
+            "o200k_base_tokens": 399
+          }
+        },
+        {
+          "id": "i03",
+          "query": "What honorific level does the Korean-response section require?",
+          "positive": true,
+          "before_answer": "해요체",
+          "after_answer": "해요체",
+          "expected": "해요체",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "search",
+          "paths": [
+            "topics/agents-be9177a3f0bd-002.md",
+            "topics/agents-be9177a3f0bd-000.md",
+            "AGENTS.md"
+          ],
+          "loaded_context_sha256": "49d753054917d2d66f975e9005b1a1e7b5cbd615d238299df0edfd21b449f89d",
+          "additional_document_bodies": {
+            "characters": 796,
+            "utf8_bytes": 848,
+            "estimated_tokens": 212,
+            "o200k_base_tokens": 211
+          },
+          "opened_payload": {
+            "characters": 1004,
+            "utf8_bytes": 1056,
+            "estimated_tokens": 264,
+            "o200k_base_tokens": 286
+          },
+          "total_task_context": {
+            "characters": 1942,
+            "utf8_bytes": 2004,
+            "estimated_tokens": 501,
+            "o200k_base_tokens": 590
+          }
+        },
+        {
+          "id": "i04",
+          "query": "What is the general booking horizon under Scheduling?",
+          "positive": true,
+          "before_answer": "14 days",
+          "after_answer": "14 days",
+          "expected": "14 days",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-003.md",
+            "topics/agents-be9177a3f0bd-004.md"
+          ],
+          "loaded_context_sha256": "21d64f0970ee60bac2ede7251d74bad22f7079971c846fda5c9829464c1b3f3e",
+          "additional_document_bodies": {
+            "characters": 499,
+            "utf8_bytes": 499,
+            "estimated_tokens": 125,
+            "o200k_base_tokens": 104
+          },
+          "opened_payload": {
+            "characters": 670,
+            "utf8_bytes": 670,
+            "estimated_tokens": 168,
+            "o200k_base_tokens": 165
+          },
+          "total_task_context": {
+            "characters": 1608,
+            "utf8_bytes": 1618,
+            "estimated_tokens": 405,
+            "o200k_base_tokens": 469
+          }
+        },
+        {
+          "id": "i05",
+          "query": "What booking horizon applies under Scheduling exceptions?",
+          "positive": true,
+          "before_answer": "60 days for medical appointments",
+          "after_answer": "60 days for medical appointments",
+          "expected": "60 days for medical appointments",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-004.md",
+            "topics/agents-be9177a3f0bd-003.md"
+          ],
+          "loaded_context_sha256": "1cdbd638d5491046a46e056ae88ed7191528fb4b1e855d3eb572c781d0bd9fe2",
+          "additional_document_bodies": {
+            "characters": 499,
+            "utf8_bytes": 499,
+            "estimated_tokens": 125,
+            "o200k_base_tokens": 104
+          },
+          "opened_payload": {
+            "characters": 670,
+            "utf8_bytes": 670,
+            "estimated_tokens": 168,
+            "o200k_base_tokens": 165
+          },
+          "total_task_context": {
+            "characters": 1608,
+            "utf8_bytes": 1618,
+            "estimated_tokens": 405,
+            "o200k_base_tokens": 469
+          }
+        },
+        {
+          "id": "i06",
+          "query": "What is the current purchase limit in the Money section?",
+          "positive": true,
+          "before_answer": "50,000 KRW per order",
+          "after_answer": "50,000 KRW per order",
+          "expected": "50,000 KRW per order",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-005.md",
+            "topics/agents-be9177a3f0bd-006.md"
+          ],
+          "loaded_context_sha256": "8e4ff823871da909534fe01aa9cb6405e922c9be4b5e24830b5976503a55cc92",
+          "additional_document_bodies": {
+            "characters": 523,
+            "utf8_bytes": 523,
+            "estimated_tokens": 131,
+            "o200k_base_tokens": 129
+          },
+          "opened_payload": {
+            "characters": 694,
+            "utf8_bytes": 694,
+            "estimated_tokens": 174,
+            "o200k_base_tokens": 191
+          },
+          "total_task_context": {
+            "characters": 1632,
+            "utf8_bytes": 1642,
+            "estimated_tokens": 411,
+            "o200k_base_tokens": 495
+          }
+        },
+        {
+          "id": "i07",
+          "query": "What purchase limit did the obsolete 2025 Money section state?",
+          "positive": true,
+          "before_answer": "200,000 KRW per order",
+          "after_answer": "200,000 KRW per order",
+          "expected": "200,000 KRW per order",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-006.md",
+            "topics/agents-be9177a3f0bd-005.md"
+          ],
+          "loaded_context_sha256": "0f2856796f7a8eac530618f5d74cbfd73c66d4fc1da064653d9f8d13a2276e6f",
+          "additional_document_bodies": {
+            "characters": 523,
+            "utf8_bytes": 523,
+            "estimated_tokens": 131,
+            "o200k_base_tokens": 129
+          },
+          "opened_payload": {
+            "characters": 694,
+            "utf8_bytes": 694,
+            "estimated_tokens": 174,
+            "o200k_base_tokens": 191
+          },
+          "total_task_context": {
+            "characters": 1632,
+            "utf8_bytes": 1642,
+            "estimated_tokens": 411,
+            "o200k_base_tokens": 495
+          }
+        },
+        {
+          "id": "i08",
+          "query": "What is the screen-time exception for children during exams?",
+          "positive": true,
+          "before_answer": "시험 기간에는 하루 60분",
+          "after_answer": "시험 기간에는 하루 60분",
+          "expected": "시험 기간에는 하루 60분",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-007.md",
+            "topics/agents-be9177a3f0bd-004.md"
+          ],
+          "loaded_context_sha256": "ddf07782092ff1a2cfc713ecacc8de92963dafc02dba87b6abc4edcea1e718dc",
+          "additional_document_bodies": {
+            "characters": 503,
+            "utf8_bytes": 521,
+            "estimated_tokens": 131,
+            "o200k_base_tokens": 113
+          },
+          "opened_payload": {
+            "characters": 674,
+            "utf8_bytes": 692,
+            "estimated_tokens": 173,
+            "o200k_base_tokens": 174
+          },
+          "total_task_context": {
+            "characters": 1612,
+            "utf8_bytes": 1640,
+            "estimated_tokens": 410,
+            "o200k_base_tokens": 478
+          }
+        },
+        {
+          "id": "i09",
+          "query": "What are the global quiet hours?",
+          "positive": true,
+          "before_answer": "22:30-07:00",
+          "after_answer": "22:30-07:00",
+          "expected": "22:30-07:00",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-010.md"
+          ],
+          "loaded_context_sha256": "7bb699fbc7f27e5b3f4ea24f429b631fb8a5b49ee62057c22b5088f144a3c924",
+          "additional_document_bodies": {
+            "characters": 259,
+            "utf8_bytes": 259,
+            "estimated_tokens": 65,
+            "o200k_base_tokens": 66
+          },
+          "opened_payload": {
+            "characters": 365,
+            "utf8_bytes": 365,
+            "estimated_tokens": 92,
+            "o200k_base_tokens": 102
+          },
+          "total_task_context": {
+            "characters": 1303,
+            "utf8_bytes": 1313,
+            "estimated_tokens": 329,
+            "o200k_base_tokens": 406
+          }
+        },
+        {
+          "id": "i10",
+          "query": "What quiet hours apply locally to the kitchen display?",
+          "positive": true,
+          "before_answer": "23:30-06:30",
+          "after_answer": "23:30-06:30",
+          "expected": "23:30-06:30",
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-011.md"
+          ],
+          "loaded_context_sha256": "387cd34b85ff2ea06fc578bf848171aac3ae4d32287f157bceadbd5dc6891146",
+          "additional_document_bodies": {
+            "characters": 207,
+            "utf8_bytes": 207,
+            "estimated_tokens": 52,
+            "o200k_base_tokens": 53
+          },
+          "opened_payload": {
+            "characters": 312,
+            "utf8_bytes": 312,
+            "estimated_tokens": 78,
+            "o200k_base_tokens": 88
+          },
+          "total_task_context": {
+            "characters": 1250,
+            "utf8_bytes": 1260,
+            "estimated_tokens": 315,
+            "o200k_base_tokens": 392
+          }
+        },
+        {
+          "id": "i11",
+          "query": "What feeding time does the Example prompts section set for pets?",
+          "positive": false,
+          "before_answer": null,
+          "after_answer": null,
+          "expected": null,
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-009.md"
+          ],
+          "loaded_context_sha256": "ea8f588094b56d44449a7a3820603485408aade6a5769a442a195efb0dc8fbc0",
+          "additional_document_bodies": {
+            "characters": 331,
+            "utf8_bytes": 331,
+            "estimated_tokens": 83,
+            "o200k_base_tokens": 81
+          },
+          "opened_payload": {
+            "characters": 442,
+            "utf8_bytes": 442,
+            "estimated_tokens": 111,
+            "o200k_base_tokens": 119
+          },
+          "total_task_context": {
+            "characters": 1380,
+            "utf8_bytes": 1390,
+            "estimated_tokens": 348,
+            "o200k_base_tokens": 423
+          }
+        },
+        {
+          "id": "i12",
+          "query": "What wake word does the Voice section define?",
+          "positive": false,
+          "before_answer": null,
+          "after_answer": null,
+          "expected": null,
+          "before_correct": true,
+          "after_correct": true,
+          "matched_by": "trigger",
+          "paths": [
+            "topics/agents-be9177a3f0bd-001.md"
+          ],
+          "loaded_context_sha256": "1ae816fa834e74372978a886052c4536bf1093f70497a141df4fa4c2abe7067c",
+          "additional_document_bodies": {
+            "characters": 205,
+            "utf8_bytes": 205,
+            "estimated_tokens": 52,
+            "o200k_base_tokens": 48
+          },
+          "opened_payload": {
+            "characters": 311,
+            "utf8_bytes": 311,
+            "estimated_tokens": 78,
+            "o200k_base_tokens": 83
+          },
+          "total_task_context": {
+            "characters": 1249,
+            "utf8_bytes": 1259,
+            "estimated_tokens": 315,
+            "o200k_base_tokens": 387
+          }
+        }
+      ],
+      "always_loaded_before": {
+        "characters": 1708,
+        "utf8_bytes": 1784,
+        "estimated_tokens": 446,
+        "o200k_base_tokens": 441
+      },
+      "always_loaded_after": {
+        "characters": 937,
+        "utf8_bytes": 947,
+        "estimated_tokens": 237,
+        "o200k_base_tokens": 304
+      },
+      "temporary_vault_removed": true,
+      "scope": "Constrained extraction, not agent compliance. Before is the full original Markdown. After residency is the complete rendered INDEX; task totals add the full serialized OpenResult, including paths."
+    }
+  ],
+  "accuracy_preserved_for_both": true,
+  "accuracy_gain_for_both": false,
+  "runtime": {
+    "python": "3.14.4 (main, Aug 20 2026, 10:41:58) [GCC 15.2.0]",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "tiktoken": "0.14.0",
+    "encoding": "o200k_base",
+    "semantic": "disabled"
+  },
+  "limits": [
+    "Recorded independent authorship; reused public fixtures, not newly unseen questions.",
+    "No model calls; deterministic constrained extraction is not general agent compliance.",
+    "BPE counts are declared o200k_base units, not GPT/Claude billing.",
+    "Host system prompts and JSON-RPC transport envelopes are not billed-token measurements.",
+    "Tiny notes can cost more after indexing; per-author and per-task costs are retained."
+  ]
+}

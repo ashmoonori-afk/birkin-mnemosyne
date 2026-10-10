@@ -1,0 +1,37 @@
+{
+  "source_sha256": {
+    "memory.md": "ba468bd87fed8420e4522e529d513cab5c5bb3580193921483cd813c7d72681d",
+    "manual.md": "872d2459641948e89046a4a9ce43d22d3ffff22a6f463cacb8f509fa5e4efe8d",
+    "handoff.md": "18988e0cd3dcae672694755f05d58486f600624167b778ea2cad52ccd29b4196"
+  },
+  "documents": {
+    "memory.md": {
+      "characters": 39902,
+      "utf8_bytes": 39902,
+      "estimated_tokens": 9976,
+      "o200k_base_tokens": 9598
+    },
+    "manual.md": {
+      "characters": 32204,
+      "utf8_bytes": 32204,
+      "estimated_tokens": 8051,
+      "o200k_base_tokens": 7776
+    },
+    "handoff.md": {
+      "characters": 83643,
+      "utf8_bytes": 83643,
+      "estimated_tokens": 20911,
+      "o200k_base_tokens": 23203
+    }
+  },
+  "whole_startup_payload": {
+    "characters": 165667,
+    "utf8_bytes": 165667,
+    "estimated_tokens": 41417,
+    "o200k_base_tokens": 45128
+  },
+  "complete": true,
+  "covered_bytes": 155749,
+  "scope": "Pattern-generated fictional corpus; no private data.",
+  "temporary_vault_removed": true
+}

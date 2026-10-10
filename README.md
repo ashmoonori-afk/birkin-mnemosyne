@@ -83,6 +83,50 @@ that saw only the question moved paraphrase MRR from 0.205 to 0.981 and
 upper bound: see
 [Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#search-time-query-expansion-core-zero-dependencies-opt-in-per-search).
 
+## Always-loaded memory INDEX (opt-in)
+
+Keep a complete **when to read -> which document** map in startup context,
+then open the details only when needed. This feature is available from the
+current checkout; published v0.5.0 predates it, so use an editable checkout.
+
+```python
+from birkin_mnemosyne import MemoryIndex
+
+# Register an existing note, such as the one created in the example above.
+index = MemoryIndex("my_vault")
+index.register("Ingress DNS", "devops/ingress-dns.md")
+print(index.render())                 # complete always-loaded map
+opened = index.open("Ingress DNS")     # exact trigger; complete document
+```
+
+The `.mnemosyne-memory-index/` directory is the opt-in marker. A vault
+without that directory keeps its legacy behavior. Every registered entry
+stays in managed startup/digest/host surfaces: over-budget reads warn but
+never trim entries. There is no INDEX removal, expiry, or automatic cleanup
+operation. Hosts should retain `required=True` or `--require-memory-index`
+across restarts and re-read the complete INDEX after context compaction.
+Exact triggers are reliable; lexical matching and BM25 fallback are not
+semantic guarantees.
+
+```bash
+mnemosyne-index --vault my_vault check
+mnemosyne-index --vault my_vault split handoff.md          # read-only preview
+mnemosyne-index --vault my_vault split handoff.md --apply  # explicit migration
+```
+
+The splitter preserves every source byte and prints a complete per-line
+coverage table. The checker reports orphans, dangling routes and lost
+coverage. MCP exposes `memory_index_register`, `memory_index_read`,
+`memory_open_trigger`, `memory_index_check`, and `memory_index_split`.
+Keep `.mnemosyne-memory-index/` and `.mnemosyne-reviews/`, including captured
+source revisions, when backing up a vault.
+
+The fictional large-note benchmark reduced the whole startup payload from
+**45,128 to 1,781 o200k_base tokens**. Separate frozen Sol and Claude sets
+both stayed at **12/12**, not an accuracy gain; small-note task costs can
+increase. See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and
+[measurements, denominators and regressions](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md).
+
 ## What the numbers say
 
 All retrieval quality below is the **final frozen test split**, copied from
