@@ -86,8 +86,9 @@ upper bound: see
 ## Always-loaded memory INDEX (opt-in)
 
 Keep a complete **when to read -> which document** map available from startup
-context, then open the details only when needed. This feature is available from
-v0.6.0.
+context, then open the details only when needed. The INDEX is available from
+v0.6.0. Task-bound reads and the two-level topic map described below are on
+main; no tag covers them yet, so they are not labelled with a version here.
 
 ```python
 from birkin_mnemosyne import MemoryIndex
@@ -108,7 +109,7 @@ across restarts and re-read the complete INDEX after context compaction.
 Exact triggers are reliable; lexical matching and BM25 fallback are not
 semantic guarantees.
 
-Unreleased task-bound reads let a host call
+On main, task-bound reads let a host call
 `StartupReader("my_vault").read([], task="Check Ingress DNS")` before acting.
 They return every lexically matched document in full, without the optional
 lookup's top-k cutoff or search fallback. Pass the same `task` to
@@ -116,7 +117,7 @@ lookup's top-k cutoff or search fallback. Pass the same `task` to
 `prefetch` uses this path automatically. See the usage guide below for the
 lexical limits and complete-read failure behavior.
 
-Unreleased main also chooses between a flat INDEX and a smaller two-level
+Main also chooses between a flat INDEX and a smaller two-level
 topic map. Topics follow complete parent-directory paths; every route remains
 in its complete topic view. `index.read(topic="dir:devops")` and MCP
 `memory_index_read(topic="dir:devops")` expand that topic. Task-bound startup
@@ -574,6 +575,11 @@ serialized across server processes with a lock file.
 | `memory_kibitzer_candidates` | ranked live note candidates for a query, with short excerpts; archive, system and expired notes are skipped | read-only |
 | `memory_startup_read` | read startup files (and the local files they MUST READ) under the identity root completely, with coverage checks | read-only |
 | `memory_startup_verify` | re-read the same files and verify a returned startup context against them | read-only |
+| `memory_index_register` | add one `trigger -> document` mapping to the always-loaded INDEX; additive and idempotent, no remove or delete | additive write |
+| `memory_index_read` | read all INDEX entries or one complete topic, without a ranked cutoff | read-only |
+| `memory_open_trigger` | open the documents an exact trigger points to; fall back to ordinary search | read-only |
+| `memory_index_check` | audit the always-loaded INDEX for orphans, dangling routes and coverage errors, without writing | read-only |
+| `memory_index_split` | preview or apply a lossless split of one note into routed topic documents | preview unless `apply=true` |
 | `memory_capacity` | active and protected note counts and index bytes against the budget | read-only |
 
 Plus the resources `mnemosyne://digest` (the prompt digest) and
@@ -655,6 +661,8 @@ for an offline end-to-end example.
 ```python
 from birkin_mnemosyne import (
     Mnemosyne,          # the mechanical index/ranking engine
+    MemoryIndex,        # the opt-in always-loaded memory INDEX
+    StartupReader,      # verified host startup reads, with task-bound complete reads
     VaultMemory,        # ergonomic write_note / rezone / digest wrapper
     ProfileMemory,      # background-reviewed role-profile persistence
     ProfileReviewError, # invalid reviewer output
@@ -689,6 +697,7 @@ my_vault/
   journal/
   system/                       # role files owned by ProfileMemory
   _archive/                     # soft-forgotten notes
+  .mnemosyne-memory-index/       # opt-in; index.json routing and the resident context map
   .mnemosyne-index.json.z        # rebuildable compressed index cache
   .mnemosyne-dynamics.json       # persistent usage state
   .mnemosyne-vectors.npz         # rebuildable semantic vector cache
@@ -734,7 +743,7 @@ memory adapters became contributions to the projects below.
 
 These are contributions authored by `ashmoonori-afk` to **other repositories
 that derive from birkin-mnemosyne**, with their source links and status as of
-**2026-10-06 KST**. Internal birkin-mnemosyne PRs and unrelated harness work
+**2026-10-11 KST**. Internal birkin-mnemosyne PRs and unrelated harness work
 are excluded. Open proposals are not shipped improvements, and approval does
 not mean merged. Closed work is labeled explicitly. The linked retrieval
 gains use synthetic benchmarks, not guarantees for real conversations.
