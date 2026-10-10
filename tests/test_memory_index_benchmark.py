@@ -2,14 +2,26 @@
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypedDict
+
+import pytest
 
 from benchmarks.memory_index import run
 from benchmarks.memory_index.run import ScoreRow, score_summary
 from benchmarks.memory_index.sample import make_sample
+from birkin_mnemosyne.memory_index import MemoryIndex, OpenResult
 
 
-def test_scores_do_not_pool_positives_and_abstentions():
+class _Baseline(TypedDict):
+    source_sha256: dict[str, str]
+
+
+_load_baseline: Callable[[bytes], _Baseline] = json.loads
+
+
+def test_scores_do_not_pool_positives_and_abstentions() -> None:
     rows: list[ScoreRow] = [
         {"id": "positive-ok", "positive": True, "before_correct": True, "after_correct": True},
         {"id": "positive-lost", "positive": True, "before_correct": True, "after_correct": False},
@@ -25,7 +37,7 @@ def test_scores_do_not_pool_positives_and_abstentions():
     assert report["improvements"] == ["positive-gain", "abstention-gain"]
 
 
-def test_equal_totals_do_not_hide_question_regressions():
+def test_equal_totals_do_not_hide_question_regressions() -> None:
     report = score_summary([
         {"id": "lost", "positive": True, "before_correct": True, "after_correct": False},
         {"id": "gained", "positive": True, "before_correct": False, "after_correct": True},
@@ -35,15 +47,17 @@ def test_equal_totals_do_not_hide_question_regressions():
     assert report["improvements"] == ["gained"]
 
 
-def test_synthetic_corpus_keeps_the_preimplementation_input_hashes():
-    baseline = json.loads(
+def test_synthetic_corpus_keeps_the_preimplementation_input_hashes() -> None:
+    baseline = _load_baseline(
         (Path(__file__).parents[1] / "benchmarks/memory_index/baseline.json").read_bytes())
     actual = {name: hashlib.sha256(text.encode("utf-8")).hexdigest()
               for name, text in make_sample().items()}
     assert actual == baseline["source_sha256"]
 
 
-def test_routing_receives_only_query_before_answer_scoring(tmp_path, monkeypatch):
+def test_routing_receives_only_query_before_answer_scoring(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     query = "slot"
     fixture = {
         "author": "test-author",
@@ -55,17 +69,22 @@ def test_routing_receives_only_query_before_answer_scoring(tmp_path, monkeypatch
             }],
         },
     }
-    (tmp_path / "fixture.json").write_text(json.dumps(fixture), encoding="utf-8")
-    monkeypatch.setattr(run, "ROOT", tmp_path)
-    monkeypatch.setattr(run, "size", lambda text: {"utf8_bytes": len(text.encode("utf-8"))})
-    monkeypatch.setenv("MNEMOSYNE_SEMANTIC", "0")
-    calls = []
-    real_open = run.MemoryIndex.open
+    _ = (tmp_path / "fixture.json").write_text(json.dumps(fixture), encoding="utf-8")
 
-    def observed_open(index, supplied_query, *, limit=3):
+    def count_bytes(text: str) -> dict[str, int]:
+        return {"utf8_bytes": len(text.encode("utf-8"))}
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    monkeypatch.setattr(run, "size", count_bytes)
+    monkeypatch.setenv("MNEMOSYNE_SEMANTIC", "0")
+    calls: list[tuple[str, int]] = []
+    real_open = MemoryIndex.open
+
+    def observed_open(
+        index: MemoryIndex, supplied_query: str, *, limit: int = 3,
+    ) -> OpenResult:
         calls.append((supplied_query, limit))
         return real_open(index, supplied_query, limit=limit)
-    monkeypatch.setattr(run.MemoryIndex, "open", observed_open)
+    monkeypatch.setattr(MemoryIndex, "open", observed_open)
     result = run.author_result("test-author", "fixture.json")
     assert calls == [(query, 3)]
     assert result["summary"]["all"] == {
