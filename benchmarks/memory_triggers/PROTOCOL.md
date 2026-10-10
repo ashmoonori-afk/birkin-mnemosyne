@@ -17,8 +17,13 @@ This runner does not implement another matcher.
 Each run creates temporary vaults, writes complete fictional documents, and
 registers every alias through `MemoryIndex.register`. The frozen grown shape is
 12 topics, 20 documents per topic, and 2 aliases per document: 240 documents and
-480 routes. `read().entries` must retain every original route. Optional grouped
-metadata is reported only when available; no grouped representation is assumed.
+480 routes. `read().entries` must retain every original route. The current
+default also requires the frozen grown case to select a grouped view. It
+expands every actual topic response, checks revisions/counts/digests, and
+requires their disjoint union to equal all 480 original routes. Every topic
+identifier must appear once in the resident map. A lost, duplicated or hidden
+route fails the run. Baseline mode still supports the older release without
+topic metadata; absent grouping is reported as absent, never fabricated.
 Temporary vaults are removed on success and exceptions.
 
 Default mode calls actual `StartupReader.read([], task=task)` and independently
@@ -40,8 +45,11 @@ measurement and verification completed, not that automatic delivery succeeded.
 All costs use the existing benchmark `size` helper: characters, UTF-8 bytes,
 bytes/4 estimate, and `o200k_base` tokens. The tokenizer is imported lazily and is
 not a core dependency. Costs cover rendered indexes, complete startup contexts,
-complete per-task contexts, optional serialized open payloads, and optional
-document bodies. Both modes measure the entire grown startup context, including
+complete per-task contexts, resident-plus-task context (including repeated
+material), optional serialized open payloads, and optional document bodies.
+Each actual topic expansion reports its complete rendered context and complete
+compact-JSON `IndexView` payload separately; the latter excludes host-specific
+wire framing, not any view fields. Both modes measure the entire grown startup context, including
 instructions and certificates. These are comparison units, not billing claims.
 No model calls are made; optional search is run with semantic models disabled.
 

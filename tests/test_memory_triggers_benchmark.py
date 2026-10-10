@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import TypedDict
 
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 from benchmarks.memory_triggers import run
-from birkin_mnemosyne.memory_index import MemoryIndex, OpenResult
+from birkin_mnemosyne.memory_index import IndexView, MemoryIndex, OpenResult
 from birkin_mnemosyne.startup import StartupReader
 
 
@@ -107,6 +108,26 @@ def test_baseline_scores_real_startup_and_open_and_cleans_vaults(
     assert "engineering/database.md" in database["optional_open"]["returned"]
     assert database["optional_open"]["whole_bodies_match"]
     assert result["startup_verified"]
+    assert result["passed"]
+
+
+def test_partial_topic_response_fails_even_baseline_measurement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def count_bytes(text: str) -> dict[str, int]:
+        return {"utf8_bytes": len(text.encode("utf-8"))}
+
+    real_read = MemoryIndex.read
+
+    def partial_read(index: MemoryIndex, *, topic: str | None = None) -> IndexView:
+        view = real_read(index, topic=topic)
+        return replace(view, entries=view.entries[:-1]) if topic is not None else view
+
+    monkeypatch.setattr(run, "size", count_bytes)
+    monkeypatch.setattr(MemoryIndex, "read", partial_read)
+    result = run.measure(baseline=True)
+    assert result["temporary_vault_removed"]
+    assert not result["passed"]
 
 
 def test_failed_read_cleans_real_seeded_vault(monkeypatch: pytest.MonkeyPatch) -> None:

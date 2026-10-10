@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Protocol, TypedDict, runtime_checkable
 
 from benchmarks.memory_index.baseline import size
+from benchmarks.memory_triggers.topic_costs import measure_topics
 from birkin_mnemosyne.memory_index import IndexEntry, MemoryIndex
 from birkin_mnemosyne.startup import StartupBundle, StartupReader
 from birkin_mnemosyne.startup_coverage import Coverage, StartupPayload
@@ -68,15 +69,6 @@ class TaskReader(Protocol):
     def read(self, paths: Sequence[str], *, task: str) -> StartupBundle: ...
 
     def verify(self, context: str, paths: Sequence[str], *, task: str) -> Coverage: ...
-
-
-@runtime_checkable
-class GroupedView(Protocol):
-    @property
-    def mode(self) -> str: ...
-
-    @property
-    def topics(self) -> Sequence[object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,6 +215,7 @@ def measure(*, baseline: bool = False) -> dict[str, object]:
                     "matched_entries": [asdict(entry) for entry in entries],
                     "documents": bodies, "context": bundle.context,
                     "task_context": size(bundle.context),
+                    "resident_plus_task_context": size(index.render() + "\n" + bundle.context),
                     "task_context_sha256": hashlib.sha256(bundle.context.encode()).hexdigest(),
                     "optional_open": {**asdict(optional), "matched_by": opened.matched_by},
                     "optional_opened_payload": size(opened_payload),
@@ -236,6 +229,12 @@ def measure(*, baseline: bool = False) -> dict[str, object]:
             grown_reader = StartupReader(grown.root)
             grown_bundle = grown_reader.read([])
             grown_verified = grown_reader.verify(grown_bundle.context, []).complete
+            graph = measure_topics(grown, tuple(IndexEntry(**route) for route in routes), size)
+            graph_verified = (
+                graph["all_routes_expandable"] is not False
+                and graph["all_topics_in_resident"] is not False
+                and (baseline or graph["mode"] == "grouped")
+            )
             result: dict[str, object] = {
                 "mode": "release-route-only" if baseline else "task-aware",
                 "fixture_sha256": FIXTURE_SHA256, "product": product_metadata(),
@@ -249,10 +248,10 @@ def measure(*, baseline: bool = False) -> dict[str, object]:
                     "rendered_index": size(view.context),
                     "whole_startup_payload": size(grown_bundle.context),
                     "verified": grown_verified,
-                    "mode": view.mode if isinstance(view, GroupedView) else None,
-                    "topic_count": len(view.topics) if isinstance(view, GroupedView) else None,
+                    **graph,
                 },
-                "passed": startup_verified and grown_verified and (baseline or not failed),
+                "passed": (startup_verified and grown_verified and graph_verified
+                           and (baseline or not failed)),
             }
         result["temporary_vault_removed"] = not root.exists()
         return result
@@ -281,6 +280,8 @@ def main() -> None:
     print(json.dumps({
         "output": str(args.output), "passed": result["passed"],
         "automatic_failed_tasks": result["automatic_failed_tasks"],
+        "rendered_index": result["rendered_index"],
+        "whole_startup_payload": result["whole_startup_payload"],
         "grown": result["grown"],
         "temporary_vault_removed": result["temporary_vault_removed"],
     }, indent=2, ensure_ascii=False))
