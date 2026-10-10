@@ -2,4 +2,4 @@ name: birkin-mnemosyne
 version: "0.1.0"
 description: "Local Markdown memory with multilingual lexical recall, no API key or network service."
 python_dependencies:
-  - "birkin-mnemosyne==0.5.0"
+  - "birkin-mnemosyne==0.6.0"
