@@ -59,7 +59,9 @@ _PROMPT: Final = (
 
 # The INDEX instruction names generic operations; this host routes them to its own tools.
 _INDEX_ROUTING: Final = (
-    "On this host: memory_open_trigger maps to birkin_memory_get_note (pass the "
+    "On this host: memory_index_read maps to birkin_memory_index (pass topic). "
+    "Task startup reads are supplied automatically by prefetch. "
+    "memory_open_trigger maps to birkin_memory_get_note (pass the "
     "trigger's document as the note title) and memory_search maps to "
     "birkin_memory_search."
 )
@@ -133,6 +135,15 @@ class VaultProvider:
                 },
             },
             {
+                "name": "birkin_memory_index",
+                "description": "Read the complete resident INDEX or expand one complete topic.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"topic": {"type": ["string", "null"]}},
+                    "additionalProperties": False,
+                },
+            },
+            {
                 "name": "birkin_memory_get_note",
                 "description": "Read a local note by title/slug or an exact registered INDEX path.",
                 "parameters": {
@@ -148,6 +159,7 @@ class VaultProvider:
         handlers: dict[str, Callable[[VaultMemory, ToolArguments], ToolResponse]] = {
             "birkin_memory_remember": self._remember,
             "birkin_memory_search": self._search,
+            "birkin_memory_index": self._index_read,
             "birkin_memory_get_note": self._get_note,
         }
         handler = handlers.get(tool_name)
@@ -190,6 +202,21 @@ class VaultProvider:
                 return {"success": True, "results": memory.search(query, limit=count)}
             case _:
                 raise InvalidArgument("limit", "must be an integer from 1 to 20")
+
+    def _index_read(self, _memory: VaultMemory, args: ToolArguments) -> ToolResponse:
+        if set(args) - {"topic"}:
+            raise InvalidArgument("arguments", "unknown INDEX field")
+        match args.get("topic"):
+            case None:
+                topic = None
+            case str() as value:
+                topic = value
+            case _:
+                raise InvalidArgument("topic", "must be a string or null")
+        index = self._index
+        if index is None:
+            return {"success": False, "error": "Provider is not initialized"}
+        return {"success": True, "body": index.read(topic=topic).context}
 
     def _get_note(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
         if set(args) - {"title"}:

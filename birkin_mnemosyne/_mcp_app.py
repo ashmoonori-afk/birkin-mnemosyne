@@ -67,7 +67,8 @@ Long-term memory: a vault of Markdown notes ranked by BM25 plus usage decay.
   memory_identity_read search is supplemental partial context, never startup
   completeness. Preserve the source's distinctions between rules and examples.
 - INDEX: memory_index_read returns every current trigger-to-document mapping.
-  Keep the whole INDEX when rebuilding context; never trim it to a token budget.
+  Keep the whole resident INDEX when rebuilding context; never trim it to a token budget.
+  A grouped INDEX retains every topic; memory_index_read(topic=...) expands its full routes.
   Before acting with an enabled INDEX, pass the current task to
   memory_startup_read(paths=[], task=...) to receive every matched document in full.
   memory_open_trigger reads the selected documents, with ordinary search fallback.
@@ -742,10 +743,10 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         return asdict(view)
 
     @server.tool(annotations=_READ)
-    def memory_index_read() -> dict[str, Any]:
-        """Read the complete always-loaded INDEX, every entry included."""
+    def memory_index_read(topic: str | None = None) -> dict[str, Any]:
+        """Read all INDEX entries or one complete topic without a ranked cutoff."""
         try:
-            view = index.read()
+            view = index.read(topic=topic)
         except MemoryIndexError as exc:
             raise ToolError(str(exc)) from exc
         return asdict(view)

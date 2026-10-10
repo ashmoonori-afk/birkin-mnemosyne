@@ -10,6 +10,12 @@ from pathlib import Path, PureWindowsPath
 from typing import Final, Literal, TypeAlias
 
 from .atomic import atomic_write_bytes
+from .memory_index_views import (
+    IndexView,
+    TopicSummary,
+    estimated_tokens,
+    render_index_view,
+)
 from .memory_triggers import IndexEntry, MemoryIndexError, match_entries
 from .mnemosyne import Mnemosyne, bm25_scores, tokenize
 from .vault_lock import VaultLock
@@ -25,6 +31,7 @@ __all__ = [
     "MemoryIndexError",
     "OpenResult",
     "OpenedDocument",
+    "TopicSummary",
     "decode_index_json",
     "estimated_tokens",
     "validate_index_budget",
@@ -35,22 +42,6 @@ INDEX_SOURCE: Final = ".mnemosyne-memory-index/context"
 DEFAULT_INDEX_TOKENS: Final = 2000
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | \
     dict[str, "JsonValue"]
-
-
-def estimated_tokens(text: str) -> int:
-    """A declared UTF-8-bytes/4 estimate, not model-specific token accounting."""
-    return (len(text.encode("utf-8")) + 3) // 4
-
-
-@dataclass(frozen=True, slots=True)
-class IndexView:
-    enabled: bool
-    entries: tuple[IndexEntry, ...]
-    context: str
-    estimated_tokens: int
-    max_tokens: int
-    over_budget: bool
-    warnings: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,30 +147,15 @@ class MemoryIndex:
             case _:
                 raise MemoryIndexError("invalid memory INDEX record")
 
-    def read(self) -> IndexView:
-        """Read every entry, with a warning rather than eviction over budget."""
+    def read(self, *, topic: str | None = None) -> IndexView:
+        """Read all routes or one complete topic; budgets warn, never evict."""
         state = self._state()
         if state is None:
+            if topic is not None:
+                raise MemoryIndexError(f"unknown memory INDEX topic: {topic!r}")
             return IndexView(False, (), "", 0, DEFAULT_INDEX_TOKENS, False, ())
         maximum, entries = state
-        lines = [
-            "# Memory INDEX",
-            ("Always retain every entry, including after compaction. "
-             "When a trigger applies, open its document with memory_open_trigger; "
-             "use memory_search if no trigger matches."),
-        ]
-        lines.extend(f"- {entry.trigger} -> {entry.document}" for entry in entries)
-        context = "\n".join(lines) + "\n"
-        warnings: tuple[str, ...] = ()
-        if estimated_tokens(context) > maximum:
-            warning = (
-                f"Memory INDEX exceeds its {maximum} estimated-token budget "
-                "(UTF-8 bytes/4); every entry is retained."
-            )
-            warnings = (warning,)
-            context += "WARNING: " + warning + "\n"
-        return IndexView(True, entries, context, estimated_tokens(context),
-                         maximum, bool(warnings), warnings)
+        return render_index_view(maximum, entries, topic=topic)
 
     def render(self) -> str:
         return self.read().context

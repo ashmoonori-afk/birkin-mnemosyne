@@ -19,7 +19,8 @@ from .memory_index import (
     MemoryIndex,
     estimated_tokens,
 )
-from .memory_triggers import index_revision, match_entries
+from .memory_index_views import render_index_view, topic_for_document
+from .memory_triggers import match_entries
 from .startup_coverage import (
     BlockRecord,
     Coverage,
@@ -247,7 +248,7 @@ class StartupReader:
             receipt = {
                 "version": 1, "matcher": "lexical-v1",
                 "task_sha256": digest(task.encode("utf-8")),
-                "index_sha256": index_revision(index.max_tokens, index.entries) if index.enabled else None,
+                "index_sha256": index.index_sha256,
                 "matches": [(entry.trigger, entry.document) for entry in matches],
             }
             _include_source(sources, f"{INDEX_DIRECTORY}/task", json.dumps(
@@ -270,6 +271,13 @@ class StartupReader:
             text = data.decode("utf-8")
             for reference in _references(relative, text):
                 pending.append(path.parent / reference)
+        if index.mode == "grouped" and matches:
+            selected_topics = {topic_for_document(entry.document) for entry in matches}
+            for summary in index.topics:
+                if summary.topic in selected_topics:
+                    leaf = render_index_view(index.max_tokens, index.entries, topic=summary.topic)
+                    label = f"{INDEX_DIRECTORY}/topic/{digest(summary.topic.encode('utf-8'))}"
+                    _include_source(sources, label, leaf.context.encode("utf-8"))
         for relative in dict.fromkeys(entry.document for entry in matches):
             path = self.memory_index.document_path(relative)
             label = relative if self.root == self.memory_index.root else \

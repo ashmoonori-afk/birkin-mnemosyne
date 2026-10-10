@@ -85,8 +85,8 @@ upper bound: see
 
 ## Always-loaded memory INDEX (opt-in)
 
-Keep a complete **when to read -> which document** map in startup context,
-then open the details only when needed. This feature is available from
+Keep a complete **when to read -> which document** map available from startup
+context, then open the details only when needed. This feature is available from
 v0.6.0.
 
 ```python
@@ -100,9 +100,9 @@ opened = index.open("Ingress DNS")     # exact trigger; complete document
 ```
 
 The `.mnemosyne-memory-index/` directory is the opt-in marker. A vault
-without that directory keeps its legacy behavior. Every registered entry
-stays in managed startup/digest/host surfaces: over-budget reads warn but
-never trim entries. There is no INDEX removal, expiry, or automatic cleanup
+without that directory keeps its legacy behavior. Managed startup/digest/host
+surfaces retain the complete resident map. Over-budget reads warn but never
+remove a route or topic. There is no INDEX removal, expiry, or automatic cleanup
 operation. Hosts should retain `required=True` or `--require-memory-index`
 across restarts and re-read the complete INDEX after context compaction.
 Exact triggers are reliable; lexical matching and BM25 fallback are not
@@ -115,6 +115,19 @@ lookup's top-k cutoff or search fallback. Pass the same `task` to
 `memory_startup_read` / `memory_startup_verify` over MCP; indexed Hermes
 `prefetch` uses this path automatically. See the usage guide below for the
 lexical limits and complete-read failure behavior.
+
+Unreleased main also chooses between a flat INDEX and a smaller two-level
+topic map. Topics follow complete parent-directory paths; every route remains
+in its complete topic view. `index.read(topic="dir:devops")` and MCP
+`memory_index_read(topic="dir:devops")` expand that topic. Task-bound startup
+automatically includes matched topic views and their documents from one
+routing snapshot. Same-document aliases share a label only when shorter;
+no condition or target is removed. The selected layout uses the declared
+bytes/4 estimate, not a model-specific tokenizer.
+
+Use `.render()` or `view.context` for compact resident text. The default
+`read().entries` still returns all original mappings; its complete structured
+result is not claimed to have the same cost as the resident text.
 
 ```bash
 mnemosyne-index --vault my_vault check
@@ -129,7 +142,7 @@ coverage. MCP exposes `memory_index_register`, `memory_index_read`,
 Keep `.mnemosyne-memory-index/` and `.mnemosyne-reviews/`, including captured
 source revisions, when backing up a vault.
 
-The fictional large-note benchmark reduced the whole startup payload from
+The v0.6.0 fictional large-note benchmark reduced the whole startup payload from
 **45,128 to 1,781 o200k_base tokens**. Separate frozen Sol and Claude sets
 both stayed at **12/12**, not an accuracy gain; small-note task costs can
 increase. See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and

@@ -10,6 +10,11 @@ service, telemetry, or automatic transcript capture is required.
 The Hermes plugin requires Python 3.11 or later, because Hermes itself does;
 the core `birkin-mnemosyne` library supports Python 3.10 and later.
 
+The installation below is for the provider at the `v0.6.0` tag. Main contains
+unreleased task-bound reads and topic expansion; test it with the matching
+core checkout. Those APIs are not in the published 0.6.0 dependency, and the
+package version has not been bumped.
+
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
 `birkin-mnemosyne==0.6.0` dependency through Hermes' package manager:
@@ -30,13 +35,20 @@ separate vault. A default profile is not consulted when another profile is activ
 
 ## Use
 
-The provider exposes three memory-provider tools:
+The main-source provider exposes four memory-provider tools. The released
+0.6.0 provider has the first three:
 
 - `birkin_memory_remember`: create a durable note with `title` and `body`. An existing
   title cannot be overwritten.
 - `birkin_memory_search`: retrieve ranked snippets with `query` and an optional
   `limit` from 1 to 20.
 - `birkin_memory_get_note`: read the full body of a selected `title`.
+- `birkin_memory_index`: read the resident INDEX or expand a complete `topic`
+  copied from its topic map (unreleased).
+
+With a managed INDEX, main-source `prefetch(query)` reads every task-matched
+document and its complete topic view. The system prompt retains every topic;
+an empty prefetch never removes that map. Budget warnings do not evict entries.
 
 Ask Hermes to remember a synthetic fact, then recall it in a new session.
 Unmatched queries return no results. Invalid arguments return an error without

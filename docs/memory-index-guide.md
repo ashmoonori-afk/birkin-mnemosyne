@@ -1,7 +1,7 @@
 # Always-loaded memory INDEX: usage guide
 
 The base INDEX APIs are available from v0.6.0
-(`pip install "birkin-mnemosyne>=0.6.0"`). Task-bound reads below are
+(`pip install "birkin-mnemosyne>=0.6.0"`). Task-bound reads and topic views below are
 unreleased source changes; no new package release is implied.
 
 The memory INDEX is durable trigger-to-document routing, separate from the
@@ -11,9 +11,11 @@ ordinary local Markdown files that are opened only on demand.
 
 Two invariants drive the whole feature:
 
-- Every registered entry is included in every managed always-loaded surface.
-  No top-k, TTL, note limit, token budget, summarization or compaction selects
-  a subset. There is no remove, clear, replace, or automatic-retirement
+- Every registered route remains reachable from every complete resident map.
+  Flat maps contain every entry; unreleased grouped maps contain every topic
+  and expand to every original entry. No top-k, TTL, note limit, token budget,
+  summarization or compaction discards a route or topic.
+  There is no remove, clear, replace, or automatic-retirement
   operation, and no automatic cleanup.
 - Invalid, malformed, or missing-enabled state fails loudly. It never becomes
   an empty INDEX and never an apparently successful partial result.
@@ -142,6 +144,48 @@ The Hermes provider's existing `prefetch(query)` boundary automatically uses
 this complete path when an INDEX is enabled; its system prompt independently
 retains the INDEX. Unindexed providers keep legacy snippet prefetch.
 
+## Complete two-level views (unreleased)
+
+Version-1 `index.json` remains the sole authority. Grouping is a read-only
+representation, not a migration or another cache. A topic is the document's
+complete parent directory, `dir:<parent>`. A root-level document has its own
+`file:<document>` topic. Copy identifiers from `view.topics`; they are opaque
+selectors, not paths to open.
+
+```python
+index = MemoryIndex("my_vault", required=True)
+view = index.read()
+print(view.mode, view.context)          # "flat" or "grouped"
+# Expand the registered devops topic from the example above.
+leaf = index.read(topic="dir:devops")
+print(leaf.context, leaf.entries)       # complete topic, without a cutoff
+```
+
+The default `entries` contains every stored mapping in its original order.
+Topic `entries` contains every mapping in that topic. `TopicSummary` reports
+the identifier, route count, distinct-document count and SHA-256 of sorted
+original route pairs. `index_sha256` commits to the whole routing set and its
+budget; separate topic responses expose the same revision field for comparison.
+An unknown selector raises `MemoryIndexError`.
+
+The resident grouped map contains every topic exactly once. Grouping is
+eligible only when a topic has multiple documents and wins only when its
+complete, warned bytes/4 estimate is strictly smaller than the flat candidate.
+Flat wins ties. Same-document aliases use one JSON-escaped row when shorter;
+all original aliases and targets survive. Similar wording does not merge
+different documents.
+
+For resident context use `.render()` or `view.context`. Default `read()` and
+MCP `memory_index_read()` preserve all entries in their structured results;
+those larger results are not the compact resident text. Use
+`memory_index_read(topic=...)` for a complete explicit expansion.
+
+Task-bound startup includes complete selected topic views once, then complete
+matched bodies, all from the same validated routing snapshot. Their generated
+source names are `.mnemosyne-memory-index/topic/<SHA-256-of-topic-identifier>`.
+Verification regenerates them; a rehashed partial root or leaf does not pass.
+Unmatched leaf text is not resident, but its topic remains reachable.
+
 ## On-demand reads: exact trigger, then lexical, then search
 
 `MemoryIndex.open(query, *, limit=3)` returns complete UTF-8 document content
@@ -181,7 +225,8 @@ successful fallback.
 The default budget is `DEFAULT_INDEX_TOKENS = 2000`. Runtime accounting is a
 declared estimate, `ceil(len(utf-8 bytes) / 4)` (`estimated_tokens`); it is not
 model-specific token accounting. Over budget, `read()` returns **every entry**
-and adds a warning to the rendered context and to `IndexView.warnings`:
+and adds a warning to the selected resident context and to `IndexView.warnings`.
+Explicit topic views are also complete and warn against the same stored budget:
 
 ```python
 view = MemoryIndex("my_vault").read()
@@ -341,7 +386,7 @@ opt-in; no tool deletes or clears INDEX entries):
 | tool | what it does | kind |
 |---|---|---|
 | `memory_index_register(trigger, document, max_tokens=None)` | add one mapping; idempotent; returns the complete updated INDEX | mutating (destructive=false, idempotent=true) |
-| `memory_index_read()` | read the complete INDEX, every entry included | read-only |
+| `memory_index_read(topic=None)` | read every INDEX entry, or one complete topic on unreleased main | read-only |
 | `memory_open_trigger(query, limit=3)` | open the matched documents; `matched_by` distinguishes exact/trigger/search/none | read-only |
 | `memory_index_check()` | orphan / dangling / coverage audit without writing | read-only |
 | `memory_index_split(document, apply=false, max_tokens=None)` | preview or apply a lossless note split | mutate only when `apply=true` |

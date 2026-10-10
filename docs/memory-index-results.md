@@ -135,3 +135,68 @@ different routing density and costs.
 See the [usage guide](memory-index-guide.md) for the required-INDEX guard,
 exact-trigger behavior, error handling, filesystem hard-link requirement,
 and journal/captured-source recovery.
+
+## Unreleased task reads and two-level indexes
+
+These later measurements compare the already-managed 0.6.0 INDEX with the
+unreleased implementation, not with the original 45,128-token full-note
+baseline. The measured production tree is
+`de9b03bdaace85a3054d9299733baf0f821186fe`; its Python source SHA-256 is
+`e59696724cc428308cc9c385fc68da1d6e464b31c82928bd8d889ee2f9b65ce5`.
+Measurements ran on commit `c88383dad2ff9ae4f9e439a75b6ed9ac34d0fbef`.
+No package version, release, or runtime dependency changed.
+
+| Corpus and identical scope | Managed 0.6.0 | Unreleased | Change |
+|---|---:|---:|---:|
+| Existing large-note whole startup | 1,781 | 1,297 | -27.2% |
+| Existing large-note resident INDEX | 630 | 144 | -77.1% |
+| Grown fixture whole startup | 9,603 | 1,036 | -89.2% |
+| Grown fixture resident INDEX | 9,420 | 814 | -91.4% |
+| Small public fixture whole startup | 358 | 358 | unchanged |
+| Private frozen corpus managed whole startup | 2,425 | 2,121 | -12.5% |
+| Private frozen corpus resident INDEX | 629 | 316 | -49.8% |
+
+All figures are `o200k_base` tokens. The grown fixture has 240 documents,
+480 original routes and 12 complete topics. Every route expands exactly once;
+no topic is omitted from residency. A complete topic text costs 756 tokens;
+its full compact-JSON `IndexView` result costs 1,944-1,952 tokens. These
+different payload scopes are not interchangeable.
+
+The small public fixture remains flat. The private corpus retains 18 routes
+through four topics and its unchanged 982-token original resident source.
+Its unregistered original startup was 1,618 tokens; 2,121 is compared with
+the matching registered 2,425-token envelope, not with that smaller original.
+Only anonymous private aggregates are reported; source contents are not
+reproducible from this repository.
+
+| Frozen delivery cases | Release automatic delivery | Unreleased automatic delivery |
+|---|---:|---:|
+| Public positives | 0/12 | 12/12 |
+| Public negatives correctly empty | 4/4 | 4/4 |
+| Private positives | 0/21 | 21/21 |
+| Private negatives correctly empty | 3/3 | 3/3 |
+
+These are full-body transport checks, not model obedience or semantic
+precision. The private run still has eight positive tasks with 21 extra
+document deliveries. Its total task-response cost increases from 161,332
+after the read-only increment to 174,647 with complete topic material (+8.3%).
+Reduced residency does not mean every task response gets smaller.
+The existing Sol and Claude answer sets remain 12/12 each, with no changed
+questions, scorer, or per-question regressions.
+
+Reproduce the public comparison with
+`python -m benchmarks.memory_index.run --output index-after.json` and
+`python -m benchmarks.memory_triggers.run --output triggers-after.json`.
+The latter uses the unchanged
+[`a482f7f3...` fixture](../benchmarks/memory_triggers/fixture.json) and
+[records complete topic and task costs](../benchmarks/memory_triggers/PROTOCOL.md).
+Release comparison uses its explicit `--baseline` mode with the 0.6.0 product.
+
+Lead-owned installed-wheel QA also exercised real MCP stdio and the shipped
+Hermes provider: grouped initialization, explicit expansion, separate roots,
+four complete task bodies, rehashed partial-map rejection, stale source
+rejection, empty selection, restart and missing-target failure. The synthetic
+Hermes prompt and late-match prefetch measured 680 and 2,163 tokens; their
+actually concatenated strings measured 2,843. Those are separate QA inputs,
+not the frozen corpus above or a provider billing estimate. Clients, providers
+and temporary vaults were closed. External Hermes discovery was not exercised.
