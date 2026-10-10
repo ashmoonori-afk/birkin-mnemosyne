@@ -168,12 +168,27 @@ def _replace_captured(
             raise ReviewError("captured source changed during publication")
     except (OSError, ValueError):
         try:
-            os.link(captured, source)
+            try:
+                os.link(captured, source)
+            except FileExistsError:
+                raise
+            except OSError:
+                # No hard-link support: copy back, still never replacing a new arrival.
+                _copy_exclusive(captured, source)
             sync_directory(source.parent)
         except FileExistsError:
             # A new arrival owns this path. Its predecessor remains captured.
             pass
         raise
+
+
+def _copy_exclusive(captured: Path, source: Path) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(source, flags, stat.S_IMODE(captured.stat().st_mode))
+    with os.fdopen(fd, "wb") as stream:
+        _ = stream.write(captured.read_bytes())
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def _restore(vault: Path, changes: tuple[Change, ...], captures: Path) -> None:
