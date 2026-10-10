@@ -2,12 +2,18 @@
 
 import hashlib
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
 
 import pytest
 
+# The release job runs these tests against the installed wheel from outside the
+# checkout. Append (never prepend) so birkin_mnemosyne still comes from the wheel.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 from benchmarks.memory_index import run
 from benchmarks.memory_index.run import ScoreRow, score_summary
 from benchmarks.memory_index.sample import make_sample
