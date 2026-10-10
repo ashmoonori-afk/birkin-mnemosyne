@@ -317,6 +317,21 @@ def test_handled_failure_rolls_back_all_note_images(tmp_path, monkeypatch, bound
     assert json.loads(journal.read_text("utf-8"))["state"] == "rolled-back"
 
 
+def test_merge_without_hard_links_rolls_back_survivor_in_place(tmp_path, monkeypatch):
+    _, service, question = seed(tmp_path)
+    before = images(tmp_path)
+
+    def no_link(src, dst, *args, **kwargs):
+        raise OSError(errno.EPERM, "hard links not supported", str(dst))
+
+    monkeypatch.setattr(os, "link", no_link)
+    with pytest.raises(ReviewError, match="rolled back"):
+        service.apply(question, Answer(question.id, "merge", "Explicit merged fact."))
+    assert images(tmp_path) == before
+    journal = next((tmp_path / ".mnemosyne-reviews").glob("*.json"))
+    assert json.loads(journal.read_text("utf-8"))["state"] == "rolled-back"
+
+
 def test_recovery_required_journal_keeps_originals(tmp_path, monkeypatch):
     _, service, question = seed(tmp_path)
     before = images(tmp_path)
