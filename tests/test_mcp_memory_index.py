@@ -147,6 +147,31 @@ def test_empty_startup_paths_without_index_fail(tmp_path):
         tmp_path, "memory_startup_read", {"paths": []})
 
 
+def test_task_startup_delivers_all_targets_and_verifies_the_same_task(tmp_path):
+    _enabled(tmp_path, 5)
+    task = "Review task 0."
+    result = ok(tmp_path, "memory_startup_read", {"paths": [], "task": task})
+    assert len(result["matched_entries"]) == 5
+    payload = json.loads(result["context"])
+    for number in range(5):
+        body = "".join(
+            block["text"] for block in payload["blocks"]
+            if block["path"] == f"topic-{number}.md"
+        )
+        assert body == f"# Topic {number}\nRule {number}.\n"
+    assert ok(tmp_path, "memory_startup_verify", {
+        "paths": [], "context": result["context"], "task": task,
+    })["complete"]
+    assert not ok(tmp_path, "memory_startup_verify", {
+        "paths": [], "context": result["context"], "task": "Task 0 review.",
+    })["complete"]
+
+
+def test_task_startup_rejects_blank_tasks(tmp_path):
+    _enabled(tmp_path, 1)
+    assert err(tmp_path, "memory_startup_read", {"paths": [], "task": " \n"})
+
+
 def test_initialization_instructions_carry_complete_over_budget_index(tmp_path):
     _enabled(tmp_path, 12, max_tokens=1)
     read = ok(tmp_path, "memory_index_read")

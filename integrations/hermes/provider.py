@@ -11,6 +11,7 @@ from typing import Final, TypeAlias, TypedDict
 from birkin_mnemosyne.frontmatter import parse
 from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
+from birkin_mnemosyne.startup import StartupReader
 
 Json: TypeAlias = str | int | float | bool | None | list["Json"] | dict[str, "Json"]
 
@@ -215,6 +216,9 @@ class VaultProvider:
         with self._lock:
             if self._memory is None:
                 return ""
+            if self._index is not None and self._index.read().enabled:
+                result = StartupReader(self._memory.vault, require_index=True).read([], task=query)
+                return result.context if result.matched_entries else ""
             hits = self._memory.search(query[:500], limit=4)
             if not hits:
                 return ""

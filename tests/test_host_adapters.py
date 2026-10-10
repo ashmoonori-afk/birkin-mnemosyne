@@ -266,6 +266,38 @@ def test_trigger_routing_reaches_document_through_existing_tool(tmp_path):
         instance.shutdown()
 
 
+def test_indexed_prefetch_reads_all_complete_documents_after_character_500(provider, tmp_path):
+    index = MemoryIndex(vault_home(tmp_path))
+    expected = {}
+    for number in range(5):
+        relative = f"deploy-{number}.md"
+        raw = f"\ufeff# Rule {number}\r\n" + "Preserve this paragraph.\r\n" * 30 + "Last byte"
+        (vault_home(tmp_path) / relative).write_bytes(raw.encode())
+        index.register("When reviewing deployment", relative)
+        expected[relative] = raw
+
+    context = json.loads(provider.prefetch("Planning " * 80 + "deployment"))
+    actual = {
+        path: "".join(block["text"] for block in context["blocks"] if block["path"] == path)
+        for path in expected
+    }
+    assert actual == expected
+
+
+def test_indexed_prefetch_never_substitutes_search_and_keeps_the_prompt(provider, tmp_path):
+    call(provider, "birkin_memory_remember", title="Tea order", body="Use a silver collimator.")
+    index = MemoryIndex(vault_home(tmp_path))
+    index.register("ordering tea", "tea-order")
+    before = provider.system_prompt_block()
+
+    assert provider.prefetch("collimator") == ""
+    assert provider.system_prompt_block() == before
+
+    (vault_home(tmp_path) / "knowledge" / "tea-order.md").unlink()
+    with pytest.raises(FileNotFoundError):
+        provider.prefetch("ordering tea")
+
+
 def test_registered_long_document_path_is_readable_and_advertised(tmp_path):
     home = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
     vault = vault_home(home)

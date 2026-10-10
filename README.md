@@ -108,6 +108,14 @@ across restarts and re-read the complete INDEX after context compaction.
 Exact triggers are reliable; lexical matching and BM25 fallback are not
 semantic guarantees.
 
+Unreleased task-bound reads let a host call
+`StartupReader("my_vault").read([], task="Check Ingress DNS")` before acting.
+They return every lexically matched document in full, without the optional
+lookup's top-k cutoff or search fallback. Pass the same `task` to
+`memory_startup_read` / `memory_startup_verify` over MCP; indexed Hermes
+`prefetch` uses this path automatically. See the usage guide below for the
+lexical limits and complete-read failure behavior.
+
 ```bash
 mnemosyne-index --vault my_vault check
 mnemosyne-index --vault my_vault split handoff.md          # read-only preview

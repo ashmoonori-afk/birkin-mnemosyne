@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import TypeAlias
 
 from .identity_reader import parse_sections
-from .memory_index import INDEX_SOURCE, MemoryIndex, estimated_tokens
+from .memory_index import (
+    INDEX_DIRECTORY,
+    INDEX_SOURCE,
+    IndexEntry,
+    MemoryIndex,
+    estimated_tokens,
+)
+from .memory_triggers import index_revision, match_entries
 from .startup_coverage import (
     BlockRecord,
     Coverage,
@@ -37,6 +44,15 @@ class StartupBundle:
     coverage: Coverage
     cache_hit: bool
     estimated_tokens: int = 0
+    matched_entries: tuple[IndexEntry, ...] = ()
+
+
+def _include_source(sources: dict[str, bytes], path: str, data: bytes) -> None:
+    if len(sources) >= 64:
+        raise StartupError("startup bundle exceeds the 64-file budget")
+    if len(data) > 1_048_576 or sum(len(value) for value in sources.values()) + len(data) > 2_097_152:
+        raise StartupError("startup bundle exceeds its complete-read byte budget")
+    sources[path] = data
 
 
 def active_lines(text: str) -> Generator[str, None, None]:
@@ -208,12 +224,15 @@ class StartupReader:
         self._key: tuple[tuple[str, str], ...] = ()
         self._context: str = ""
 
-    def _sources(self, paths: Sequence[str]) -> dict[str, bytes]:
+    def _sources(
+        self, paths: Sequence[str], task: str | None,
+    ) -> tuple[dict[str, bytes], tuple[IndexEntry, ...]]:
         if isinstance(paths, str):
             raise StartupError("supply a nonempty list of startup paths")
         index = self.memory_index.read()
         if not paths and not index.enabled:
             raise StartupError("supply a nonempty list of startup paths")
+        matches = match_entries(index.entries, task) if task is not None else ()
         for path in paths:
             if any(part in {".", ".."} or part.startswith(".")
                    for part in path.replace("\\", "/").split("/")):
@@ -224,6 +243,16 @@ class StartupReader:
         )
         if sum(len(data) for data in sources.values()) > 1_048_576:
             raise StartupError("complete memory INDEX exceeds the startup byte budget")
+        if task is not None:
+            receipt = {
+                "version": 1, "matcher": "lexical-v1",
+                "task_sha256": digest(task.encode("utf-8")),
+                "index_sha256": index_revision(index.max_tokens, index.entries) if index.enabled else None,
+                "matches": [(entry.trigger, entry.document) for entry in matches],
+            }
+            _include_source(sources, f"{INDEX_DIRECTORY}/task", json.dumps(
+                receipt, ensure_ascii=False, separators=(",", ":"),
+            ).encode("utf-8"))
         while pending:
             path = pending.pop(0).resolve()
             if not path.is_relative_to(self.root):
@@ -237,18 +266,27 @@ class StartupReader:
                 raise StartupError("startup bundle exceeds the 64-file budget")
             with path.open("rb") as handle:
                 data = handle.read(1_048_577)
-            if len(data) > 1_048_576 or sum(len(v) for v in sources.values()) + len(data) > 2_097_152:
-                raise StartupError("startup bundle exceeds its complete-read byte budget")
+            _include_source(sources, relative, data)
             text = data.decode("utf-8")
-            sources[relative] = data
             for reference in _references(relative, text):
                 pending.append(path.parent / reference)
-        return sources
+        for relative in dict.fromkeys(entry.document for entry in matches):
+            path = self.memory_index.document_path(relative)
+            label = relative if self.root == self.memory_index.root else \
+                f"{INDEX_DIRECTORY}/documents/{relative}"
+            if label in sources:
+                continue
+            if len(sources) >= 64:
+                raise StartupError("startup bundle exceeds the 64-file budget")
+            with path.open("rb") as handle:
+                data = handle.read(1_048_577)
+            _include_source(sources, label, data)
+        return sources, matches
 
-    def read(self, paths: Sequence[str]) -> StartupBundle:
+    def read(self, paths: Sequence[str], *, task: str | None = None) -> StartupBundle:
         """Return all material or raise; verify final context against fresh source bytes."""
         with self._lock:
-            sources = self._sources(paths)
+            sources, matches = self._sources(paths, task)
             key = tuple((path, digest(data)) for path, data in sources.items())
             hit = key == self._key and bool(self._context)
             if not hit:
@@ -265,16 +303,18 @@ class StartupReader:
             coverage = verify_context(self._context, sources)
             if not coverage.complete:
                 raise StartupError("returned startup context failed byte/line coverage")
-            return StartupBundle(self._context, coverage, hit, estimated_tokens(self._context))
+            return StartupBundle(self._context, coverage, hit, estimated_tokens(self._context), matches)
 
-    def verify(self, context: str, paths: Sequence[str]) -> Coverage:
+    def verify(
+        self, context: str, paths: Sequence[str], *, task: str | None = None,
+    ) -> Coverage:
         """Independently read the requested closure; reject altered/missing/foreign blocks."""
         with self._lock:
-            sources = self._sources(paths)
+            sources, _ = self._sources(paths, task)
             coverage = verify_context(context, sources)
             if not coverage.complete:
                 return coverage
-            expected = self.read(paths).context
+            expected = self.read(paths, task=task).context
             if _json(context) != _json(expected):
                 return Coverage(False, coverage.files, coverage.lines, coverage.bytes,
                                 ("derived-index-or-order",))

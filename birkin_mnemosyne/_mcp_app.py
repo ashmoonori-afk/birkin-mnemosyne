@@ -68,6 +68,8 @@ Long-term memory: a vault of Markdown notes ranked by BM25 plus usage decay.
   completeness. Preserve the source's distinctions between rules and examples.
 - INDEX: memory_index_read returns every current trigger-to-document mapping.
   Keep the whole INDEX when rebuilding context; never trim it to a token budget.
+  Before acting with an enabled INDEX, pass the current task to
+  memory_startup_read(paths=[], task=...) to receive every matched document in full.
   memory_open_trigger reads the selected documents, with ordinary search fallback.
   memory_index_check audits routes (orphans, dangling) without writing;
   memory_index_split splits a bloated note losslessly (preview, then apply=true).
@@ -146,9 +148,10 @@ def _zone_name(zone: str | None) -> str | None:
     return z
 
 
-def _startup_os_error(exc: OSError, paths: list[str]) -> str:
-    """OSError text embeds absolute paths; name the requested relative paths instead."""
-    return f"cannot read startup files {paths!r}: {exc.strerror}"
+def _startup_os_error(exc: OSError, paths: list[str], *, task_read: bool = False) -> str:
+    """Hide absolute paths without blaming identity files for a vault-read failure."""
+    source = "task startup bundle" if task_read else f"startup files {paths!r}"
+    return f"cannot read {source}: {exc.strerror}"
 
 
 def _outcome(out: CurationOutcome) -> dict[str, Any]:
@@ -826,6 +829,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     @server.tool(annotations=_READ)
     def memory_startup_read(
         paths: Annotated[list[str], Field(max_length=64)],
+        task: str | None = None,
     ) -> dict[str, Any]:
         """Complete session-start MODE/handoff/profile/JSON reading, not excerpts.
 
@@ -836,26 +840,30 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         be newest-first; old material is never dropped. The root is identity-root.
         An enabled vault INDEX is always included; empty paths are allowed only
         when that INDEX itself provides startup material.
+        With task, every lexical INDEX match is read completely from the vault,
+        without a ranked cutoff or search fallback. The receipt binds this task.
         """
         try:
-            result = startup.read(paths)
+            result = startup.read(paths, task=task)
         except OSError as exc:
-            raise ToolError(_startup_os_error(exc, paths)) from exc
+            raise ToolError(_startup_os_error(exc, paths, task_read=task is not None)) from exc
         except (StartupError, UnicodeError, MemoryIndexError) as exc:
             raise ToolError(str(exc)) from exc
         return {"complete": result.coverage.complete, "context": result.context,
                 "coverage": asdict(result.coverage), "cache_hit": result.cache_hit,
-                "estimated_tokens": result.estimated_tokens}
+                "estimated_tokens": result.estimated_tokens,
+                "matched_entries": [asdict(entry) for entry in result.matched_entries]}
 
     @server.tool(annotations=_READ)
     def memory_startup_verify(
         paths: Annotated[list[str], Field(max_length=64)], context: str,
+        task: str | None = None,
     ) -> dict[str, Any]:
         """Re-read the requested closure and independently verify returned context."""
         try:
-            coverage = startup.verify(context, paths)
+            coverage = startup.verify(context, paths, task=task)
         except OSError as exc:
-            raise ToolError(_startup_os_error(exc, paths)) from exc
+            raise ToolError(_startup_os_error(exc, paths, task_read=task is not None)) from exc
         except (StartupError, UnicodeError, MemoryIndexError) as exc:
             raise ToolError(str(exc)) from exc
         return asdict(coverage)

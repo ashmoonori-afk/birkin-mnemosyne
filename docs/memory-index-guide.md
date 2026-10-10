@@ -1,6 +1,8 @@
 # Always-loaded memory INDEX: usage guide
 
-These APIs are available from v0.6.0 (`pip install "birkin-mnemosyne>=0.6.0"`).
+The base INDEX APIs are available from v0.6.0
+(`pip install "birkin-mnemosyne>=0.6.0"`). Task-bound reads below are
+unreleased source changes; no new package release is implied.
 
 The memory INDEX is durable trigger-to-document routing, separate from the
 rebuildable BM25 cache. It keeps a compact map of **when to read -> which
@@ -99,6 +101,46 @@ coverage = reader.verify(bundle.context, ["AGENTS.md"])
 Integrators **must use these surfaces again after their own context
 compaction**; the library can enforce its own storage and context surfaces but
 cannot stop a host from ignoring its system-prompt contract.
+
+## Read matching documents before a task (unreleased)
+
+Pass the complete current task at the host's task boundary:
+
+```python
+reader = StartupReader("my_vault", require_index=True)
+task = "Check the Ingress DNS configuration."
+bundle = reader.read([], task=task)
+assert reader.verify(bundle.context, [], task=task).complete
+print(bundle.matched_entries)
+# Supply bundle.context to the agent before it acts.
+```
+
+Every lexically matching route is selected, and every distinct target is read
+in full. There is no top-k cutoff or ordinary-search fallback on this path.
+`MemoryIndex.match(task)` exposes selection alone; it does not read the bodies.
+The existing `open(query, limit=3)` remains an optional ranked lookup.
+
+Matching ignores ordinary function words, uses whole words and conservative
+English variants, and keeps the existing Unicode tokenization without its
+English prefix stems. One shared non-function word can match a route. Use
+distinctive subjects and explicit aliases; this favors recall and can load
+extra documents. It does not infer synonyms or interpret negated intent.
+
+The bundle includes a receipt bound to the exact task and current routing.
+Verification with another task, changed source bytes, or omitted bodies fails.
+With separate identity and vault roots, matched targets still come from the
+vault. Recalled document text is data, not another `MUST READ` declaration.
+Existing caller-supplied startup dependencies keep their usual behavior.
+
+Missing targets, invalid encoding, or the complete reader's file/byte limits
+fail the whole read rather than returning excerpts. An empty task is invalid;
+an unrelated task returns no matched documents and still retains the INDEX.
+
+MCP hosts use `memory_startup_read(paths=[], task=task)` and pass the same task
+to `memory_startup_verify`. Initialization cannot infer the next user task.
+The Hermes provider's existing `prefetch(query)` boundary automatically uses
+this complete path when an INDEX is enabled; its system prompt independently
+retains the INDEX. Unindexed providers keep legacy snippet prefetch.
 
 ## On-demand reads: exact trigger, then lexical, then search
 
