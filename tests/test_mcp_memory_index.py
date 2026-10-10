@@ -147,8 +147,15 @@ def test_empty_startup_paths_without_index_fail(tmp_path):
         tmp_path, "memory_startup_read", {"paths": []})
 
 
-def test_task_startup_delivers_all_targets_and_verifies_the_same_task(tmp_path):
-    _enabled(tmp_path, 5)
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_task_startup_delivers_all_targets_and_verifies_the_same_task(tmp_path, newline):
+    expected = {}
+    for number in range(5):
+        document = f"topic-{number}.md"
+        raw = f"# Topic {number}{newline}Rule {number}.{newline}".encode()
+        (tmp_path / document).write_bytes(raw)
+        register(tmp_path, f"When task {number}", document)
+        expected[document] = raw
     task = "Review task 0."
     result = ok(tmp_path, "memory_startup_read", {"paths": [], "task": task})
     assert len(result["matched_entries"]) == 5
@@ -158,7 +165,7 @@ def test_task_startup_delivers_all_targets_and_verifies_the_same_task(tmp_path):
             block["text"] for block in payload["blocks"]
             if block["path"] == f"topic-{number}.md"
         )
-        assert body == f"# Topic {number}\nRule {number}.\n"
+        assert body.encode("utf-8") == expected[f"topic-{number}.md"]
     assert ok(tmp_path, "memory_startup_verify", {
         "paths": [], "context": result["context"], "task": task,
     })["complete"]

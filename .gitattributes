@@ -9,3 +9,4 @@ benchmarks/retrieval/queries_gpt-6.1-sol.json text eol=lf
 benchmarks/retrieval/bench_retrieval.py text eol=lf
 benchmarks/retrieval/retrieval_corpus.py text eol=lf
 benchmarks/retrieval/_probe.py text eol=lf
+benchmarks/memory_triggers/fixture.json text eol=lf
