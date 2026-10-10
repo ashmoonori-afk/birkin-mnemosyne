@@ -1,6 +1,6 @@
 # Always-loaded memory INDEX: usage guide
 
-Use an editable checkout for these APIs; published v0.5.0 predates them.
+These APIs are available from v0.6.0 (`pip install "birkin-mnemosyne>=0.6.0"`).
 
 The memory INDEX is durable trigger-to-document routing, separate from the
 rebuildable BM25 cache. It keeps a compact map of **when to read -> which

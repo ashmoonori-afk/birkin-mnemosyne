@@ -86,8 +86,8 @@ upper bound: see
 ## Always-loaded memory INDEX (opt-in)
 
 Keep a complete **when to read -> which document** map in startup context,
-then open the details only when needed. This feature is available from the
-current checkout; published v0.5.0 predates it, so use an editable checkout.
+then open the details only when needed. This feature is available from
+v0.6.0.
 
 ```python
 from birkin_mnemosyne import MemoryIndex

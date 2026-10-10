@@ -12,7 +12,7 @@ the core `birkin-mnemosyne` library supports Python 3.10 and later.
 
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
-`birkin-mnemosyne==0.5.0` dependency through Hermes' package manager:
+`birkin-mnemosyne==0.6.0` dependency through Hermes' package manager:
 
 ```text
 hermes plugins validate ./integrations/hermes --install-deps
