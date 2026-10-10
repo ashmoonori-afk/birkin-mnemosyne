@@ -298,6 +298,25 @@ def test_indexed_prefetch_never_substitutes_search_and_keeps_the_prompt(provider
         provider.prefetch("ordering tea")
 
 
+def test_grouped_index_can_be_expanded_through_provider_tool(provider, tmp_path):
+    vault = vault_home(tmp_path)
+    (vault / "guides").mkdir()
+    index = MemoryIndex(vault)
+    for number in range(20):
+        document = f"guides/procedure-{number:02d}.md"
+        (vault / document).write_bytes(b"Complete rule.\n")
+        index.register(f"When deploying service {number:02d} with production verification", document)
+    top = index.read()
+    assert top.mode == "grouped"
+    assert top.context in provider.system_prompt_block()
+    assert call(provider, "birkin_memory_index")["body"] == top.context
+    expanded = call(provider, "birkin_memory_index", topic="dir:guides")
+    assert expanded["success"]
+    assert expanded["body"] == index.read(topic="dir:guides").context
+    assert not call(provider, "birkin_memory_index", topic="../outside")["success"]
+    assert not call(provider, "birkin_memory_index", topic=3)["success"]
+
+
 def test_registered_long_document_path_is_readable_and_advertised(tmp_path):
     home = Path("\\\\?\\" + str(tmp_path)) if os.name == "nt" else tmp_path
     vault = vault_home(home)

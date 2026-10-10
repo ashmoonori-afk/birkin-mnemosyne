@@ -40,6 +40,7 @@ _EXPORTS = {
     "MemoryIndexError": "birkin_mnemosyne.memory_index",
     "IndexEntry": "birkin_mnemosyne.memory_index",
     "IndexView": "birkin_mnemosyne.memory_index",
+    "TopicSummary": "birkin_mnemosyne.memory_index",
     "OpenResult": "birkin_mnemosyne.memory_index",
     "IndexCheck": "birkin_mnemosyne.memory_index_integrity",
     "check_index": "birkin_mnemosyne.memory_index_integrity",

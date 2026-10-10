@@ -179,6 +179,28 @@ def test_task_startup_rejects_blank_tasks(tmp_path):
     assert err(tmp_path, "memory_startup_read", {"paths": [], "task": " \n"})
 
 
+def test_topic_reader_returns_every_route_through_real_mcp(tmp_path):
+    (tmp_path / "guides").mkdir()
+    expected = []
+    index = MemoryIndex(tmp_path)
+    for number in range(20):
+        document = f"guides/procedure-{number:02d}.md"
+        (tmp_path / document).write_bytes(b"Complete rule.\r\n")
+        trigger = f"When deploying service {number:02d} under the production checklist"
+        index.register(trigger, document)
+        expected.append({"trigger": trigger, "document": document})
+
+    top = ok(tmp_path, "memory_index_read")
+    assert top["mode"] == "grouped"
+    assert top["entries"] == expected
+    assert [topic["topic"] for topic in top["topics"]] == ["dir:guides"]
+    leaf = ok(tmp_path, "memory_index_read", {"topic": "dir:guides"})
+    assert leaf["mode"] == "topic"
+    assert leaf["entries"] == expected
+    assert leaf["index_sha256"] == top["index_sha256"]
+    assert err(tmp_path, "memory_index_read", {"topic": "../outside"})
+
+
 def test_initialization_instructions_carry_complete_over_budget_index(tmp_path):
     _enabled(tmp_path, 12, max_tokens=1)
     read = ok(tmp_path, "memory_index_read")
