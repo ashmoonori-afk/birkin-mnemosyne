@@ -154,23 +154,45 @@ The checker reports:
 - migration coverage failures when recorded original bytes do not reconstruct
   exactly from their mapped topic ranges.
 
-A split operates on an explicitly named UTF-8 startup file. Boundaries are
+A split operates on an explicitly named UTF-8 `.md` startup note, so the
+existing Markdown before/post-image journal can preserve its original bytes.
+Standalone JSON documents remain readable/indexable but are not rewritten by
+this note helper. Boundaries are
 complete Markdown sections outside fenced examples, preserving the preamble,
 BOM, CRLF, blank lines, heading ancestry, and final non-newline text. No model
 summarizes or paraphrases content. Default triggers derive only from headings;
-callers may supply clearer explicit triggers. JSON or unsectioned material is
-kept as a whole topic, never guessed into fragments.
+callers can register additional explicit triggers. Unsectioned material,
+including JSON text inside a Markdown note, is kept as a whole topic.
 
 The preview describes every output and gives a coverage table mapping each
 original line (a stronger mechanical guarantee than guessing which prose is
 a rule) to its topic path and source byte range. Applying is explicit. It
 refuses existing destination collisions, preserves a byte-exact original
-backup and machine-readable coverage receipt outside startup context, writes
+backup through the existing review journal and a machine-readable coverage
+receipt outside startup context, writes
 and verifies all topic files, registers every mapping, and only then replaces
 the old always-loaded source with a compact routing notice. Reconstruct and
 compare the original bytes before replacing that source. An interrupted
 operation therefore retains the original until its replacements and INDEX
 are durable; failures are visible and no source text is silently discarded.
+Topic files include an original-source comment and heading ancestry outside
+the byte ranges used to reconstruct the source. Receipts record each topic's
+original byte range and generated-prefix length. An unchanged routing notice
+is accounted for by its receipt rather than falsely reported as an orphan.
+Every routing notice must have its named, valid receipt, even when the source
+already has an INDEX route. Missing receipts cannot turn a failed audit green.
+
+New topic and receipt publication is exclusive: a complete fsynced temporary
+file is linked into an absent destination, never replaced over a late arrival.
+This requires filesystem hard-link support and fails safely otherwise. At an
+in-place journal handoff, move the actual current source inode into a private
+capture directory beside the journal, check that captured revision, then publish
+the replacement exclusively. Keep captured revisions permanently, including
+on errors; a late external source is either restored without clobbering another
+arrival or remains in that capture directory. Roll back only changes that
+actually completed, and apply the same capture/check boundary to in-place
+restoration. A source can briefly be absent during this handoff; readers must
+fail rather than receive a partially written or falsely complete source.
 
 The CLI prints the coverage table; API/MCP return the same structured rows.
 No automatic semantic "rule extraction" or destructive deletion is provided.

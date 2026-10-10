@@ -102,7 +102,8 @@ def _references(path: str, text: str) -> tuple[str, ...]:
     return tuple(refs)
 
 
-def _blocks(path: str, data: bytes) -> list[BlockRecord]:
+def source_blocks(path: str, data: bytes) -> list[BlockRecord]:
+    """Return every source byte with its explicit line and byte coordinates."""
     text = data.decode("utf-8")
     lines = text.splitlines(keepends=True)
     offsets = [0]
@@ -255,7 +256,7 @@ class StartupReader:
                     "path": path, "sha256": digest(data), "bytes": len(data),
                     "lines": len(data.decode("utf-8").splitlines(keepends=True)),
                 } for path, data in sources.items()]
-                blocks = [block for path, data in sources.items() for block in _blocks(path, data)]
+                blocks = [block for path, data in sources.items() for block in source_blocks(path, data)]
                 payload: StartupPayload = {
                     "version": 1, "complete": True, "files": files, "blocks": blocks,
                 }

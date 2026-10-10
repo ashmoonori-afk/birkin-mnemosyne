@@ -27,7 +27,7 @@ def _read_umask() -> int:
     # threads that create files. Do it once at import time, while the process
     # is effectively single-threaded, and reuse the cached value afterwards.
     mask = os.umask(0)
-    os.umask(mask)
+    _ = os.umask(mask)
     return mask
 
 
@@ -45,15 +45,15 @@ def _replace_with_retry(
     do_replace = replace if replace is not None else os.replace
     for attempt in range(_REPLACE_ATTEMPTS):
         try:
-            do_replace(src, dst)
+            _ = do_replace(src, dst)
             return
         except PermissionError:
             if attempt == _REPLACE_ATTEMPTS - 1:
                 raise
-            sleep(_REPLACE_DELAY)
+            _ = sleep(_REPLACE_DELAY)
 
 
-def _fsync_dir(directory: Path) -> None:
+def sync_directory(directory: Path) -> None:
     """Best-effort fsync of a directory so the rename itself is durable."""
     if os.name == "nt":
         return
@@ -80,10 +80,12 @@ def _commit(tmp: Path, path: Path) -> None:
         os.replace(tmp, path)
     else:
         _replace_with_retry(tmp, path)
-    _fsync_dir(path.parent)
+    sync_directory(path.parent)
 
 
-def _write(path: Path, data: str | bytes) -> None:
+def _write(
+    path: Path, data: str | bytes, *, create: bool = False, mode: int | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
         dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
@@ -91,14 +93,23 @@ def _write(path: Path, data: str | bytes) -> None:
     tmp = Path(tmp_name)
     try:
         if isinstance(data, bytes):
-            fh = os.fdopen(fd, "wb")
+            with os.fdopen(fd, "wb") as binary:
+                _ = binary.write(data)
+                binary.flush()
+                os.fsync(binary.fileno())
         else:
-            fh = os.fdopen(fd, "w", encoding="utf-8")
-        with fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        _commit(tmp, path)
+            with os.fdopen(fd, "w", encoding="utf-8") as text:
+                _ = text.write(data)
+                text.flush()
+                os.fsync(text.fileno())
+        if create:
+            if os.name != "nt":
+                os.chmod(tmp, mode if mode is not None else 0o666 & ~_UMASK)
+            os.link(tmp, path)
+            tmp.unlink()
+            sync_directory(path.parent)
+        else:
+            _commit(tmp, path)
     except BaseException:
         try:
             tmp.unlink()
@@ -115,3 +126,8 @@ def atomic_write(path: Path, text: str) -> None:
 def atomic_write_bytes(path: Path, data: bytes) -> None:
     """Binary twin of :func:`atomic_write` (no newline translation)."""
     _write(path, data)
+
+
+def atomic_create_bytes(path: Path, data: bytes, *, mode: int | None = None) -> None:
+    """Publish complete bytes exclusively; never overwrite an existing path."""
+    _write(path, data, create=True, mode=mode)

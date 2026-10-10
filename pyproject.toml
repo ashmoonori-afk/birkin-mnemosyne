@@ -27,6 +27,7 @@ semantic = ["numpy", "safetensors", "huggingface_hub"]  # optional semantic leg;
 
 [project.scripts]
 mnemosyne-mcp = "birkin_mnemosyne.mcp_server:main"
+mnemosyne-index = "birkin_mnemosyne.memory_index_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ashmoonori-afk/birkin-mnemosyne"
