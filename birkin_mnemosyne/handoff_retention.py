@@ -20,10 +20,10 @@ from .handoff_records import (
     record_filename,
     scope_directory,
 )
-from .handoffs import _note_order
+from .handoffs import note_order
 from .mnemosyne import Mnemosyne
 from .handoff_models import FoldResult, FoldSource, require_type
-from .handoff_fold import _snapshot, _managed_active_notes, _fold_summary
+from .handoff_fold import snapshot, managed_active_notes, fold_summary
 from .handoff_fold_journal import (
     REVIEWS_DIRECTORY, fold_reviews, fold_state, question_id, replay_result, stage_summary,
 )
@@ -122,12 +122,12 @@ class HandoffRetention:
 def _fold_view(vault: Path, scope: HandoffScope, keep: int,
                now: datetime) -> _FoldView:
     """The complete deterministic pipeline shared by preview and apply."""
-    managed = _managed_active_notes(vault)
+    managed = managed_active_notes(vault)
     dex = Mnemosyne(vault)
-    snap = _snapshot(vault, dex, managed)
+    snap = snapshot(vault, dex, managed)
     captures = [note for note in managed
                 if note.record.scope == scope and note.record.kind == "capture"]
-    ordered = sorted(captures, key=_note_order)
+    ordered = sorted(captures, key=note_order)
     pinned = ordered[-1] if ordered else None
     proposed = ordered[:-keep] if len(ordered) > keep else ()
     ops = [{"op": "archive", "slug": note.path,
@@ -139,7 +139,7 @@ def _fold_view(vault: Path, scope: HandoffScope, keep: int,
     rejected = tuple((by_slug[drop.op["slug"]], drop.reason) for drop in gate.dropped
                      if drop.op.get("op") == "archive"
                      and drop.op.get("slug") in by_slug)
-    summary_record, summary_raw = _fold_summary(scope, accepted)
+    summary_record, summary_raw = fold_summary(scope, accepted)
     plan_id = _plan_id(vault, scope, keep, pinned, accepted, summary_raw)
     return _FoldView(accepted, rejected, pinned, plan_id,
                      summary_record, summary_raw, gate.archive_cap)

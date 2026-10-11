@@ -12,14 +12,15 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from .handoff_context import required_scope
+from .handoff_models import FoldResult
 from .handoff_records import HandoffError, HandoffFields, HandoffNote
 from .handoff_retention import HandoffRetention
 from .handoffs import SOFT_BUDGET_WARNING, HandoffStore
@@ -63,7 +64,7 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
             return ToolError(f"handoff I/O failure ({type(exc).__name__}): {detail}")
         return ToolError(str(exc))
 
-    def note_payload(note: HandoffNote) -> dict[str, Any]:
+    def note_payload(note: HandoffNote) -> dict[str, JsonValue]:
         """Complete captured fields and immutable record metadata."""
         record = note.record
         return {
@@ -71,7 +72,14 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
             "sha256": note.sha256,
             "scope": {"project_key": record.scope.project_key,
                       "task_key": record.scope.task_key},
-            "fields": asdict(record.fields),
+            "fields": {
+                "work": record.fields.work,
+                "next_step": record.fields.next_step,
+                "decisions": list(record.fields.decisions),
+                "open_items": list(record.fields.open_items),
+                "open_questions": list(record.fields.open_questions),
+                "links": list(record.fields.links),
+            },
             "kind": record.kind,
             "capture_id": record.capture_id,
             "recorded_at": record.recorded_at,
@@ -91,6 +99,14 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
                 estimated=estimated, maximum=settings.max_tokens)]
         return []
 
+    def fold_payload(result: FoldResult) -> dict[str, JsonValue]:
+        """Convert the immutable source tuples to JSON arrays at the boundary."""
+        return {
+            **asdict(result),
+            "accepted": [asdict(source) for source in result.accepted],
+            "rejected": [asdict(source) for source in result.rejected],
+        }
+
     @server.tool(annotations=_HANDOFF_CAPTURE)
     def memory_handoff_capture(
         capture_id: Annotated[str, Field(
@@ -109,7 +125,7 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
                          Field(description="capture event kind")] = "explicit",
         session_id: str = "",
         source: str = "api",
-    ) -> dict[str, Any]:
+    ) -> dict[str, JsonValue]:
         """Persist one immutable scoped handoff capture.
 
         Retrying the identical request returns the original receipt with
@@ -133,14 +149,14 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
         except (HandoffError, ReviewError, MemoryIndexError, OSError,
                 UnicodeError) as exc:
             raise handoff_failure(exc) from exc
-        return asdict(receipt)
+        return {**asdict(receipt), "warnings": list(receipt.warnings)}
 
     @server.tool(annotations=_HANDOFF_READ)
     def memory_handoff_read(
         project_key: Annotated[str | None,
                                Field(description=_PROJECT_KEY)] = None,
         task_key: Annotated[str | None, Field(description=_TASK_KEY)] = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, JsonValue]:
         """Latest active handoff capture, active record count and soft
         warnings. latest carries every captured field verbatim, never
         truncated; missing history returns count 0 / latest null."""
@@ -155,7 +171,7 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
         return {
             "count": len(active),
             "latest": note_payload(latest) if latest is not None else None,
-            "warnings": warnings,
+            "warnings": [*warnings],
         }
 
     @server.tool(annotations=_HANDOFF_FOLD)
@@ -170,7 +186,7 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
         plan_id: Annotated[str | None, Field(
             description="required for apply; copy from a preview's plan_id")
         ] = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, JsonValue]:
         """Preview a curation-gated fold, or apply a fresh preview plan.
 
         apply=false (default) writes nothing and returns a deterministic
@@ -180,10 +196,10 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
         try:
             scope = required_scope(project_key, task_key)
             if not apply:
-                return asdict(retention.preview(scope, keep=keep))
+                return fold_payload(retention.preview(scope, keep=keep))
             if plan_id is None:
                 raise ToolError("apply=True requires plan_id from a preview")
-            return asdict(retention.apply(scope, plan_id, keep=keep))
+            return fold_payload(retention.apply(scope, plan_id, keep=keep))
         except (HandoffError, ReviewError, MemoryIndexError, OSError,
                 UnicodeError) as exc:
             raise handoff_failure(exc) from exc

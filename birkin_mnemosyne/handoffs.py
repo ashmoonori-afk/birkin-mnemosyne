@@ -128,7 +128,7 @@ class HandoffStore:
         notes: tuple[HandoffNote, ...] = batch.active
         if include_archive:
             notes = notes + batch.archived
-        return tuple(sorted(notes, key=_note_order))
+        return tuple(sorted(notes, key=note_order))
 
     def latest(self, scope: HandoffScope) -> HandoffNote | None:
         """Greatest active capture by recorded_at/hash; summaries excluded."""
@@ -137,7 +137,7 @@ class HandoffStore:
                     if note.record.kind == "capture"]
         if not captures:
             return None
-        return max(captures, key=_note_order)
+        return max(captures, key=note_order)
 
     def warnings_for(self, fields: HandoffFields, *,
                      max_tokens: int | None = None) -> tuple[str, ...]:
@@ -271,7 +271,7 @@ class HandoffStore:
         return tuple(warnings)
 
 
-def _note_order(note: HandoffNote) -> tuple[str, str]:
+def note_order(note: HandoffNote) -> tuple[str, str]:
     return (note.record.recorded_at, note.sha256)
 
 

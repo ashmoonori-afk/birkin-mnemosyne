@@ -2,46 +2,45 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
 
 from .handoff_files import HANDOFFS_DIRECTORY, MAX_RECORD_BYTES, read_scope, safe_path
 from .handoff_records import (
     HandoffError, HandoffFields, HandoffNote, HandoffRecord, HandoffScope,
     decode_record, encode_record, scope_directory,
 )
-from .handoffs import _note_order
-from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, _note_entry
+from .handoffs import note_order
+from .memory_index import JsonValue
+from .mnemosyne import ARCHIVE_ZONE, WIKILINK_RE, Mnemosyne, _note_entry
 
 _HANDOFF_ZONE = "_handoff"
 _ARCHIVE_DIRECTORY = "archive"
 _FOLD_SOURCE = "retention"
 _RECORD_TYPE = "handoff"
 
-def _snapshot(vault: Path, dex: Mnemosyne,
-              managed: tuple[HandoffNote, ...]) -> dict[str, dict[str, Any]]:
+def snapshot(vault: Path, dex: Mnemosyne,
+             managed: tuple[HandoffNote, ...]) -> dict[str, dict[str, JsonValue]]:
     """Fresh shallow normal-note snapshot plus every managed active record."""
-    snap: dict[str, dict[str, Any]] = {}
+    snap: dict[str, dict[str, JsonValue]] = {}
     for _slug, (rel, _mtime, _size) in dex._scan().items():
-        entry = _note_entry(vault / rel, rel)
+        entry: dict[str, JsonValue] | None = _note_entry(vault / rel, rel)
         if entry is None or (entry["zone"] or "") == ARCHIVE_ZONE:
             continue
         snap[_slug] = {key: entry[key]
                        for key in ("zone", "type", "polarity", "links")}
     for note in managed:
-        entry = _note_entry(vault / note.path, note.path)
-        if entry is None:
-            raise HandoffError(f"cannot read handoff metadata: {note.path}")
+        body_links = WIKILINK_RE.findall(note.raw.decode("utf-8"))
         snap[note.path] = {
             "zone": _HANDOFF_ZONE,
             "type": _RECORD_TYPE,
             "polarity": "positive",
-            "links": tuple(sorted(set(note.record.fields.links) | set(entry["links"]))),
+            "links": sorted(set(note.record.fields.links) | set(body_links)),
         }
     return snap
 
 
-def _managed_active_notes(vault: Path) -> tuple[HandoffNote, ...]:
+def managed_active_notes(vault: Path) -> tuple[HandoffNote, ...]:
     """Every validated active managed record, across all scopes, oldest first.
 
     Each scope directory is identified from a record it owns and the whole
@@ -62,7 +61,7 @@ def _managed_active_notes(vault: Path) -> tuple[HandoffNote, ...]:
         if scope is not None:
             notes.extend(read_scope(vault, scope,
                                     include_archive=False).active)
-    return tuple(sorted(notes, key=_note_order))
+    return tuple(sorted(notes, key=note_order))
 
 
 def _scope_of_directory(vault: Path, directory: Path) -> HandoffScope | None:
@@ -89,7 +88,7 @@ def _scope_of_directory(vault: Path, directory: Path) -> HandoffScope | None:
     return None
 
 
-def _fold_summary(
+def fold_summary(
     scope: HandoffScope, accepted: tuple[HandoffNote, ...],
 ) -> tuple[HandoffRecord | None, bytes]:
     """Deterministic summary over the accepted sources; empty set yields nothing.
@@ -104,22 +103,21 @@ def _fold_summary(
     def _lines(values: list[str]) -> str:
         return "\n".join(dict.fromkeys(value for value in values if value))
 
-    def _values(family: str) -> tuple[str, ...]:
+    def _values(groups: Iterable[tuple[str, ...]]) -> tuple[str, ...]:
         return tuple(dict.fromkeys(
-            value for note in accepted
-            for value in getattr(note.record.fields, family)))
+            value for group in groups for value in group))
 
-    newest = max(accepted, key=_note_order)
+    newest = max(accepted, key=note_order)
     record = HandoffRecord(
         scope=scope,
         fields=HandoffFields(
             work=_lines([note.record.fields.work for note in accepted]),
             next_step=_lines([note.record.fields.next_step
                               for note in accepted]),
-            decisions=_values("decisions"),
-            open_items=_values("open_items"),
-            open_questions=_values("open_questions"),
-            links=_values("links"),
+            decisions=_values(note.record.fields.decisions for note in accepted),
+            open_items=_values(note.record.fields.open_items for note in accepted),
+            open_questions=_values(note.record.fields.open_questions for note in accepted),
+            links=_values(note.record.fields.links for note in accepted),
         ),
         kind="summary", capture_id=None, recorded_at=newest.record.recorded_at,
         event="fold", session_id="", source=_FOLD_SOURCE,
