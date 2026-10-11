@@ -1,0 +1,1480 @@
+{
+  "mode": "task-aware",
+  "fixture_sha256": "a482f7f3af566c392aa6ca2cf7890f6ce48adfcb8e133571adcfc3d52a3936de",
+  "product": {
+    "product_root": "/home/hp/work/mn-readme-results/repo/birkin_mnemosyne",
+    "product_source_sha256": "79a27de688835f2c45140e0b818b2766c75aa5bc804cc1c2a6f4f7926be6b95d",
+    "revision": "876ad40159399666f11642cfcfaab536c2d8e9fc",
+    "committed_product_tree": "df17e621b752702765d37fd5a995fa4d3a986923"
+  },
+  "scope": "Fictional task-to-document delivery, not general semantic understanding.",
+  "rows": [
+    {
+      "id": "database",
+      "task": "Prepare a database migration.",
+      "automatic": {
+        "required": [
+          "engineering/database.md"
+        ],
+        "returned": [
+          "engineering/database.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "engineering/database.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When preparing a database migration",
+          "document": "engineering/database.md"
+        }
+      ],
+      "documents": {
+        "engineering/database.md": "# Database migrations\nMigration batches must include a schema compatibility check.\nDATABASE_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"74d8e1ae986b74154596e7b438254e61eaddfce01cefa8fb982af319b13cca64\",\"bytes\":277,\"lines\":1},{\"path\":\"engineering/database.md\",\"sha256\":\"c2934260f784fc532c65ccd9a78dc7e16f78b85bde631be11e5cec253702ad02\",\"bytes\":101,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"ed639b38a44365d4c0ba\",\"start_byte\":0,\"end_byte\":277,\"start_line\":1,\"end_line\":1,\"sha256\":\"74d8e1ae986b74154596e7b438254e61eaddfce01cefa8fb982af319b13cca64\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"173470d4b5ae449c23f3741ff85e386d0a437bd7810af043262b53d05e8df6e4\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When preparing a database migration\\\",\\\"engineering/database.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"engineering/database.md\",\"anchor\":\"6f9b22b35edcebc8b4c5\",\"start_byte\":0,\"end_byte\":101,\"start_line\":1,\"end_line\":3,\"sha256\":\"c2934260f784fc532c65ccd9a78dc7e16f78b85bde631be11e5cec253702ad02\",\"text\":\"# Database migrations\\nMigration batches must include a schema compatibility check.\\nDATABASE_COMPLETE\\n\",\"heading\":\"Database migrations\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2629,
+        "utf8_bytes": 2637,
+        "estimated_tokens": 660,
+        "o200k_base_tokens": 795
+      },
+      "resident_plus_task_context": {
+        "characters": 3553,
+        "utf8_bytes": 3569,
+        "estimated_tokens": 893,
+        "o200k_base_tokens": 975
+      },
+      "task_context_sha256": "bfcb7ddf26f53c749554b321903f498960fd33b3480fc4b5bec5e645fa3dda37",
+      "optional_open": {
+        "required": [
+          "engineering/database.md"
+        ],
+        "returned": [
+          "engineering/database.md",
+          "preferences/tea.md",
+          "astronomy/collimation.md"
+        ],
+        "misses": [],
+        "extras": [
+          "astronomy/collimation.md",
+          "preferences/tea.md"
+        ],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "engineering/database.md": true,
+          "preferences/tea.md": true,
+          "astronomy/collimation.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 451,
+        "utf8_bytes": 451,
+        "estimated_tokens": 113,
+        "o200k_base_tokens": 94
+      },
+      "optional_document_bodies": {
+        "characters": 268,
+        "utf8_bytes": 268,
+        "estimated_tokens": 67,
+        "o200k_base_tokens": 50
+      }
+    },
+    {
+      "id": "deployment-all",
+      "task": "Review the deployment rollback plan.",
+      "automatic": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/deployment.md": true,
+          "operations/rollback.md": true,
+          "operations/approval.md": true,
+          "operations/smoke.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/deployment.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/rollback.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/approval.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/smoke.md"
+        },
+        {
+          "trigger": "rollback deployment",
+          "document": "operations/rollback.md"
+        }
+      ],
+      "documents": {
+        "operations/deployment.md": "# Deployment\nCheck the target environment before deployment.\nDEPLOY_COMPLETE\n",
+        "operations/rollback.md": "# Rollback\nKeep the previous artifact available for rollback.\nROLLBACK_COMPLETE\n",
+        "operations/approval.md": "# Approval\nRecord the operator approval before deployment.\nAPPROVAL_COMPLETE\n",
+        "operations/smoke.md": "# Smoke check\nRun a smoke check after the deployment.\nSMOKE_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"b13d0aa5a3ca3d2ce9f8cd44d7989fd82271164e745c35e38ee94f06834c06b5\",\"bytes\":515,\"lines\":1},{\"path\":\"operations/deployment.md\",\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/rollback.md\",\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"bytes\":80,\"lines\":3},{\"path\":\"operations/approval.md\",\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/smoke.md\",\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"bytes\":69,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"e6e13726eb3e0370ee9c\",\"start_byte\":0,\"end_byte\":515,\"start_line\":1,\"end_line\":1,\"sha256\":\"b13d0aa5a3ca3d2ce9f8cd44d7989fd82271164e745c35e38ee94f06834c06b5\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"ff3056fdc5c47e20cc36ea4cc2b1c5048c17b7e53afaff0752de1889707d279b\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When reviewing deployment rollback\\\",\\\"operations/deployment.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/rollback.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/approval.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/smoke.md\\\"],[\\\"rollback deployment\\\",\\\"operations/rollback.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/deployment.md\",\"anchor\":\"49bd3c19cb90345eefa7\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"text\":\"# Deployment\\nCheck the target environment before deployment.\\nDEPLOY_COMPLETE\\n\",\"heading\":\"Deployment\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/rollback.md\",\"anchor\":\"34b063c36230a1def94d\",\"start_byte\":0,\"end_byte\":80,\"start_line\":1,\"end_line\":3,\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"text\":\"# Rollback\\nKeep the previous artifact available for rollback.\\nROLLBACK_COMPLETE\\n\",\"heading\":\"Rollback\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/approval.md\",\"anchor\":\"3b63885194408736d5b9\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"text\":\"# Approval\\nRecord the operator approval before deployment.\\nAPPROVAL_COMPLETE\\n\",\"heading\":\"Approval\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/smoke.md\",\"anchor\":\"df6cd7dfd1c4a2db00f1\",\"start_byte\":0,\"end_byte\":69,\"start_line\":1,\"end_line\":3,\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"text\":\"# Smoke check\\nRun a smoke check after the deployment.\\nSMOKE_COMPLETE\\n\",\"heading\":\"Smoke check\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 4267,
+        "utf8_bytes": 4275,
+        "estimated_tokens": 1069,
+        "o200k_base_tokens": 1370
+      },
+      "resident_plus_task_context": {
+        "characters": 5191,
+        "utf8_bytes": 5207,
+        "estimated_tokens": 1302,
+        "o200k_base_tokens": 1550
+      },
+      "task_context_sha256": "6c015132cdb86fff075ed4806c02ad8f226830926b5f1f365e35387dda0bf107",
+      "optional_open": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md"
+        ],
+        "misses": [
+          "operations/smoke.md"
+        ],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/deployment.md": true,
+          "operations/rollback.md": true,
+          "operations/approval.md": true
+        },
+        "passed": false,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 424,
+        "utf8_bytes": 424,
+        "estimated_tokens": 106,
+        "o200k_base_tokens": 88
+      },
+      "optional_document_bodies": {
+        "characters": 238,
+        "utf8_bytes": 238,
+        "estimated_tokens": 60,
+        "o200k_base_tokens": 45
+      }
+    },
+    {
+      "id": "deployment-exact",
+      "task": "When reviewing deployment rollback",
+      "automatic": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/deployment.md": true,
+          "operations/rollback.md": true,
+          "operations/approval.md": true,
+          "operations/smoke.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/deployment.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/rollback.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/approval.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/smoke.md"
+        },
+        {
+          "trigger": "rollback deployment",
+          "document": "operations/rollback.md"
+        }
+      ],
+      "documents": {
+        "operations/deployment.md": "# Deployment\nCheck the target environment before deployment.\nDEPLOY_COMPLETE\n",
+        "operations/rollback.md": "# Rollback\nKeep the previous artifact available for rollback.\nROLLBACK_COMPLETE\n",
+        "operations/approval.md": "# Approval\nRecord the operator approval before deployment.\nAPPROVAL_COMPLETE\n",
+        "operations/smoke.md": "# Smoke check\nRun a smoke check after the deployment.\nSMOKE_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"80e816fbf2524f877cb6c909f9b1cfa7548802dcce469d72261f264366c253ec\",\"bytes\":515,\"lines\":1},{\"path\":\"operations/deployment.md\",\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/rollback.md\",\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"bytes\":80,\"lines\":3},{\"path\":\"operations/approval.md\",\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/smoke.md\",\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"bytes\":69,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"fec4811ba169c54ab4d8\",\"start_byte\":0,\"end_byte\":515,\"start_line\":1,\"end_line\":1,\"sha256\":\"80e816fbf2524f877cb6c909f9b1cfa7548802dcce469d72261f264366c253ec\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"557c35be261ab8bd806f6ea8aede510f061f100b1cbd50ceac49ff98dbb204e6\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When reviewing deployment rollback\\\",\\\"operations/deployment.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/rollback.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/approval.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/smoke.md\\\"],[\\\"rollback deployment\\\",\\\"operations/rollback.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/deployment.md\",\"anchor\":\"49bd3c19cb90345eefa7\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"text\":\"# Deployment\\nCheck the target environment before deployment.\\nDEPLOY_COMPLETE\\n\",\"heading\":\"Deployment\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/rollback.md\",\"anchor\":\"34b063c36230a1def94d\",\"start_byte\":0,\"end_byte\":80,\"start_line\":1,\"end_line\":3,\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"text\":\"# Rollback\\nKeep the previous artifact available for rollback.\\nROLLBACK_COMPLETE\\n\",\"heading\":\"Rollback\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/approval.md\",\"anchor\":\"3b63885194408736d5b9\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"text\":\"# Approval\\nRecord the operator approval before deployment.\\nAPPROVAL_COMPLETE\\n\",\"heading\":\"Approval\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/smoke.md\",\"anchor\":\"df6cd7dfd1c4a2db00f1\",\"start_byte\":0,\"end_byte\":69,\"start_line\":1,\"end_line\":3,\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"text\":\"# Smoke check\\nRun a smoke check after the deployment.\\nSMOKE_COMPLETE\\n\",\"heading\":\"Smoke check\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 4267,
+        "utf8_bytes": 4275,
+        "estimated_tokens": 1069,
+        "o200k_base_tokens": 1353
+      },
+      "resident_plus_task_context": {
+        "characters": 5191,
+        "utf8_bytes": 5207,
+        "estimated_tokens": 1302,
+        "o200k_base_tokens": 1533
+      },
+      "task_context_sha256": "cbf50a45da8ff5712469048996c5239fc42f9b1a55c80e692ca419541903520f",
+      "optional_open": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md"
+        ],
+        "misses": [
+          "operations/smoke.md"
+        ],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/deployment.md": true,
+          "operations/rollback.md": true,
+          "operations/approval.md": true
+        },
+        "passed": false,
+        "matched_by": "exact"
+      },
+      "optional_opened_payload": {
+        "characters": 422,
+        "utf8_bytes": 422,
+        "estimated_tokens": 106,
+        "o200k_base_tokens": 88
+      },
+      "optional_document_bodies": {
+        "characters": 238,
+        "utf8_bytes": 238,
+        "estimated_tokens": 60,
+        "o200k_base_tokens": 45
+      }
+    },
+    {
+      "id": "deduplicated-body",
+      "task": "Check rollback deployment.",
+      "automatic": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md",
+          "storage/retention.md"
+        ],
+        "misses": [],
+        "extras": [
+          "storage/retention.md"
+        ],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/deployment.md": true,
+          "operations/rollback.md": true,
+          "operations/approval.md": true,
+          "operations/smoke.md": true,
+          "storage/retention.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/deployment.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/rollback.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/approval.md"
+        },
+        {
+          "trigger": "When reviewing deployment rollback",
+          "document": "operations/smoke.md"
+        },
+        {
+          "trigger": "rollback deployment",
+          "document": "operations/rollback.md"
+        },
+        {
+          "trigger": "When checking retention policies",
+          "document": "storage/retention.md"
+        }
+      ],
+      "documents": {
+        "operations/deployment.md": "# Deployment\nCheck the target environment before deployment.\nDEPLOY_COMPLETE\n",
+        "operations/rollback.md": "# Rollback\nKeep the previous artifact available for rollback.\nROLLBACK_COMPLETE\n",
+        "operations/approval.md": "# Approval\nRecord the operator approval before deployment.\nAPPROVAL_COMPLETE\n",
+        "operations/smoke.md": "# Smoke check\nRun a smoke check after the deployment.\nSMOKE_COMPLETE\n",
+        "storage/retention.md": "# Retention\nKeep seven daily snapshots and verify restores.\nRETENTION_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"9ef43fd2b8331bac2b0051c766e7a999f72d23e4b6d1a205aa85436b9f30760f\",\"bytes\":575,\"lines\":1},{\"path\":\"operations/deployment.md\",\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/rollback.md\",\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"bytes\":80,\"lines\":3},{\"path\":\"operations/approval.md\",\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"bytes\":77,\"lines\":3},{\"path\":\"operations/smoke.md\",\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"bytes\":69,\"lines\":3},{\"path\":\"storage/retention.md\",\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"bytes\":79,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"6e126051c222dcc8a5ea\",\"start_byte\":0,\"end_byte\":575,\"start_line\":1,\"end_line\":1,\"sha256\":\"9ef43fd2b8331bac2b0051c766e7a999f72d23e4b6d1a205aa85436b9f30760f\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"81a6f00d4cbd37d85fc99a0ff9e40d0bc047d2e1e4dd22f8ac1edd1557ee6303\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When reviewing deployment rollback\\\",\\\"operations/deployment.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/rollback.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/approval.md\\\"],[\\\"When reviewing deployment rollback\\\",\\\"operations/smoke.md\\\"],[\\\"rollback deployment\\\",\\\"operations/rollback.md\\\"],[\\\"When checking retention policies\\\",\\\"storage/retention.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/deployment.md\",\"anchor\":\"49bd3c19cb90345eefa7\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"2c6ce18681d82ffaa00dc43a0d2b248a72a0e271e15ea6cf73890e150dbbd326\",\"text\":\"# Deployment\\nCheck the target environment before deployment.\\nDEPLOY_COMPLETE\\n\",\"heading\":\"Deployment\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/rollback.md\",\"anchor\":\"34b063c36230a1def94d\",\"start_byte\":0,\"end_byte\":80,\"start_line\":1,\"end_line\":3,\"sha256\":\"67723fa606555a8b520b8e34671fa9a68c13f4d186491e838e90e382a722e76c\",\"text\":\"# Rollback\\nKeep the previous artifact available for rollback.\\nROLLBACK_COMPLETE\\n\",\"heading\":\"Rollback\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/approval.md\",\"anchor\":\"3b63885194408736d5b9\",\"start_byte\":0,\"end_byte\":77,\"start_line\":1,\"end_line\":3,\"sha256\":\"86580ebd62dd773a3ac00dc625664606b7e3aa0e8313602002a4ddafdcbf1d54\",\"text\":\"# Approval\\nRecord the operator approval before deployment.\\nAPPROVAL_COMPLETE\\n\",\"heading\":\"Approval\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/smoke.md\",\"anchor\":\"df6cd7dfd1c4a2db00f1\",\"start_byte\":0,\"end_byte\":69,\"start_line\":1,\"end_line\":3,\"sha256\":\"3224d592b9f619b6b66fdc8bcc325b8228684972e4b38a5550f65ab33008f9c7\",\"text\":\"# Smoke check\\nRun a smoke check after the deployment.\\nSMOKE_COMPLETE\\n\",\"heading\":\"Smoke check\",\"state\":\"source\",\"must_read\":true},{\"path\":\"storage/retention.md\",\"anchor\":\"1c87fcf665214d235b38\",\"start_byte\":0,\"end_byte\":79,\"start_line\":1,\"end_line\":3,\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"text\":\"# Retention\\nKeep seven daily snapshots and verify restores.\\nRETENTION_COMPLETE\\n\",\"heading\":\"Retention\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 4805,
+        "utf8_bytes": 4813,
+        "estimated_tokens": 1204,
+        "o200k_base_tokens": 1556
+      },
+      "resident_plus_task_context": {
+        "characters": 5729,
+        "utf8_bytes": 5745,
+        "estimated_tokens": 1437,
+        "o200k_base_tokens": 1736
+      },
+      "task_context_sha256": "89ae130663b6390bdb3a68674627f9dd6c6927fff40a4af71609308466ab6aec",
+      "optional_open": {
+        "required": [
+          "operations/deployment.md",
+          "operations/rollback.md",
+          "operations/approval.md",
+          "operations/smoke.md"
+        ],
+        "returned": [
+          "operations/rollback.md",
+          "operations/deployment.md",
+          "operations/approval.md"
+        ],
+        "misses": [
+          "operations/smoke.md"
+        ],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/rollback.md": true,
+          "operations/deployment.md": true,
+          "operations/approval.md": true
+        },
+        "passed": false,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 424,
+        "utf8_bytes": 424,
+        "estimated_tokens": 106,
+        "o200k_base_tokens": 88
+      },
+      "optional_document_bodies": {
+        "characters": 238,
+        "utf8_bytes": 238,
+        "estimated_tokens": 60,
+        "o200k_base_tokens": 45
+      }
+    },
+    {
+      "id": "retention",
+      "task": "Check retention policies.",
+      "automatic": {
+        "required": [
+          "storage/retention.md"
+        ],
+        "returned": [
+          "storage/retention.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "storage/retention.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When checking retention policies",
+          "document": "storage/retention.md"
+        }
+      ],
+      "documents": {
+        "storage/retention.md": "# Retention\nKeep seven daily snapshots and verify restores.\nRETENTION_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"88873212a9f566c2b453a2190923b2f5db24a1b82061faecc2f05a7b26f01505\",\"bytes\":271,\"lines\":1},{\"path\":\"storage/retention.md\",\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"bytes\":79,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"1ea9a21796ae6fb70fbe\",\"start_byte\":0,\"end_byte\":271,\"start_line\":1,\"end_line\":1,\"sha256\":\"88873212a9f566c2b453a2190923b2f5db24a1b82061faecc2f05a7b26f01505\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"6c6fd736833dc95b8a984aeab7c141bbca37ff48d88954d45b2a21c4d530be51\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When checking retention policies\\\",\\\"storage/retention.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"storage/retention.md\",\"anchor\":\"1c87fcf665214d235b38\",\"start_byte\":0,\"end_byte\":79,\"start_line\":1,\"end_line\":3,\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"text\":\"# Retention\\nKeep seven daily snapshots and verify restores.\\nRETENTION_COMPLETE\\n\",\"heading\":\"Retention\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2583,
+        "utf8_bytes": 2591,
+        "estimated_tokens": 648,
+        "o200k_base_tokens": 807
+      },
+      "resident_plus_task_context": {
+        "characters": 3507,
+        "utf8_bytes": 3523,
+        "estimated_tokens": 881,
+        "o200k_base_tokens": 987
+      },
+      "task_context_sha256": "a33c1ee5fa9a89dd42c6bbf356ce4eabf6d03adb7ffa72564018be2870803a87",
+      "optional_open": {
+        "required": [
+          "storage/retention.md"
+        ],
+        "returned": [
+          "storage/retention.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "storage/retention.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 165,
+        "utf8_bytes": 165,
+        "estimated_tokens": 42,
+        "o200k_base_tokens": 38
+      },
+      "optional_document_bodies": {
+        "characters": 79,
+        "utf8_bytes": 79,
+        "estimated_tokens": 20,
+        "o200k_base_tokens": 16
+      }
+    },
+    {
+      "id": "accessibility",
+      "task": "Change the accessibility labels.",
+      "automatic": {
+        "required": [
+          "interface/accessibility.md"
+        ],
+        "returned": [
+          "interface/accessibility.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "interface/accessibility.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When changing accessibility labels",
+          "document": "interface/accessibility.md"
+        }
+      ],
+      "documents": {
+        "interface/accessibility.md": "# Accessibility\nEvery icon button needs an accessible name.\nACCESSIBILITY_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"bef49c6264c5d934f68b4621ca66db99c7415bdabdb87d6816e27a9e5b4c83fc\",\"bytes\":279,\"lines\":1},{\"path\":\"interface/accessibility.md\",\"sha256\":\"cea5dce803a2a69b06a1c3b55db50949d8cd1740f66e68c75932252830d436aa\",\"bytes\":83,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"17ae2d1068d6441ebe91\",\"start_byte\":0,\"end_byte\":279,\"start_line\":1,\"end_line\":1,\"sha256\":\"bef49c6264c5d934f68b4621ca66db99c7415bdabdb87d6816e27a9e5b4c83fc\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"079fe47a73e3061658680e018f29eb2452d87285e6ee178967deac6a9a1876b4\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When changing accessibility labels\\\",\\\"interface/accessibility.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"interface/accessibility.md\",\"anchor\":\"bfdc77ed95382b6e6f9b\",\"start_byte\":0,\"end_byte\":83,\"start_line\":1,\"end_line\":3,\"sha256\":\"cea5dce803a2a69b06a1c3b55db50949d8cd1740f66e68c75932252830d436aa\",\"text\":\"# Accessibility\\nEvery icon button needs an accessible name.\\nACCESSIBILITY_COMPLETE\\n\",\"heading\":\"Accessibility\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2611,
+        "utf8_bytes": 2619,
+        "estimated_tokens": 655,
+        "o200k_base_tokens": 806
+      },
+      "resident_plus_task_context": {
+        "characters": 3535,
+        "utf8_bytes": 3551,
+        "estimated_tokens": 888,
+        "o200k_base_tokens": 986
+      },
+      "task_context_sha256": "8509e5fbeb04ac9a901c416cce0fe10357e806edd78850c77b7990f08f2bc591",
+      "optional_open": {
+        "required": [
+          "interface/accessibility.md"
+        ],
+        "returned": [
+          "interface/accessibility.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "interface/accessibility.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 175,
+        "utf8_bytes": 175,
+        "estimated_tokens": 44,
+        "o200k_base_tokens": 36
+      },
+      "optional_document_bodies": {
+        "characters": 83,
+        "utf8_bytes": 83,
+        "estimated_tokens": 21,
+        "o200k_base_tokens": 15
+      }
+    },
+    {
+      "id": "compiler",
+      "task": "Diagnose the compiler errors.",
+      "automatic": {
+        "required": [
+          "engineering/compiler.md"
+        ],
+        "returned": [
+          "engineering/compiler.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "engineering/compiler.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When diagnosing compiler errors",
+          "document": "engineering/compiler.md"
+        }
+      ],
+      "documents": {
+        "engineering/compiler.md": "# Compiler diagnostics\nKeep diagnostics visible and resolve the source error.\nCOMPILER_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"b622c9e2379aa1058ba5b7456fb8a91e199d229d836c6dd2d7a65863e3afa91d\",\"bytes\":273,\"lines\":1},{\"path\":\"engineering/compiler.md\",\"sha256\":\"47d7d6b946f884e555b209ecd0c9a735b21d849d7f12856a0ec4200773299d6e\",\"bytes\":96,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"e2a0e6510a3dc1b35e2d\",\"start_byte\":0,\"end_byte\":273,\"start_line\":1,\"end_line\":1,\"sha256\":\"b622c9e2379aa1058ba5b7456fb8a91e199d229d836c6dd2d7a65863e3afa91d\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"198c9cf5ad92a64ebe2ea4b240e65daeaabec6a2652190794ead46d576814f34\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When diagnosing compiler errors\\\",\\\"engineering/compiler.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"engineering/compiler.md\",\"anchor\":\"5c07de68019b88ed2ca2\",\"start_byte\":0,\"end_byte\":96,\"start_line\":1,\"end_line\":3,\"sha256\":\"47d7d6b946f884e555b209ecd0c9a735b21d849d7f12856a0ec4200773299d6e\",\"text\":\"# Compiler diagnostics\\nKeep diagnostics visible and resolve the source error.\\nCOMPILER_COMPLETE\\n\",\"heading\":\"Compiler diagnostics\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2619,
+        "utf8_bytes": 2627,
+        "estimated_tokens": 657,
+        "o200k_base_tokens": 811
+      },
+      "resident_plus_task_context": {
+        "characters": 3543,
+        "utf8_bytes": 3559,
+        "estimated_tokens": 890,
+        "o200k_base_tokens": 991
+      },
+      "task_context_sha256": "6e7985656a61ed4c074a54349a47e91a88167cf25fbaee47063c5e8048c6ce70",
+      "optional_open": {
+        "required": [
+          "engineering/compiler.md"
+        ],
+        "returned": [
+          "engineering/compiler.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "engineering/compiler.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 185,
+        "utf8_bytes": 185,
+        "estimated_tokens": 47,
+        "o200k_base_tokens": 37
+      },
+      "optional_document_bodies": {
+        "characters": 96,
+        "utf8_bytes": 96,
+        "estimated_tokens": 24,
+        "o200k_base_tokens": 17
+      }
+    },
+    {
+      "id": "invoice",
+      "task": "Edit the invoice taxes.",
+      "automatic": {
+        "required": [
+          "billing/taxes.md"
+        ],
+        "returned": [
+          "billing/taxes.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "billing/taxes.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When editing invoice taxes",
+          "document": "billing/taxes.md"
+        }
+      ],
+      "documents": {
+        "billing/taxes.md": "# Invoice taxes\nUse the invoice jurisdiction to determine the tax category.\nTAXES_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"4445135fb3f8c87a010ca3aeb1396e291b5e36fb2b8c92895eba35a60ef5d1ac\",\"bytes\":261,\"lines\":1},{\"path\":\"billing/taxes.md\",\"sha256\":\"ce2cc0a095c306a8168b6ab2fc8728537d9605e4dbc936db886e1668e542cc24\",\"bytes\":91,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"3b4e29e66ef730d87df3\",\"start_byte\":0,\"end_byte\":261,\"start_line\":1,\"end_line\":1,\"sha256\":\"4445135fb3f8c87a010ca3aeb1396e291b5e36fb2b8c92895eba35a60ef5d1ac\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"4989e81f91ef376f23f195416394461c15296aa40b4fd33bae6075f1e9c1d3cb\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When editing invoice taxes\\\",\\\"billing/taxes.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"billing/taxes.md\",\"anchor\":\"c631c382e430879ec36c\",\"start_byte\":0,\"end_byte\":91,\"start_line\":1,\"end_line\":3,\"sha256\":\"ce2cc0a095c306a8168b6ab2fc8728537d9605e4dbc936db886e1668e542cc24\",\"text\":\"# Invoice taxes\\nUse the invoice jurisdiction to determine the tax category.\\nTAXES_COMPLETE\\n\",\"heading\":\"Invoice taxes\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2581,
+        "utf8_bytes": 2589,
+        "estimated_tokens": 648,
+        "o200k_base_tokens": 807
+      },
+      "resident_plus_task_context": {
+        "characters": 3505,
+        "utf8_bytes": 3521,
+        "estimated_tokens": 881,
+        "o200k_base_tokens": 987
+      },
+      "task_context_sha256": "47cf69d73c4707f9983b649a0d9a3f767577bec6c246d22d8334f6f8e6494da8",
+      "optional_open": {
+        "required": [
+          "billing/taxes.md"
+        ],
+        "returned": [
+          "billing/taxes.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "billing/taxes.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 173,
+        "utf8_bytes": 173,
+        "estimated_tokens": 44,
+        "o200k_base_tokens": 40
+      },
+      "optional_document_bodies": {
+        "characters": 91,
+        "utf8_bytes": 91,
+        "estimated_tokens": 23,
+        "o200k_base_tokens": 19
+      }
+    },
+    {
+      "id": "tea",
+      "task": "Choose a tea blend.",
+      "automatic": {
+        "required": [
+          "preferences/tea.md"
+        ],
+        "returned": [
+          "preferences/tea.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "preferences/tea.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When choosing a tea blend",
+          "document": "preferences/tea.md"
+        }
+      ],
+      "documents": {
+        "preferences/tea.md": "# Tea\nChoose a jasmine blend without added sugar.\nTEA_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"403d796234c2f502c1ec1bfd8ea913a7c6868891c7483fe5913a5f57c1c8f523\",\"bytes\":262,\"lines\":1},{\"path\":\"preferences/tea.md\",\"sha256\":\"3f16b8283fcfe355e5fa9c6c72f520e65c9e3f2cb657fba2ae313ea7fe84fded\",\"bytes\":63,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"317ecdc01f0c1ad2c3da\",\"start_byte\":0,\"end_byte\":262,\"start_line\":1,\"end_line\":1,\"sha256\":\"403d796234c2f502c1ec1bfd8ea913a7c6868891c7483fe5913a5f57c1c8f523\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"a2f0c2a5d216a4e66e8a3dbf972d06dacee6fc2db04e0cea5cd964b2841f74c9\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When choosing a tea blend\\\",\\\"preferences/tea.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"preferences/tea.md\",\"anchor\":\"714ffb58d677434ee7ff\",\"start_byte\":0,\"end_byte\":63,\"start_line\":1,\"end_line\":3,\"sha256\":\"3f16b8283fcfe355e5fa9c6c72f520e65c9e3f2cb657fba2ae313ea7fe84fded\",\"text\":\"# Tea\\nChoose a jasmine blend without added sugar.\\nTEA_COMPLETE\\n\",\"heading\":\"Tea\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2548,
+        "utf8_bytes": 2556,
+        "estimated_tokens": 639,
+        "o200k_base_tokens": 819
+      },
+      "resident_plus_task_context": {
+        "characters": 3472,
+        "utf8_bytes": 3488,
+        "estimated_tokens": 872,
+        "o200k_base_tokens": 999
+      },
+      "task_context_sha256": "9390272c5c4ba78e770457f397e0c0524635b3b608b2b5f999bb99a1d4d51fbe",
+      "optional_open": {
+        "required": [
+          "preferences/tea.md"
+        ],
+        "returned": [
+          "preferences/tea.md",
+          "astronomy/collimation.md",
+          "engineering/database.md"
+        ],
+        "misses": [],
+        "extras": [
+          "astronomy/collimation.md",
+          "engineering/database.md"
+        ],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "preferences/tea.md": true,
+          "astronomy/collimation.md": true,
+          "engineering/database.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 451,
+        "utf8_bytes": 451,
+        "estimated_tokens": 113,
+        "o200k_base_tokens": 94
+      },
+      "optional_document_bodies": {
+        "characters": 268,
+        "utf8_bytes": 268,
+        "estimated_tokens": 67,
+        "o200k_base_tokens": 50
+      }
+    },
+    {
+      "id": "telescope",
+      "task": "Calibrate a telescope.",
+      "automatic": {
+        "required": [
+          "astronomy/collimation.md"
+        ],
+        "returned": [
+          "astronomy/collimation.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "astronomy/collimation.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When calibrating a telescope",
+          "document": "astronomy/collimation.md"
+        }
+      ],
+      "documents": {
+        "astronomy/collimation.md": "# Telescope calibration\nUse the reference star before aligning the optical axis.\nTELESCOPE_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"13f33c804a3a7edf5a1d1b8a800f6a4af397ccacdbfe41067792cc423cb1a9fa\",\"bytes\":271,\"lines\":1},{\"path\":\"astronomy/collimation.md\",\"sha256\":\"89926e9f06fa9044a4238bbfc64868958641225e2638901ab9dab2930fba172a\",\"bytes\":100,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"62d6f37774884614f5b5\",\"start_byte\":0,\"end_byte\":271,\"start_line\":1,\"end_line\":1,\"sha256\":\"13f33c804a3a7edf5a1d1b8a800f6a4af397ccacdbfe41067792cc423cb1a9fa\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"d30de408f5939371ad63aec2c35d6420348a927146998be1fdac3050d9f80c08\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When calibrating a telescope\\\",\\\"astronomy/collimation.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"astronomy/collimation.md\",\"anchor\":\"5d60dce69e52263279ef\",\"start_byte\":0,\"end_byte\":100,\"start_line\":1,\"end_line\":3,\"sha256\":\"89926e9f06fa9044a4238bbfc64868958641225e2638901ab9dab2930fba172a\",\"text\":\"# Telescope calibration\\nUse the reference star before aligning the optical axis.\\nTELESCOPE_COMPLETE\\n\",\"heading\":\"Telescope calibration\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2626,
+        "utf8_bytes": 2634,
+        "estimated_tokens": 659,
+        "o200k_base_tokens": 807
+      },
+      "resident_plus_task_context": {
+        "characters": 3550,
+        "utf8_bytes": 3566,
+        "estimated_tokens": 892,
+        "o200k_base_tokens": 987
+      },
+      "task_context_sha256": "55a8365ba0c2ff32cca34d1585ab6fb98f87c0ed27673007c0d908c2138edee4",
+      "optional_open": {
+        "required": [
+          "astronomy/collimation.md"
+        ],
+        "returned": [
+          "astronomy/collimation.md",
+          "preferences/tea.md",
+          "engineering/database.md"
+        ],
+        "misses": [],
+        "extras": [
+          "engineering/database.md",
+          "preferences/tea.md"
+        ],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "astronomy/collimation.md": true,
+          "preferences/tea.md": true,
+          "engineering/database.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 451,
+        "utf8_bytes": 451,
+        "estimated_tokens": 113,
+        "o200k_base_tokens": 94
+      },
+      "optional_document_bodies": {
+        "characters": 268,
+        "utf8_bytes": 268,
+        "estimated_tokens": 67,
+        "o200k_base_tokens": 50
+      }
+    },
+    {
+      "id": "localized",
+      "task": "배포 검증을 진행해 주세요.",
+      "automatic": {
+        "required": [
+          "operations/localized.md"
+        ],
+        "returned": [
+          "operations/localized.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/localized.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "배포 검증",
+          "document": "operations/localized.md"
+        }
+      ],
+      "documents": {
+        "operations/localized.md": "# 배포 검증\n검증 결과를 확인한 뒤 다음 단계로 이동한다.\nLOCALIZED_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"4bf92c446b1e41901a6d79f4dc1a317db024f4c4b10d5b2a5d1ee9e2eb1a6c05\",\"bytes\":255,\"lines\":1},{\"path\":\"operations/localized.md\",\"sha256\":\"561f87b5cca4cc5cc5294bfc8f4587a51c84da62a162f2bcee8c6be65b67deda\",\"bytes\":97,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"34d36378366845094c46\",\"start_byte\":0,\"end_byte\":255,\"start_line\":1,\"end_line\":1,\"sha256\":\"4bf92c446b1e41901a6d79f4dc1a317db024f4c4b10d5b2a5d1ee9e2eb1a6c05\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"2a72c50916236a18db41c5a48e189073c785214087f25f259cafc87a51161584\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"배포 검증\\\",\\\"operations/localized.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"operations/localized.md\",\"anchor\":\"779892ed464f9216b5fd\",\"start_byte\":0,\"end_byte\":97,\"start_line\":1,\"end_line\":3,\"sha256\":\"561f87b5cca4cc5cc5294bfc8f4587a51c84da62a162f2bcee8c6be65b67deda\",\"text\":\"# 배포 검증\\n검증 결과를 확인한 뒤 다음 단계로 이동한다.\\nLOCALIZED_COMPLETE\\n\",\"heading\":\"배포 검증\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2535,
+        "utf8_bytes": 2603,
+        "estimated_tokens": 651,
+        "o200k_base_tokens": 828
+      },
+      "resident_plus_task_context": {
+        "characters": 3459,
+        "utf8_bytes": 3535,
+        "estimated_tokens": 884,
+        "o200k_base_tokens": 1008
+      },
+      "task_context_sha256": "7d1afd0173e5e02e24b4157b0ede5bd4a0e2f83715b7fbdf0da80017fe9a5c4c",
+      "optional_open": {
+        "required": [
+          "operations/localized.md"
+        ],
+        "returned": [
+          "operations/localized.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "operations/localized.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 142,
+        "utf8_bytes": 186,
+        "estimated_tokens": 47,
+        "o200k_base_tokens": 44
+      },
+      "optional_document_bodies": {
+        "characters": 53,
+        "utf8_bytes": 97,
+        "estimated_tokens": 25,
+        "o200k_base_tokens": 23
+      }
+    },
+    {
+      "id": "two-topics",
+      "task": "Check retention policies and invoice taxes.",
+      "automatic": {
+        "required": [
+          "storage/retention.md",
+          "billing/taxes.md"
+        ],
+        "returned": [
+          "storage/retention.md",
+          "billing/taxes.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "storage/retention.md": true,
+          "billing/taxes.md": true
+        },
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [
+        {
+          "trigger": "When checking retention policies",
+          "document": "storage/retention.md"
+        },
+        {
+          "trigger": "When editing invoice taxes",
+          "document": "billing/taxes.md"
+        }
+      ],
+      "documents": {
+        "storage/retention.md": "# Retention\nKeep seven daily snapshots and verify restores.\nRETENTION_COMPLETE\n",
+        "billing/taxes.md": "# Invoice taxes\nUse the invoice jurisdiction to determine the tax category.\nTAXES_COMPLETE\n"
+      },
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"4f46d72a876d77d72db0ee37247419e1532c1972b87c74abcd650cd955cdd783\",\"bytes\":321,\"lines\":1},{\"path\":\"storage/retention.md\",\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"bytes\":79,\"lines\":3},{\"path\":\"billing/taxes.md\",\"sha256\":\"ce2cc0a095c306a8168b6ab2fc8728537d9605e4dbc936db886e1668e542cc24\",\"bytes\":91,\"lines\":3}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"232cd9680b157091d42b\",\"start_byte\":0,\"end_byte\":321,\"start_line\":1,\"end_line\":1,\"sha256\":\"4f46d72a876d77d72db0ee37247419e1532c1972b87c74abcd650cd955cdd783\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"f88991f453c3c3ada6ad7a994bf0b7d9d372575b609a4b7029b37ce0ab499876\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[[\\\"When checking retention policies\\\",\\\"storage/retention.md\\\"],[\\\"When editing invoice taxes\\\",\\\"billing/taxes.md\\\"]]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true},{\"path\":\"storage/retention.md\",\"anchor\":\"1c87fcf665214d235b38\",\"start_byte\":0,\"end_byte\":79,\"start_line\":1,\"end_line\":3,\"sha256\":\"84a5065efc9f63526ec1b7a5b4645dc949c7498f7666101702deefdf66ebe65a\",\"text\":\"# Retention\\nKeep seven daily snapshots and verify restores.\\nRETENTION_COMPLETE\\n\",\"heading\":\"Retention\",\"state\":\"source\",\"must_read\":true},{\"path\":\"billing/taxes.md\",\"anchor\":\"c631c382e430879ec36c\",\"start_byte\":0,\"end_byte\":91,\"start_line\":1,\"end_line\":3,\"sha256\":\"ce2cc0a095c306a8168b6ab2fc8728537d9605e4dbc936db886e1668e542cc24\",\"text\":\"# Invoice taxes\\nUse the invoice jurisdiction to determine the tax category.\\nTAXES_COMPLETE\\n\",\"heading\":\"Invoice taxes\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 3119,
+        "utf8_bytes": 3127,
+        "estimated_tokens": 782,
+        "o200k_base_tokens": 980
+      },
+      "resident_plus_task_context": {
+        "characters": 4043,
+        "utf8_bytes": 4059,
+        "estimated_tokens": 1015,
+        "o200k_base_tokens": 1160
+      },
+      "task_context_sha256": "3abd84198e495b09531a68bfb28f9926da3dcc35e29120f6fc3524410408b6b4",
+      "optional_open": {
+        "required": [
+          "storage/retention.md",
+          "billing/taxes.md"
+        ],
+        "returned": [
+          "storage/retention.md",
+          "billing/taxes.md"
+        ],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "storage/retention.md": true,
+          "billing/taxes.md": true
+        },
+        "passed": true,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 300,
+        "utf8_bytes": 300,
+        "estimated_tokens": 75,
+        "o200k_base_tokens": 68
+      },
+      "optional_document_bodies": {
+        "characters": 172,
+        "utf8_bytes": 172,
+        "estimated_tokens": 43,
+        "o200k_base_tokens": 35
+      }
+    },
+    {
+      "id": "common-words-only",
+      "task": "When should I do this?",
+      "automatic": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [],
+      "documents": {},
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"4dc2de15b4ac3092886bd3627befd42b7ec78b87580d9b7fb223c664a1d76171\",\"bytes\":212,\"lines\":1}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"e82269af6693226f3c22\",\"start_byte\":0,\"end_byte\":212,\"start_line\":1,\"end_line\":1,\"sha256\":\"4dc2de15b4ac3092886bd3627befd42b7ec78b87580d9b7fb223c664a1d76171\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"9dc4b629b8b4c041085155ce48c9257c4f9a831ada0dbc6452ed1745fdb84336\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2046,
+        "utf8_bytes": 2054,
+        "estimated_tokens": 514,
+        "o200k_base_tokens": 618
+      },
+      "resident_plus_task_context": {
+        "characters": 2970,
+        "utf8_bytes": 2986,
+        "estimated_tokens": 747,
+        "o200k_base_tokens": 798
+      },
+      "task_context_sha256": "eb64df8871fd2ed8bee4dde5b409724b9cd3433dce87bd1f7e28003acd87d435",
+      "optional_open": {
+        "required": [],
+        "returned": [
+          "billing/taxes.md",
+          "preferences/tea.md",
+          "astronomy/collimation.md"
+        ],
+        "misses": [],
+        "extras": [
+          "astronomy/collimation.md",
+          "billing/taxes.md",
+          "preferences/tea.md"
+        ],
+        "whole_bodies_match": true,
+        "body_matches": {
+          "billing/taxes.md": true,
+          "preferences/tea.md": true,
+          "astronomy/collimation.md": true
+        },
+        "passed": false,
+        "matched_by": "trigger"
+      },
+      "optional_opened_payload": {
+        "characters": 434,
+        "utf8_bytes": 434,
+        "estimated_tokens": 109,
+        "o200k_base_tokens": 98
+      },
+      "optional_document_bodies": {
+        "characters": 258,
+        "utf8_bytes": 258,
+        "estimated_tokens": 65,
+        "o200k_base_tokens": 53
+      }
+    },
+    {
+      "id": "unrelated-cooking",
+      "task": "How long should dried noodles boil?",
+      "automatic": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [],
+      "documents": {},
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"e814d3119371c64016879f2aedc7fc01830a1366e2b45182c9589b743bfab809\",\"bytes\":212,\"lines\":1}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"9f930d26a1cc99d5e7e0\",\"start_byte\":0,\"end_byte\":212,\"start_line\":1,\"end_line\":1,\"sha256\":\"e814d3119371c64016879f2aedc7fc01830a1366e2b45182c9589b743bfab809\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"fbab0deba1d7e078ec2ceb6302ce7f1f29f83daa639401a561dd5b4cca86998a\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2046,
+        "utf8_bytes": 2054,
+        "estimated_tokens": 514,
+        "o200k_base_tokens": 616
+      },
+      "resident_plus_task_context": {
+        "characters": 2970,
+        "utf8_bytes": 2986,
+        "estimated_tokens": 747,
+        "o200k_base_tokens": 796
+      },
+      "task_context_sha256": "704fcf2cf308ba80aeb84174bdb6244c79e987ad16837c019fbab5afdaf85d24",
+      "optional_open": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true,
+        "matched_by": "none"
+      },
+      "optional_opened_payload": {
+        "characters": 36,
+        "utf8_bytes": 36,
+        "estimated_tokens": 9,
+        "o200k_base_tokens": 9
+      },
+      "optional_document_bodies": {
+        "characters": 0,
+        "utf8_bytes": 0,
+        "estimated_tokens": 0,
+        "o200k_base_tokens": 0
+      }
+    },
+    {
+      "id": "unrelated-arithmetic",
+      "task": "Calculate 17 times 29.",
+      "automatic": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [],
+      "documents": {},
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"8f07f023d6a2ef8de5a738a4e93222eb81570997108249e7a13d644d150943d9\",\"bytes\":212,\"lines\":1}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"8543e02974cafce347af\",\"start_byte\":0,\"end_byte\":212,\"start_line\":1,\"end_line\":1,\"sha256\":\"8f07f023d6a2ef8de5a738a4e93222eb81570997108249e7a13d644d150943d9\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"d57dc045b56b6fd7eedbdb59923e3d10ae52e5fe3b5e4bf932da220e61a6de54\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2046,
+        "utf8_bytes": 2054,
+        "estimated_tokens": 514,
+        "o200k_base_tokens": 619
+      },
+      "resident_plus_task_context": {
+        "characters": 2970,
+        "utf8_bytes": 2986,
+        "estimated_tokens": 747,
+        "o200k_base_tokens": 799
+      },
+      "task_context_sha256": "e3ceea9cc69daffd264d76dcae94438a9f1556443533a2934132f69ad4d7b020",
+      "optional_open": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true,
+        "matched_by": "none"
+      },
+      "optional_opened_payload": {
+        "characters": 36,
+        "utf8_bytes": 36,
+        "estimated_tokens": 9,
+        "o200k_base_tokens": 9
+      },
+      "optional_document_bodies": {
+        "characters": 0,
+        "utf8_bytes": 0,
+        "estimated_tokens": 0,
+        "o200k_base_tokens": 0
+      }
+    },
+    {
+      "id": "word-boundary",
+      "task": "Explain what steaming means.",
+      "automatic": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true
+      },
+      "verified": true,
+      "matched_entries": [],
+      "documents": {},
+      "context": "{\"version\":1,\"complete\":true,\"files\":[{\"path\":\".mnemosyne-memory-index/context\",\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"bytes\":931,\"lines\":15},{\"path\":\".mnemosyne-memory-index/task\",\"sha256\":\"16bfb10a18d2bcc020ec05497b989ae62bd89d832e0a72c17609606dd90d8eb0\",\"bytes\":212,\"lines\":1}],\"blocks\":[{\"path\":\".mnemosyne-memory-index/context\",\"anchor\":\"5058d24eb35d2a5e44f0\",\"start_byte\":0,\"end_byte\":931,\"start_line\":1,\"end_line\":15,\"sha256\":\"5f4394354b158379d5e1a24e2cd2829d677bff89baa24eea693abc682c4cee24\",\"text\":\"# Memory INDEX\\nAlways retain every entry, including after compaction. When a trigger applies, open its document with memory_open_trigger; use memory_search if no trigger matches.\\n- When preparing a database migration -> engineering/database.md\\n- When reviewing deployment rollback -> operations/deployment.md\\n- When reviewing deployment rollback -> operations/rollback.md\\n- When reviewing deployment rollback -> operations/approval.md\\n- When reviewing deployment rollback -> operations/smoke.md\\n- rollback deployment -> operations/rollback.md\\n- When checking retention policies -> storage/retention.md\\n- When changing accessibility labels -> interface/accessibility.md\\n- When diagnosing compiler errors -> engineering/compiler.md\\n- When editing invoice taxes -> billing/taxes.md\\n- When choosing a tea blend -> preferences/tea.md\\n- When calibrating a telescope -> astronomy/collimation.md\\n- 배포 검증 -> operations/localized.md\\n\",\"heading\":\"Memory INDEX\",\"state\":\"source\",\"must_read\":true},{\"path\":\".mnemosyne-memory-index/task\",\"anchor\":\"56bba748e313f8abec0e\",\"start_byte\":0,\"end_byte\":212,\"start_line\":1,\"end_line\":1,\"sha256\":\"16bfb10a18d2bcc020ec05497b989ae62bd89d832e0a72c17609606dd90d8eb0\",\"text\":\"{\\\"version\\\":1,\\\"matcher\\\":\\\"lexical-v2\\\",\\\"task_sha256\\\":\\\"af559a7be9a0bee90defeb3f85e7123ab16622a0867b0ad6d99b967a37fb36f7\\\",\\\"index_sha256\\\":\\\"452013196787b9b439d85dc6df2479ce40f6c20b4ab619cf3fdc7aa1a49f36f9\\\",\\\"matches\\\":[]}\",\"heading\":\"Preamble\",\"state\":\"source\",\"must_read\":true}]}",
+      "task_context": {
+        "characters": 2046,
+        "utf8_bytes": 2054,
+        "estimated_tokens": 514,
+        "o200k_base_tokens": 617
+      },
+      "resident_plus_task_context": {
+        "characters": 2970,
+        "utf8_bytes": 2986,
+        "estimated_tokens": 747,
+        "o200k_base_tokens": 797
+      },
+      "task_context_sha256": "f80e19140cd73c6f06f4c1e62d32a8d312c1c2d3ce55ec8932b11dab46c07811",
+      "optional_open": {
+        "required": [],
+        "returned": [],
+        "misses": [],
+        "extras": [],
+        "whole_bodies_match": true,
+        "body_matches": {},
+        "passed": true,
+        "matched_by": "none"
+      },
+      "optional_opened_payload": {
+        "characters": 36,
+        "utf8_bytes": 36,
+        "estimated_tokens": 9,
+        "o200k_base_tokens": 9
+      },
+      "optional_document_bodies": {
+        "characters": 0,
+        "utf8_bytes": 0,
+        "estimated_tokens": 0,
+        "o200k_base_tokens": 0
+      }
+    }
+  ],
+  "automatic_failed_tasks": [],
+  "rendered_index": {
+    "characters": 923,
+    "utf8_bytes": 931,
+    "estimated_tokens": 233,
+    "o200k_base_tokens": 180
+  },
+  "whole_startup_payload": {
+    "characters": 1409,
+    "utf8_bytes": 1417,
+    "estimated_tokens": 355,
+    "o200k_base_tokens": 358
+  },
+  "startup_verified": true,
+  "grown": {
+    "documents": 240,
+    "routes": 480,
+    "rendered_index": {
+      "characters": 1928,
+      "utf8_bytes": 1928,
+      "estimated_tokens": 482,
+      "o200k_base_tokens": 814
+    },
+    "whole_startup_payload": {
+      "characters": 2567,
+      "utf8_bytes": 2567,
+      "estimated_tokens": 642,
+      "o200k_base_tokens": 1036
+    },
+    "verified": true,
+    "mode": "grouped",
+    "topic_count": 12,
+    "all_routes_expandable": true,
+    "all_topics_in_resident": true,
+    "topic_payloads": [
+      {
+        "topic": "dir:guides/topic-00",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1951
+        }
+      },
+      {
+        "topic": "dir:guides/topic-01",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1952
+        }
+      },
+      {
+        "topic": "dir:guides/topic-02",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1948
+        }
+      },
+      {
+        "topic": "dir:guides/topic-03",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1949
+        }
+      },
+      {
+        "topic": "dir:guides/topic-04",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1949
+        }
+      },
+      {
+        "topic": "dir:guides/topic-05",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1944
+        }
+      },
+      {
+        "topic": "dir:guides/topic-06",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1949
+        }
+      },
+      {
+        "topic": "dir:guides/topic-07",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1947
+        }
+      },
+      {
+        "topic": "dir:guides/topic-08",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1945
+        }
+      },
+      {
+        "topic": "dir:guides/topic-09",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1947
+        }
+      },
+      {
+        "topic": "dir:guides/topic-10",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1946
+        }
+      },
+      {
+        "topic": "dir:guides/topic-11",
+        "routes": 40,
+        "documents": 20,
+        "rendered_topic": {
+          "characters": 2861,
+          "utf8_bytes": 2861,
+          "estimated_tokens": 716,
+          "o200k_base_tokens": 756
+        },
+        "serialized_view": {
+          "characters": 7274,
+          "utf8_bytes": 7274,
+          "estimated_tokens": 1819,
+          "o200k_base_tokens": 1946
+        }
+      }
+    ]
+  },
+  "passed": true,
+  "temporary_vault_removed": true
+}
