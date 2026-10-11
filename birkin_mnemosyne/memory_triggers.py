@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from typing import Final
 
-from .mnemosyne import tokenize
+from .mnemosyne import expansion_weights, tokenize
 
 
 class MemoryIndexError(ValueError):
@@ -70,14 +72,45 @@ def _terms(text: str) -> set[str]:
     return result
 
 
+GENERIC_ACTION_TERMS: Final = frozenset(_terms(
+    "check checking work working do doing write writing open opening "
+    "update updating answer answering report reporting launch launching "
+    "resume resuming choose choosing pick picking use using handle handling "
+    "post posting send sending format formatting decide deciding "
+    "monitor monitoring touch touching deal dealing automate automating"
+))
+TASK_EQUIVALENTS: Final = (
+    ("web", "browser", "website", "site", "webpage"),
+    ("login", "log in", "sign in", "authentication"),
+    ("repository", "repo", "codebase"),
+    ("rollback", "backout", "back out", "revert"),
+)
+
+
 def match_entries(entries: tuple[IndexEntry, ...], task: str) -> tuple[IndexEntry, ...]:
-    """Select every lexical route; never rank, cap, or search document bodies."""
+    """Select lexical subjects; repeated generic actions alone are insufficient."""
     if not task.strip():
         raise MemoryIndexError("task must be a nonempty string")
     normalized, terms = _normalized(task), _terms(task)
+    equivalents = [
+        alias for group in TASK_EQUIVALENTS
+        if any(re.search(r"(?<!\w)" + re.escape(alias) + r"(?!\w)", normalized)
+               for alias in group)
+        for alias in group
+    ]
+    added = expansion_weights({"synonyms": equivalents}, tokenize(task))
+    terms.update(_terms(" ".join(term for term in added if not term.endswith("~"))))
+    trigger_terms = {entry.trigger: _terms(entry.trigger) for entry in entries}
+    frequencies = Counter(
+        term for content in trigger_terms.values() for term in content & GENERIC_ACTION_TERMS
+    )
+    repeated = {term for term, count in frequencies.items() if count > 1}
+    subjects = {
+        trigger: content - repeated or content for trigger, content in trigger_terms.items()
+    }
     return tuple(
         entry for entry in entries
-        if _normalized(entry.trigger) == normalized or _terms(entry.trigger) & terms
+        if _normalized(entry.trigger) == normalized or subjects[entry.trigger] & terms
     )
 
 

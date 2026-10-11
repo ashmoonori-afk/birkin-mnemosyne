@@ -69,18 +69,57 @@ For ASCII alphabetic words, retain the original and add these nonrecursive
 variants when the result has at least four letters: `ies`/`ied` to `y`;
 remove `ing` or `ed`, optionally removing a doubled final consonant from
 `b d g l m n p r t`; remove final `s` except endings `ss`, `us`, and `is`.
-Do not restore silent `e`, infer synonyms, or expand abbreviations.
+Do not restore silent `e` or infer arbitrary synonyms.
+
+Task-side `lexical-v2` expansion supports these bounded technical equivalents:
+
+```text
+web / browser / website / site / webpage
+login / log in / sign in / authentication
+repository / repo / codebase
+rollback / backout / back out / revert
+```
+
+A whole-word contiguous phrase in the normalized original task activates its
+group once. The existing search-time `synonyms` expansion validator/tokenizer
+adds the equivalents; discard synthetic prefix stems and apply the same suffix
+and function-word rules. Literal task terms remain. Stored triggers are not
+rewritten, and expansion is not recursive. There is no model call, dependency,
+body search, ranking or document limit in this rule. Search expansion weights
+do not suppress a selected route: every resulting lexical match is returned.
 
 Select an entry if its complete normalized trigger equals the complete task,
-or if at least one non-function-word token variant intersects. Evaluate every
+or if at least one remaining non-function-word token variant intersects. Evaluate every
 entry; an exact match must not suppress other applicable aliases. A trigger
 containing only function words requires whole-trigger equality.
 
-This is intentionally recall-oriented. Natural trigger sentences often list
+For `lexical-v2`, count term presence across distinct original trigger strings,
+not across their document targets. Exclude a generic-action term from trigger
+selection when it appears in at least two distinct triggers. The fixed action
+vocabulary, expanded with the same suffix rules above, is:
+
+```text
+check checking work working do doing write writing open opening
+update updating answer answering report reporting launch launching
+resume resuming choose choosing pick picking use using handle handling
+post posting send sending format formatting decide deciding
+monitor monitoring touch touching deal dealing automate automating
+```
+
+If exclusion leaves no content terms, retain the original trigger terms.
+Unique action terms and explicit action-only aliases therefore remain usable.
+This operates on registered conditions, not inferred parts of speech: a noun
+such as "shopping" is not removed merely because it ends in `ing`.
+Adding a distinct condition can change action-only selection; duplicating its
+document targets cannot. Register an explicit short alias when a generic action
+alone should select a document.
+
+The remaining ANY rule is recall-oriented. Natural trigger sentences often list
 alternatives; requiring every word would incorrectly turn their alternatives
-into a conjunction. Shared action words can still overmatch. Report extra
+into a conjunction. Shared words can still overmatch. Report extra
 documents as well as misses, and do not claim semantic precision. Matching
-does not interpret negated intent or guarantee synonym-only paraphrases.
+does not interpret negated intent or guarantee paraphrases outside the declared
+equivalence vocabulary. Register explicit aliases for other terminology.
 
 Author triggers with distinctive subjects, tool names, operations, or
 identifiers. Prefer short explicit aliases to vague phrases such as "when
@@ -109,7 +148,7 @@ Assemble sources from one validated index snapshot:
 5. Every distinct matched document body, without a document-count cutoff.
 
 The task receipt is a synthetic source at `.mnemosyne-memory-index/task`.
-It contains version 1, matcher `lexical-v1`, SHA-256 of the exact task,
+It contains version 1, matcher `lexical-v2`, SHA-256 of the exact task,
 the canonical index digest, and every selected `[trigger, document]` pair.
 It binds caching and verification to the task as well as current routing.
 
