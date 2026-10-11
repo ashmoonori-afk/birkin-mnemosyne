@@ -1,4 +1,4 @@
-"""First-run onboarding, checker and splitter for the memory INDEX.
+"""First-run onboarding, checker, splitter and handoff commands for the memory INDEX.
 
 Three commands over one vault:
 
@@ -9,8 +9,15 @@ Three commands over one vault:
 * ``split`` previews a lossless note split by default, or applies it with
   ``--apply``, printing the source digest and the complete coverage table.
 
+The ``handoff`` family adds immutable scoped session memory: ``capture``
+publishes a record from flags or JSON stdin, ``latest`` prints the newest
+capture, ``resume`` prints the complete StartupReader bundle with INDEX and
+latest handoff, ``fold`` previews or applies curation-gated retention, and
+``undo`` restores one fold through the checked journal.
+
 Invalid input, reads, and migrations surface as a clear stderr message and
-exit status 2; a failed ``check`` exits 1. Nothing else is caught.
+exit status 2; a failed ``check`` exits 1 and an absent latest handoff
+exits 1. Nothing else is caught.
 """
 
 from __future__ import annotations
@@ -21,6 +28,8 @@ import sys
 from dataclasses import asdict
 from io import TextIOWrapper
 
+from .handoff_cli import HandoffArguments, add_handoff_parser, run_handoff
+from .handoff_records import HandoffError
 from .memory_index import MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import format_coverage, split_note
@@ -32,7 +41,7 @@ from .startup import StartupError
 INVALID_EXIT = 2
 
 
-class _Arguments(argparse.Namespace):
+class _Arguments(HandoffArguments):
     """Typed parse result; attribute defaults mirror the parser defaults."""
 
     vault: str | None = None
@@ -70,11 +79,12 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = split.add_argument(
         "--max-tokens", type=int, default=None, help="INDEX budget to enforce while registering",
     )
+    add_handoff_parser(commands)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    for stream in (sys.stdout, sys.stderr):
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
         if isinstance(stream, TextIOWrapper):
             stream.reconfigure(encoding="utf-8")
     parser = _build_parser()
@@ -86,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("supply --vault only once")
         args.vault = args.init_vault or args.vault or "."
     elif args.vault is None:
-        parser.error("--vault is required for check and split")
+        parser.error("--vault is required for check, split and handoff")
     assert args.vault is not None
     try:
         if args.command == "init":
@@ -100,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
             payload["ok"] = checked.ok
             print(json.dumps(payload, ensure_ascii=False))
             return 0 if checked.ok else 1
+        if args.command == "handoff":
+            return run_handoff(args, arguments, parser)
 
         assert args.note is not None
         report = split_note(args.vault, args.note, apply=args.apply,
@@ -113,7 +125,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"receipt: {report.coverage_receipt}")
             print(f"journal: {report.backup_journal}")
         return 0
-    except (MemoryIndexError, ReviewError, StartupError, OSError, UnicodeError) as exc:
+    except (HandoffError, MemoryIndexError, ReviewError, StartupError,
+            OSError, UnicodeError) as exc:
         print(f"{parser.prog}: {exc}", file=sys.stderr)
         return INVALID_EXIT
 
