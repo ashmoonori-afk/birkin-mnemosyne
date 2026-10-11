@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from collections.abc import Callable
+from dataclasses import asdict
 from pathlib import Path
-from typing import Final, TypeAlias, TypedDict
+from typing import Final, Literal, TypeAlias, TypedDict
 
 from birkin_mnemosyne.frontmatter import parse
+from birkin_mnemosyne.handoff_records import HandoffError, HandoffReceipt
+from birkin_mnemosyne.handoff_session import HandoffSession
+from birkin_mnemosyne.handoff_transcript import JsonValue as Json
+from birkin_mnemosyne.handoffs import HandoffStore
+from birkin_mnemosyne.hermes_schema import tool_schemas
 from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
 from birkin_mnemosyne.startup import StartupReader
 
-Json: TypeAlias = str | int | float | bool | None | list["Json"] | dict[str, "Json"]
 
 
 ToolArguments: TypeAlias = dict[str, Json]
@@ -66,6 +72,8 @@ _INDEX_ROUTING: Final = (
     "birkin_memory_search."
 )
 
+logger = logging.getLogger(__name__)
+
 
 class VaultProvider:
     """Mutable session state; a lock serializes this instance's index and writes."""
@@ -73,6 +81,7 @@ class VaultProvider:
     def __init__(self) -> None:
         self._memory: VaultMemory | None = None
         self._index: MemoryIndex | None = None
+        self._handoffs: HandoffSession | None = None
         self._context: str = "primary"
         self._lock: threading.RLock = threading.RLock()
 
@@ -84,16 +93,58 @@ class VaultProvider:
         return True
 
     def initialize(self, session_id: str, **context: Json) -> None:
-        del session_id  # Durable notes belong to the profile, not one session.
         home = _text(context.get("hermes_home"), "hermes_home", 4096, single_line=True)
         require_index = context.get("require_memory_index", False)
         if type(require_index) is not bool:
             raise InvalidArgument("require_memory_index", "must be a boolean")
+        agent_context = _text(context.get("agent_context", "primary"), "agent_context", 64)
+        vault = Path(home) / "birkin-mnemosyne" / "vault"
+        try:
+            handoffs = HandoffSession.from_context(HandoffStore(vault), session_id, context)
+        except HandoffError as exc:
+            raise InvalidArgument("scope", str(exc)) from exc
+        memory = VaultMemory({"vault_path": str(vault)})
+        index = MemoryIndex(vault, required=require_index)
         with self._lock:
-            self._context = _text(context.get("agent_context", "primary"), "agent_context", 64)
-            vault = Path(home) / "birkin-mnemosyne" / "vault"
-            self._memory = VaultMemory({"vault_path": str(vault)})
-            self._index = MemoryIndex(vault, required=require_index)
+            self._context = agent_context
+            self._memory, self._index, self._handoffs = memory, index, handoffs
+
+    def _capture(
+        self, messages: list[dict[str, Json]], event: Literal["pre-compress", "session-end"],
+    ) -> HandoffReceipt | None:
+        with self._lock:
+            if self._handoffs is None or self._memory is None:
+                return None
+            try:
+                return self._handoffs.capture(messages, event, primary=self._context == "primary")
+            except HandoffError as exc:
+                logger.warning("hermes handoff capture skipped: %s", exc)
+                return None
+
+    def on_pre_compress(self, messages: list[dict[str, Json]]) -> str:
+        """Persist a pre-compression checkpoint; its JSON receipt or '' when
+        nothing was durably written (v1 best-effort)."""
+        receipt = self._capture(messages, "pre-compress")
+        if receipt is None:
+            return ""
+        return json.dumps(asdict(receipt), ensure_ascii=False)
+
+    def on_session_end(self, messages: list[dict[str, Json]]) -> None:
+        """Persist a session-end checkpoint with its own event marker."""
+        _ = self._capture(messages, "session-end")
+
+    def on_session_switch(
+        self, new_session_id: str, *, parent_session_id: str = "",
+        reset: bool = False, rewound: bool = False, **context: Json,
+    ) -> None:
+        del parent_session_id, reset, rewound
+        with self._lock:
+            agent_context = _text(context.get("agent_context", self._context), "agent_context", 64)
+            try:
+                handoffs = self._handoffs.switched(new_session_id, context) if self._handoffs else None
+            except HandoffError as exc:
+                raise InvalidArgument("scope", str(exc)) from exc
+            self._context, self._handoffs = agent_context, handoffs
 
     def system_prompt_block(self) -> str:
         with self._lock:
@@ -106,54 +157,7 @@ class VaultProvider:
         return f"{_PROMPT}\n\n{index_context}{_INDEX_ROUTING}\n"
 
     def get_tool_schemas(self) -> list[ToolSchema]:
-        title: dict[str, Json] = {"type": "string", "minLength": 1, "maxLength": 200}
-        return [
-            {
-                "name": "birkin_memory_remember",
-                "description": "Create a durable local note without overwriting an existing title.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": title,
-                        "body": {"type": "string", "minLength": 1, "maxLength": 50000},
-                    },
-                    "required": ["title", "body"],
-                    "additionalProperties": False,
-                },
-            },
-            {
-                "name": "birkin_memory_search",
-                "description": "Recall local notes by multilingual lexical keywords.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "minLength": 1, "maxLength": 500},
-                        "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 8},
-                    },
-                    "required": ["query"],
-                    "additionalProperties": False,
-                },
-            },
-            {
-                "name": "birkin_memory_index",
-                "description": "Read the complete resident INDEX or expand one complete topic.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"topic": {"type": ["string", "null"]}},
-                    "additionalProperties": False,
-                },
-            },
-            {
-                "name": "birkin_memory_get_note",
-                "description": "Read a local note by title/slug or an exact registered INDEX path.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"title": {"type": "string", "minLength": 1}},
-                    "required": ["title"],
-                    "additionalProperties": False,
-                },
-            },
-        ]
+        return tool_schemas()
 
     def handle_tool_call(self, tool_name: str, args: ToolArguments, **context: Json) -> str:
         handlers: dict[str, Callable[[VaultMemory, ToolArguments], ToolResponse]] = {
@@ -238,10 +242,14 @@ class VaultProvider:
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
         del session_id
-        if not query.strip():
-            return ""
         with self._lock:
             if self._memory is None:
+                return ""
+            if self._handoffs is not None:
+                context = self._handoffs.prefetch(query)
+                if context is not None:
+                    return context
+            if not query.strip():
                 return ""
             if self._index is not None and self._index.read().enabled:
                 result = StartupReader(self._memory.vault, require_index=True).read([], task=query)
@@ -255,3 +263,4 @@ class VaultProvider:
         with self._lock:
             self._memory = None
             self._index = None
+            self._handoffs = None

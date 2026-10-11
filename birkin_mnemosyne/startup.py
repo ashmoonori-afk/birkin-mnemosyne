@@ -1,17 +1,21 @@
-"""Lossless startup bundles: every source line, fresh SHA checks, no semantic cuts."""
+"""Lossless startup bundles: every source line, fresh SHA checks, no semantic cuts.
+
+A project/task scope additionally seeds the latest active handoff capture and a
+synthetic scope receipt under the vault-before-reader lock ordering, then
+verifies them like every other source byte.
+"""
 
 from __future__ import annotations
 
 import json
-import re
 import threading
-from collections.abc import Callable, Generator, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
 from pathlib import Path
 from typing import TypeAlias
 
-from .identity_reader import parse_sections
+from .handoff_records import HandoffError, HandoffNote, HandoffScope
+from .handoffs import HandoffStore
 from .memory_index import (
     INDEX_DIRECTORY,
     INDEX_SOURCE,
@@ -22,21 +26,19 @@ from .memory_index import (
 from .memory_index_views import render_index_view, topic_for_document
 from .memory_triggers import match_entries
 from .startup_coverage import (
-    BlockRecord,
     Coverage,
     FileRecord,
-    StartupPayload,
-    block_anchor,
     digest,
     verify_context,
+)
+from .startup_coverage import StartupError as StartupError
+from .startup_sources import active_lines as active_lines, source_blocks as source_blocks, references
+from .startup_handoffs import (
+    HANDOFF_SCOPE_SOURCE, handoff_scope, handoff_receipt, handoff_warnings, scope_manager,
 )
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 _json: Callable[[str], JsonValue] = json.loads
-
-
-class StartupError(ValueError):
-    """A complete startup claim cannot be made."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,163 +58,13 @@ def _include_source(sources: dict[str, bytes], path: str, data: bytes) -> None:
     sources[path] = data
 
 
-def active_lines(text: str) -> Generator[str, None, None]:
-    """Outside-fence lines for literal declarations, never for coverage filtering."""
-    fence, width = "", 0
-    for line in text.removeprefix("\ufeff").splitlines():
-        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
-        if marker:
-            run, rest = marker.groups()
-            if not fence:
-                fence, width = run[0], len(run)
-            elif run[0] == fence and len(run) >= width and not rest.strip():
-                fence = ""
-            continue
-        if not fence:
-            yield line
-
-
-def _json_object(members: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
-    value: dict[str, JsonValue] = {}
-    for name, member in members:
-        if name in value:
-            raise ValueError(f"duplicate JSON member: {name}")
-        value[name] = member
-    return value
-
-
-def _json_constant(value: str) -> JsonValue:
-    raise ValueError(f"non-JSON constant: {value}")
-
-
-_startup_json: Callable[[str], JsonValue] = json.JSONDecoder(
-    object_pairs_hook=_json_object, parse_constant=_json_constant,
-).decode
-
-
-def _references(path: str, text: str) -> tuple[str, ...]:
-    if path.lower().endswith(".json"):
-        try:
-            value = _startup_json(text.removeprefix("\ufeff"))
-        except ValueError as exc:
-            raise StartupError(f"invalid JSON startup file: {path}") from exc
-        match value:
-            case dict():
-                declared = value.get("must_read", [])
-                match declared:
-                    case list():
-                        if any(not isinstance(ref, str) for ref in declared):
-                            raise StartupError("JSON must_read requires local path strings")
-                        return tuple(str(ref) for ref in declared)
-                    case _:
-                        raise StartupError("JSON must_read requires an array")
-            case _:
-                return ()
-    refs: list[str] = []
-    for line in active_lines(text):
-        match = re.fullmatch(r" {0,3}(?:-\s*)?MUST READ:\s*(.*?)\s*", line, re.IGNORECASE)
-        if match:
-            reference = match.group(1).strip("`\"'")
-            if not reference:
-                raise StartupError("MUST READ requires a local path")
-            refs.append(reference)
-    return tuple(refs)
-
-
-def source_blocks(path: str, data: bytes) -> list[BlockRecord]:
-    """Return every source byte with its explicit line and byte coordinates."""
-    text = data.decode("utf-8")
-    lines = text.splitlines(keepends=True)
-    offsets = [0]
-    for line in lines:
-        offsets.append(offsets[-1] + len(line.encode("utf-8")))
-    sections = parse_sections(text, startup_labels=True)
-    spans: list[tuple[int, int, str, int]] = []
-    cursor = 0
-    for section in sections:
-        begin, end = section.line_start - 1, section.line_end
-        if begin > cursor:
-            spans.append((cursor, begin, "Source preamble", 0))
-        spans.append((begin, end, section.heading, section.level))
-        cursor = end
-    if cursor < len(lines) or not spans:
-        spans.append((cursor, len(lines), "Source remainder", 0))
-    records: list[BlockRecord] = []
-    revision = digest(data)
-    for begin, end, heading, _ in spans:
-        start_byte, end_byte = offsets[begin], offsets[end]
-        raw = data[start_byte:end_byte]
-        records.append({
-            "path": path, "anchor": block_anchor(path, revision, start_byte, end_byte),
-            "start_byte": start_byte, "end_byte": end_byte,
-            "start_line": begin + 1 if data else 0, "end_line": end,
-            "sha256": digest(raw), "text": raw.decode("utf-8"),
-            "heading": heading, "state": "source", "must_read": True,
-        })
-    groups: list[list[BlockRecord]] = []
-    units: list[tuple[bool, list[BlockRecord]]] = []
-    note_level: int | None = None
-    for record, (_, _, _, level) in zip(records, spans):
-        if record["heading"].upper().startswith("TOP NOTE"):
-            groups.append([record])
-            units.append((True, groups[-1]))
-            note_level = level
-        elif note_level is not None and level > note_level:
-            groups[-1].append(record)
-        else:
-            units.append((False, [record]))
-            note_level = None
-    if not groups:
-        return records
-    dates: list[datetime | None] = []
-    precisions: set[int] = set()
-    for group in groups:
-        stamp = re.search(
-            r"(?<!\w)(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?Z)?)(?![\w:+-])",
-            group[0]["heading"],
-        )
-        value = stamp.group(1) if stamp else ""
-        parsed = None
-        if value:
-            try:
-                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            except ValueError:
-                pass
-            precisions.add(len(value))  # Date, UTC minute, or UTC second precision.
-        dates.append(parsed)
-    if all(date is not None for date in dates) and len(set(dates)) == len(dates) and \
-            len(precisions) == 1:
-        timestamps = {
-            group[0]["anchor"]: date for group, date in zip(groups, dates)
-            if date is not None
-        }
-        begin = 0
-        while begin < len(units):
-            if not units[begin][0]:
-                begin += 1
-                continue
-            end = begin + 1
-            while end < len(units) and units[end][0]:
-                end += 1
-            units[begin:end] = sorted(
-                units[begin:end], key=lambda unit: timestamps[unit[1][0]["anchor"]],
-                reverse=True,
-            )
-            begin = end
-    superseded = {
-        line.partition(":")[2].strip().casefold()
-        for group in groups for record in group for line in active_lines(record["text"])
-        if line.strip().casefold().startswith("supersedes:")
-    }
-    for group in groups:
-        if group[0]["heading"].casefold() in superseded:
-            for record in group:
-                record["state"] = "explicitly-superseded"
-    return [record for _, unit in units for record in unit]
-
-
 class StartupReader:
-    """Bounded derived cache; every call rereads all local source bytes."""
+    """Bounded derived cache; every call rereads all local source bytes.
+
+    A project/task scope additionally seeds the latest active handoff capture
+    and its binding receipt from the memory INDEX root, under the
+    vault-before-reader lock ordering.
+    """
 
     def __init__(self, root: str | Path, *, memory_index_root: str | Path | None = None,
                  require_index: bool = False) -> None:
@@ -224,12 +76,28 @@ class StartupReader:
         self._lock: threading.RLock = threading.RLock()
         self._key: tuple[tuple[str, str], ...] = ()
         self._context: str = ""
+        self._handoffs: HandoffStore | None = None
+
+    def _handoff_store(self) -> HandoffStore:
+        """Disk-backed store rooted at the memory INDEX root, never identity."""
+        if self._handoffs is None:
+            self._handoffs = HandoffStore(self.memory_index.root)
+        return self._handoffs
 
     def _sources(
-        self, paths: Sequence[str], task: str | None,
-    ) -> tuple[dict[str, bytes], tuple[IndexEntry, ...]]:
+        self, paths: Sequence[str], task: str | None, scope: HandoffScope | None,
+    ) -> tuple[dict[str, bytes], tuple[IndexEntry, ...], HandoffNote | None]:
         if isinstance(paths, str):
             raise StartupError("supply a nonempty list of startup paths")
+        handoff: HandoffNote | None = None
+        if scope is not None:
+            store = self._handoff_store()
+            try:
+                handoff = store.latest(scope)
+                if handoff is not None or store.settings().enabled:
+                    self.memory_index.required = True
+            except HandoffError as exc:
+                raise StartupError(str(exc)) from exc
         index = self.memory_index.read()
         if not paths and not index.enabled:
             raise StartupError("supply a nonempty list of startup paths")
@@ -244,6 +112,11 @@ class StartupReader:
         )
         if sum(len(data) for data in sources.values()) > 1_048_576:
             raise StartupError("complete memory INDEX exceeds the startup byte budget")
+        if scope is not None:
+            if handoff is not None:
+                _include_source(sources, handoff.path, handoff.raw)
+            _include_source(sources, HANDOFF_SCOPE_SOURCE,
+                            handoff_receipt(scope, handoff))
         if task is not None:
             receipt = {
                 "version": 1, "matcher": "lexical-v2",
@@ -269,7 +142,7 @@ class StartupReader:
                 data = handle.read(1_048_577)
             _include_source(sources, relative, data)
             text = data.decode("utf-8")
-            for reference in _references(relative, text):
+            for reference in references(relative, text):
                 pending.append(path.parent / reference)
         if index.mode == "grouped" and matches:
             selected_topics = {topic_for_document(entry.document) for entry in matches}
@@ -289,14 +162,18 @@ class StartupReader:
             with path.open("rb") as handle:
                 data = handle.read(1_048_577)
             _include_source(sources, label, data)
-        return sources, matches
+        return sources, matches, handoff
 
-    def read(self, paths: Sequence[str], *, task: str | None = None) -> StartupBundle:
+    def read(
+        self, paths: Sequence[str], *, task: str | None = None,
+        project_key: str | None = None, task_key: str | None = None,
+    ) -> StartupBundle:
         """Return all material or raise; verify final context against fresh source bytes."""
         from .memory_index_integrity import consistency_warnings
 
-        with self._lock:
-            sources, matches = self._sources(paths, task)
+        scope = handoff_scope(project_key, task_key)
+        with scope_manager(self.memory_index.root, scope), self._lock:
+            sources, matches, handoff = self._sources(paths, task, scope)
             key = tuple((path, digest(data)) for path, data in sources.items())
             hit = key == self._key and bool(self._context)
             if not hit:
@@ -305,34 +182,51 @@ class StartupReader:
                     "lines": len(data.decode("utf-8").splitlines(keepends=True)),
                 } for path, data in sources.items()]
                 blocks = [block for path, data in sources.items() for block in source_blocks(path, data)]
-                payload: StartupPayload = {
+                payload: dict[str, object] = {
                     "version": 1, "complete": True, "files": files, "blocks": blocks,
                 }
-                self._context = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+                if scope is not None:
+                    payload["handoff_path"] = (
+                        handoff.path if handoff is not None else None)
+                    payload["handoff_tokens"] = (
+                        estimated_tokens(handoff.raw.decode("utf-8"))
+                        if handoff is not None else 0)
+                self._context = json.dumps(
+                    payload, ensure_ascii=False, separators=(",", ":"))
                 self._key = key
+            warnings = (
+                *consistency_warnings(self.memory_index),
+                *handoff_warnings(
+                    self._handoff_store() if scope is not None else None, handoff),
+            )
             coverage = replace(
                 verify_context(self._context, sources),
-                warnings=consistency_warnings(self.memory_index),
+                warnings=warnings,
             )
             if not coverage.complete:
                 raise StartupError("returned startup context failed byte/line coverage")
-            return StartupBundle(self._context, coverage, hit, estimated_tokens(self._context), matches)
+            return StartupBundle(
+                self._context, coverage, hit, estimated_tokens(self._context), matches)
 
     def verify(
         self, context: str, paths: Sequence[str], *, task: str | None = None,
+        project_key: str | None = None, task_key: str | None = None,
     ) -> Coverage:
         """Independently read the requested closure; reject altered/missing/foreign blocks."""
         from .memory_index_integrity import consistency_warnings
 
-        with self._lock:
-            sources, _ = self._sources(paths, task)
+        scope = handoff_scope(project_key, task_key)
+        with scope_manager(self.memory_index.root, scope), self._lock:
+            sources, _, _ = self._sources(paths, task, scope)
             coverage = replace(
                 verify_context(context, sources),
                 warnings=consistency_warnings(self.memory_index),
             )
             if not coverage.complete:
                 return coverage
-            expected = self.read(paths, task=task).context
+            expected = self.read(
+                paths, task=task, project_key=project_key, task_key=task_key,
+            ).context
             if _json(context) != _json(expected):
                 return Coverage(False, coverage.files, coverage.lines, coverage.bytes,
                                 ("derived-index-or-order",), coverage.warnings)

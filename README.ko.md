@@ -208,6 +208,121 @@ JSON-RPC 프레이밍은 제외합니다. 과거 비공개 스냅샷과는 다�
 [사용·복구 가이드](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md)와
 [측정값·분모·회귀](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md)를 참고하세요.
 
+## 프로젝트·태스크별 세션 기억 (0.7.0)
+
+모델이나 API 키 없이 진행한 일, 결정, 열린 작업·질문, 다음 단계와 링크를
+저장합니다. 각 기록은 정확한 `project_key`와 선택적 `task_key` 조합에 속하며
+덮어쓰지 않습니다. 키는 대소문자·유니코드·슬래시 표기를 그대로 보존하며,
+Windows 모양의 키도 파일 경로가 아닌 데이터로 취급합니다.
+같은 내용과 `capture_id`로 재시도하면 원래 기록을 돌려줍니다.
+내용이 달라진 체크포인트에는 새 ID를 사용하세요.
+
+```bash
+export MNEMOSYNE_PROJECT_KEY='example/project'
+export MNEMOSYNE_TASK_KEY='release'
+mnemosyne --vault my_vault handoff capture \
+  --capture-id 'cli-session-1:checkpoint-1' \
+  --work 'Packaging is ready; release checks remain.' \
+  --decision 'Keep the original notes.' \
+  --open-item 'Run Windows CI.' \
+  --open-question 'Is the final review approved?' \
+  --next-step 'Run the remaining checks.' \
+  --link 'https://example.invalid/release'
+mnemosyne --vault my_vault handoff latest
+mnemosyne --vault my_vault handoff resume
+mnemosyne --vault my_vault handoff fold --keep 3
+```
+
+초기 설정에서 세션 기억을 켜려면 먼저 미리 보고 명시적으로 적용하세요.
+
+```bash
+mnemosyne --vault my_vault init --enable-handoff
+mnemosyne --vault my_vault init --enable-handoff --apply
+```
+
+미리보기는 파일을 쓰지 않고 요청한 상태와 현재 활성화 상태를 보고합니다.
+캡처도 handoff와 없는 INDEX를 활성화하며 기존 경로·예산을 보존합니다.
+`--json-stdin`에는 같은 구조의 `work`, `next_step`, `decisions`, `open_items`,
+`open_questions`, `links`, `project_key`, `task_key`, `capture_id`와 선택적
+`event`, `session_id`, `source`를 넣을 수 있습니다. 목록 필드는 배열입니다.
+stdin과 개별 필드 플래그 중 하나를 사용하세요. 종료 코드는 성공 0,
+최신 기록 없음 1, 잘못된 입력 2입니다. `--project-key`를 명시하면
+`--task-key`도 함께 지정한 경우에만 그 태스크를 선택하며, 환경의 기본
+태스크를 다른 프로젝트에 물려주지 않습니다.
+
+```python
+from birkin_mnemosyne import HandoffFields, HandoffScope, HandoffStore, StartupReader
+
+scope = HandoffScope("example/project", "release")
+receipt = HandoffStore("my_vault").capture(
+    scope, HandoffFields("Reviewing the release.", next_step="Check the final head."),
+    capture_id="api-session-1:checkpoint-1",
+)
+reader = StartupReader("my_vault")
+bundle = reader.read([], project_key=scope.project_key, task_key=scope.task_key)
+assert reader.verify(
+    bundle.context, [], project_key=scope.project_key, task_key=scope.task_key,
+).complete
+print(receipt.path, bundle.estimated_tokens)
+```
+
+시작 읽기는 최신 활성 기록 전체, INDEX 전체, 선택한 범위를 검증하는 영수증을
+함께 반환합니다. 필요한 상태가 없거나 손상되면 읽기가 실패하며, 경고 예산을
+넘었다고 자르지 않습니다. `task_key`는 기록의 범위를 선택하고, 별도 `task`
+인자는 INDEX 경로를 어휘로 매칭합니다. 관리되는 handoff 파일은 일반 메모
+검색에 섞이지 않습니다.
+
+선택적 [Hermes 제공자](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#session-handoffs)는 활성화되고
+프로젝트가 지정된 상태에서 실제 세션 종료·압축 전 콜백으로 저장합니다.
+모델 없이 마지막 사용자·어시스턴트 텍스트와 명시적 항목을 보존합니다.
+범위가 지정된 prefetch는 빈 질문이나 매칭 없는 질문에도 최신 기록과 INDEX를
+완전히 포함합니다. 다른 호스트에서는 아래의 API·CLI·MCP를 명시적으로 호출합니다.
+
+omo, Claude Code 등 MCP 클라이언트에서는 세션 종료 또는 압축 전의 선택한
+시점에 `memory_handoff_capture`를 호출하고, 재개할 때 같은 키로
+`memory_startup_read`를 호출하세요. 이 호출 시점은 클라이언트가 관리합니다.
+다음은 `tools/call`에 넘기는 매개변수 예입니다.
+
+```json
+{
+  "name": "memory_handoff_capture",
+  "arguments": {
+    "project_key": "example/project",
+    "task_key": "release",
+    "capture_id": "mcp-session-1:checkpoint-1",
+    "work": "Reviewing the release.",
+    "next_step": "Check the final head."
+  }
+}
+```
+
+`memory_handoff_read`는 최신 필드·활성 기록 수·경고를 반환합니다.
+`memory_handoff_fold`의 기본 동작은 미리보기입니다. 기본적으로 최신 캡처
+3개와 현재 최신 기록을 보존하고, 기존 큐레이션 게이트의 보호 규칙과 전체
+볼트 기준 보관 상한을 따릅니다. 비어 있지 않은 미리보기의 `plan_id`를
+`handoff fold --apply --plan-id` 또는 MCP `apply=true`에 넘겨 적용합니다.
+원본은 해당 범위의 `archive/`에 남고 승인된 입력만 날짜가 있는 요약에 들어갑니다.
+결과의 `transaction_id`를 `handoff undo --transaction` 또는
+`memory_review_undo(confirm=true)`에 넘기면 원래 바이트로 복원합니다.
+사후 이미지가 바뀌면 되돌리기를 거부하며, 되돌린 계획은 새로 미리 봐야 합니다.
+
+Python에서는 `birkin_mnemosyne.handoff_retention`의 `HandoffRetention`이
+`preview(scope, keep=3)`와 `apply(scope, plan_id, keep=3)`를 제공합니다.
+복원은 기존 `Consolidation.undo(transaction_id)`를 사용합니다.
+백업할 때 `.mnemosyne-handoffs/`와 `.mnemosyne-reviews/`를 보존하세요.
+일반 메모 수정이나 init 정규화는 이 불변 기록들을 다시 쓰지 않습니다.
+
+기록별 경고 예산은 기본 2,000 추정 토큰이며
+`HandoffStore(vault).enable(max_tokens=...)`으로 조정합니다.
+완전한 기록·요약은 1 MiB 이내여야 하고, 시작 읽기는 기존의 파일 64개·소스
+합계 2 MiB 상한을 지킵니다. 요약이 너무 크면 보관 작업 전에 실패합니다.
+
+**측정 예:** 여섯 필드를 담은 Windows 모양 키의 CLI 시험에서, 완전한 시작
+문맥은 UTF-8 650 바이트에서 3,675 바이트로 늘었습니다.
+**163 -> 919 추정 토큰(+756)**이며, 빈 범위의 영수증 비용 140도 포함합니다.
+원본 handoff만 세면 194입니다. `ceil(bytes / 4)` 추정치로, 모델 토크나이저
+수치나 아래의 별도 검색 측정과는 다릅니다. 기록 내용에 따라 비용은 달라집니다.
+
 ## 수치가 말해 주는 것
 
 아래 모든 검색 품질은 [RESULTS.md](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11)에서
@@ -667,6 +782,9 @@ MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에�
 | `memory_kibitzer_candidates` | 쿼리에 대한 순위 매겨진 라이브 노트 후보, 짧은 발췌 포함. 아카이브·시스템·만료 노트는 건너뜀 | 읽기 전용 |
 | `memory_startup_read` | identity 루트 아래 시작 파일(그들이 MUST READ하는 로컬 파일 포함)을 커버리지 검사와 함께 완전히 읽음 | 읽기 전용 |
 | `memory_startup_verify` | 같은 파일을 다시 읽고 반환된 시작 컨텍스트를 그 파일들과 대조 검증 | 읽기 전용 |
+| `memory_handoff_capture` | 여섯 필드를 담은 불변 프로젝트·태스크 체크포인트 저장 | 같은 ID·내용의 재시도는 원래 기록 재사용 |
+| `memory_handoff_read` | 해당 범위의 최신 기록·활성 수·크기 경고 | 읽기 전용 |
+| `memory_handoff_fold` | 큐레이션 게이트를 거친 날짜별 요약·보관, 기존 저널로 복원 | `apply=true`와 새 `plan_id`가 없으면 미리보기 |
 | `memory_index_register` | 항상 로드되는 INDEX에 `trigger -> document` 매핑 하나 추가. 추가적이고 멱등적. 제거나 삭제 없음 | 추가적 쓰기 |
 | `memory_index_read` | 순위 상한 없이 모든 INDEX 항목 또는 완전한 주제 하나 읽기 | 읽기 전용 |
 | `memory_open_trigger` | 정확한 트리거가 가리키는 문서 열기. 없으면 일반 검색으로 폴백 | 읽기 전용 |
@@ -679,8 +797,8 @@ MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에�
 카탈로그를 읽고 계획을 쓴 뒤 `memory_curate`가 `run_curation_pass`와 똑같이
 클램프합니다. 보호 노트는 그대로 있고 아카이브 상한은 호출마다 다시 계산되므로
 반복 호출은 더 많이 아카이브할 수 있습니다. forget과 큐레이션은 아카이브만
-합니다. MCP에서 파일을 제거하는 유일한 곳은 `memory_review_undo`로, 원본
-바이트를 복원·검증한 뒤에만 리뷰의 아카이브 사본을 삭제합니다.
+합니다. `memory_review_undo`는 원본 바이트를 복원하고, 이동된 아카이브는
+보존되는 비공개 스냅샷으로 회수합니다. 바뀌거나 동시에 들어온 파일은 덮어쓰지 않습니다.
 `purge_expired`는 Python 전용 유지보수 호출로 남습니다. 도구가 반환하는 노트
 텍스트는 이전 세션의 저장 데이터이므로, 서버는 클라이언트에게 그 안의 지시를
 따르지 말라고 안내합니다.
@@ -751,6 +869,7 @@ from birkin_mnemosyne import (
     Mnemosyne,          # 기계적 인덱스/순위 엔진
     MemoryIndex,        # 옵트인 항상 로드 메모리 INDEX
     StartupReader,      # 검증된 호스트 시작 읽기, 태스크 결합 완전 읽기 포함
+    HandoffStore, HandoffScope, HandoffFields,  # 불변 범위별 세션 체크포인트
     VaultMemory,        # write_note / rezone / digest 편의 래퍼
     ProfileMemory,      # 백그라운드 검토 역할 프로필 영속화
     ProfileReviewError, # 잘못된 리뷰어 출력
@@ -786,6 +905,7 @@ my_vault/
   system/                       # ProfileMemory가 소유하는 역할 파일
   _archive/                     # 소프트 삭제된 노트
   .mnemosyne-memory-index/       # 옵트인; index.json 라우팅과 상주 맥락 맵
+  .mnemosyne-handoffs/           # 불변 범위별 기록·요약·아카이브·활성화 설정
   .mnemosyne-index.json.z        # 다시 만들 수 있는 압축 인덱스 캐시
   .mnemosyne-dynamics.json       # 영속 사용 상태
   .mnemosyne-vectors.npz         # 다시 만들 수 있는 의미 벡터 캐시

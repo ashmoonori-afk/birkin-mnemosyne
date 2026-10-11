@@ -11,6 +11,8 @@ from pathlib import Path
 
 from . import frontmatter
 from .consolidation import NoteSnapshot, Question, questions_from_snapshots
+from .handoff_models import HandoffConfig, HandoffError, require_type
+from .handoffs import HandoffStore
 from .memory_index import (
     NOTICE_PREFIX,
     JsonValue,
@@ -52,15 +54,22 @@ class InitPlan:
     questions: tuple[Question, ...]
     questions_truncated: bool
     warnings: tuple[str, ...]
+    enable_handoff: bool
+    handoff_config: HandoffConfig
 
 
 def plan_init(
     root: str | Path, *, import_dir: str | Path | None = None,
-    max_tokens: int | None = None,
+    max_tokens: int | None = None, enable_handoff: bool = False,
 ) -> InitPlan:
     """Capture an offline plan without creating a vault, lock, cache or journal."""
+    try:
+        _ = require_type(enable_handoff, bool, "enable_handoff")
+    except HandoffError as exc:
+        raise MemoryIndexError("enable_handoff must be a boolean") from exc
     index = MemoryIndex(root)
     originals = inventory(index.root)
+    handoff_config = HandoffStore(index.root).settings()
     state = existing_state(index)
     maximum = state.view.max_tokens if max_tokens is None else validate_index_budget(max_tokens)
     sources = {source.path: source for source in originals}
@@ -139,4 +148,5 @@ def plan_init(
     return InitPlan(
         index.root, originals, tuple(notes), tuple(copies), catalogues, tuple(routes),
         state, projected, candidates[:20], len(candidates) > 20, tuple(warnings),
+        enable_handoff, handoff_config,
     )

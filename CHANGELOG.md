@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Pure journal moves and undo preserve late-arriving files and retain checked
+  private snapshots instead of replacing or unlinking an unverified image.
+- Scoped startup requires the INDEX even when a fresh reader has never seen
+  its marker; losing the INDEX cannot silently downgrade a handoff startup.
 - Installed-wheel CLI checks no longer prepend the checkout to subprocess
   imports (#66). Every INDEX CLI test subprocess verifies that its package
   origin matches the parent's interpreter before running the real command,
@@ -17,6 +21,14 @@
 
 ### Added
 
+- Immutable project/task handoff captures through Python, CLI and MCP, with
+  stable checkpoint IDs, complete verified startup delivery and size warnings.
+- Deterministic dated handoff folds through the existing curation gate, with
+  archived originals, preview-bound apply, exact journal undo and checked replay.
+- Opt-in Hermes session-end/pre-compression capture with stable project/task
+  binding and complete scoped prefetch, including empty and unmatched queries.
+- `init --enable-handoff` previews and explicitly enables session memory while
+  retaining existing INDEX routes and handoff budgets.
 - Task-bound startup reads return every lexically matched document in full
   and include complete topic views from one routing snapshot. Managed startup
   verification reports INDEX drift without removing routes.
@@ -35,6 +47,9 @@
 
 ### Documentation
 
+- English and Korean handoff usage, client-managed checkpoint conventions,
+  init enablement, Hermes callbacks, archive recovery and a complete-context
+  startup-cost estimate.
 - English and Korean retrieval, expansion, INDEX, task-read and footprint
   results now share fresh 2026-10-11 measurements with explicit source
   revisions and separate-corpus caveats.

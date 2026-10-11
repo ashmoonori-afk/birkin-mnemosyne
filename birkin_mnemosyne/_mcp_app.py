@@ -21,11 +21,14 @@ from mcp.types import INTERNAL_ERROR, ToolAnnotations
 from pydantic import BaseModel, Field
 
 from . import __version__, frontmatter
+from ._mcp_handoffs import register_handoff_tools
 from .capacity import DEFAULT_BUDGET, CapacityBudget, capacity_report
 from .consolidation import Answer, Choice, Consolidation, NoteSnapshot, RetireChoice
 from .curation import evaluate_plan
 from .curation_contract import PLAN_VERSION, CurationOutcome
 from .curation_prompt import build_plan_prompt, mechanical_catalog
+from .handoff_context import scope_from_defaults
+from .handoff_records import HandoffError
 from .identity_reader import IdentityReader, IdentityReadError
 from .kibitzer import KibitzerAdapter
 from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
@@ -220,6 +223,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     server = MCPServer(name="birkin-mnemosyne", version=__version__,
                        instructions=current_instructions())
+    register_handoff_tools(server, vault)
 
     async def refresh_startup_index(
         ctx: ServerRequestContext[Any, Any], call_next: CallNext,
@@ -831,6 +835,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_startup_read(
         paths: Annotated[list[str], Field(max_length=64)],
         task: str | None = None,
+        project_key: str | None = None,
+        task_key: str | None = None,
     ) -> dict[str, Any]:
         """Complete session-start MODE/handoff/profile/JSON reading, not excerpts.
 
@@ -843,12 +849,19 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         when that INDEX itself provides startup material.
         With task, every lexical INDEX match is read completely from the vault,
         without a ranked cutoff or search fallback. The receipt binds this task.
+        A project_key/task_key scope (or the MNEMOSYNE_PROJECT_KEY/TASK_KEY
+        defaults) additionally seeds the scope's latest active handoff and its
+        binding receipt; an explicit project never inherits a default task.
         """
         try:
-            result = startup.read(paths, task=task)
+            scope = scope_from_defaults(project_key, task_key)
+            result = startup.read(
+                paths, task=task, project_key=scope.project_key if scope else None,
+                task_key=scope.task_key if scope else None,
+            )
         except OSError as exc:
             raise ToolError(_startup_os_error(exc, paths, task_read=task is not None)) from exc
-        except (StartupError, UnicodeError, MemoryIndexError) as exc:
+        except (HandoffError, StartupError, UnicodeError, MemoryIndexError) as exc:
             raise ToolError(str(exc)) from exc
         return {"complete": result.coverage.complete, "context": result.context,
                 "coverage": asdict(result.coverage), "cache_hit": result.cache_hit,
@@ -859,13 +872,19 @@ def create_server(vault: Path, *, evidence_required: bool = False,
     def memory_startup_verify(
         paths: Annotated[list[str], Field(max_length=64)], context: str,
         task: str | None = None,
+        project_key: str | None = None,
+        task_key: str | None = None,
     ) -> dict[str, Any]:
         """Re-read the requested closure and independently verify returned context."""
         try:
-            coverage = startup.verify(context, paths, task=task)
+            scope = scope_from_defaults(project_key, task_key)
+            coverage = startup.verify(
+                context, paths, task=task, project_key=scope.project_key if scope else None,
+                task_key=scope.task_key if scope else None,
+            )
         except OSError as exc:
             raise ToolError(_startup_os_error(exc, paths, task_read=task is not None)) from exc
-        except (StartupError, UnicodeError, MemoryIndexError) as exc:
+        except (HandoffError, StartupError, UnicodeError, MemoryIndexError) as exc:
             raise ToolError(str(exc)) from exc
         return asdict(coverage)
 

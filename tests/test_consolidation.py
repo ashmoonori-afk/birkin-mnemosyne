@@ -159,7 +159,7 @@ def test_undo_refuses_user_edit_without_partial_restore(tmp_path):
     assert images(tmp_path) == before
 
 
-@pytest.mark.parametrize("boundary", ["recovery-phase", "archive-unlink", "final-receipt"])
+@pytest.mark.parametrize("boundary", ["recovery-phase", "archive-detach", "final-receipt"])
 def test_undo_retries_exact_restoration_after_io_failure(tmp_path, monkeypatch, boundary):
     _, service, question = seed(tmp_path)
     before = images(tmp_path)
@@ -169,12 +169,12 @@ def test_undo_retries_exact_restoration_after_io_failure(tmp_path, monkeypatch, 
     journal = tmp_path / receipt.journal_path
     post_images = images(tmp_path)
     archive = tmp_path / "_archive" / Path(question.second.path).name
-    unlink, save = Path.unlink, review_journal._save
+    rename, save = os.rename, review_journal._save
 
-    def failing_unlink(path, *args, **kwargs):
-        if path == archive:
-            raise PermissionError("injected archive unlink failure")
-        return unlink(path, *args, **kwargs)
+    def failing_detach(source, destination, *args, **kwargs):
+        if Path(source) == archive:
+            raise PermissionError("injected archive detachment failure")
+        return rename(source, destination, *args, **kwargs)
 
     def failing_save(path, manifest):
         if boundary == "recovery-phase" or manifest["state"] == "undone" or (
@@ -184,13 +184,13 @@ def test_undo_retries_exact_restoration_after_io_failure(tmp_path, monkeypatch, 
         save(path, manifest)
 
     with monkeypatch.context() as fault:
-        if boundary == "archive-unlink":
-            fault.setattr(Path, "unlink", failing_unlink)
+        if boundary == "archive-detach":
+            fault.setattr(os, "rename", failing_detach)
         else:
             fault.setattr(review_journal, "_save", failing_save)
         with pytest.raises((ReviewError, OSError)):
             service.undo(receipt.transaction_id)
-    if boundary == "archive-unlink":
+    if boundary == "archive-detach":
         assert (tmp_path / question.second.path).read_bytes() == before[question.second.path]
         assert archive.read_bytes() == before[question.second.path]
     elif boundary == "final-receipt":
@@ -211,15 +211,15 @@ def test_recovery_refuses_unrelated_edit_before_any_restoration(tmp_path, monkey
     _, service, question = seed(tmp_path)
     receipt = service.apply(question, Answer(question.id, "merge", "Merged fact."))
     archive = tmp_path / "_archive" / Path(question.second.path).name
-    unlink = Path.unlink
+    rename = os.rename
 
-    def failing_unlink(path, *args, **kwargs):
-        if path == archive:
-            raise PermissionError("injected archive unlink failure")
-        return unlink(path, *args, **kwargs)
+    def failing_detach(source, destination, *args, **kwargs):
+        if Path(source) == archive:
+            raise PermissionError("injected archive detachment failure")
+        return rename(source, destination, *args, **kwargs)
 
     with monkeypatch.context() as fault:
-        fault.setattr(Path, "unlink", failing_unlink)
+        fault.setattr(os, "rename", failing_detach)
         with pytest.raises(ReviewError, match="recovery required") as caught:
             service.undo(receipt.transaction_id)
     assert_vault_relative_journal(caught.value, tmp_path)
