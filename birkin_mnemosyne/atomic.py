@@ -5,10 +5,16 @@ truncated one (temp sibling + ``os.replace``). The data is flushed and
 ``fsync``-ed before the rename, and on POSIX the parent directory is
 ``fsync``-ed afterwards, so the new content survives a power loss wherever the
 OS and filesystem honour ``fsync``. Nothing stronger is promised.
+
+Exclusive creation uses a hard link when supported. Without hard links,
+an exclusive descriptor receives and verifies the copy before success;
+readers may observe that copy in progress. Failed copies are retained,
+because portable filesystems cannot conditionally unlink an owned inode.
 """
 
 from __future__ import annotations
 
+import errno
 import os
 import stat
 import tempfile
@@ -32,6 +38,39 @@ def _read_umask() -> int:
 
 
 _UMASK = _read_umask()
+
+
+class ExclusiveCopyError(OSError):
+    """Exclusive destination creation succeeded but publication is uncertain."""
+
+
+def _copy_exclusive_bytes(path: Path, data: bytes, mode: int) -> None:
+    """Create without overwrite; verify bytes and identity through the owned fd."""
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags, mode)
+    try:
+        with os.fdopen(fd, "rb+", buffering=0) as stream:
+            if os.name != "nt":
+                os.fchmod(stream.fileno(), mode)
+            offset = 0
+            while offset < len(data):
+                written = os.write(stream.fileno(), data[offset:])
+                if written == 0:
+                    raise OSError(errno.EIO, "exclusive copy made no progress")
+                offset += written
+            os.fsync(stream.fileno())
+            _ = stream.seek(0)
+            if stream.read() != data:
+                raise OSError(errno.EIO, "exclusive copy bytes changed")
+            owned, current = os.fstat(stream.fileno()), path.lstat()
+            if stat.S_ISLNK(current.st_mode) or (
+                owned.st_dev, owned.st_ino
+            ) != (current.st_dev, current.st_ino):
+                raise OSError(errno.EIO, "exclusive copy destination changed")
+    except OSError as exc:
+        raise ExclusiveCopyError(
+            exc.errno, "exclusive copy incomplete or changed", str(path),
+        ) from exc
 
 
 def _replace_with_retry(
@@ -105,7 +144,13 @@ def _write(
         if create:
             if os.name != "nt":
                 os.chmod(tmp, mode if mode is not None else 0o666 & ~_UMASK)
-            os.link(tmp, path)
+            try:
+                os.link(tmp, path)
+            except OSError as exc:
+                if exc.errno not in {errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS} and \
+                        getattr(exc, "winerror", None) not in {1, 50}:
+                    raise
+                _copy_exclusive_bytes(path, tmp.read_bytes(), stat.S_IMODE(tmp.stat().st_mode))
             tmp.unlink()
             sync_directory(path.parent)
         else:
@@ -129,5 +174,5 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
 
 
 def atomic_create_bytes(path: Path, data: bytes, *, mode: int | None = None) -> None:
-    """Publish complete bytes exclusively; never overwrite an existing path."""
+    """Create exclusively and verify a no-hardlink copy; never overwrite a path."""
     _write(path, data, create=True, mode=mode)
