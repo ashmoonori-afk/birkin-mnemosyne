@@ -190,3 +190,29 @@ class HandoffReceipt:
         if type(self.estimated_tokens) is not int or self.estimated_tokens < 0:
             raise HandoffError("estimated_tokens must be a non-negative integer")
         _strings(self.warnings, "warnings")
+
+
+@dataclass(frozen=True, slots=True)
+class FoldSource:
+    """A retained source image and any reason it was excluded."""
+
+    path: str
+    sha256: str
+    recorded_at: str
+    reason: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class FoldResult:
+    """A deterministic fold preview or its journaled application receipt."""
+
+    plan_id: str
+    accepted: tuple[FoldSource, ...]
+    rejected: tuple[FoldSource, ...]
+    pinned: FoldSource | None
+    summary: str
+    summary_sha256: str
+    plan_archive_cap: int
+    transaction_id: str | None
+    state: Literal["preview", "committed", "idempotent", "noop"]
+    journal_path: str
