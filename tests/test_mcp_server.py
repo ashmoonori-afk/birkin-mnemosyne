@@ -74,6 +74,7 @@ def test_tool_surface_and_annotations(tmp_path):
         "memory_review_questions", "memory_review_apply", "memory_review_undo",
         "memory_identity_read", "memory_kibitzer_candidates",
         "memory_startup_read", "memory_startup_verify", "memory_capacity",
+        "memory_handoff_capture", "memory_handoff_read", "memory_handoff_fold",
         "memory_index_register", "memory_index_read", "memory_open_trigger",
         "memory_index_check", "memory_index_split"}
     for name in ("memory_search", "memory_list", "memory_related",
