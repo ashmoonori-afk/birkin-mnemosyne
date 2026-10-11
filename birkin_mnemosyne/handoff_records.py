@@ -11,7 +11,8 @@ from dataclasses import asdict
 from typing import Final, TypeAlias
 
 from .handoff_models import (
-    HandoffError, HandoffFields, HandoffNote, HandoffReceipt, HandoffRecord, HandoffScope,
+    HandoffConfig, HandoffError, HandoffFields, HandoffNote, HandoffReceipt,
+    HandoffRecord, HandoffScope,
 )
 
 __all__ = [
@@ -25,6 +26,21 @@ _RECORD_KEYS: Final = {
     "event", "session_id", "source", "provenance",
 }
 _FIELDS_KEYS: Final = {"work", "next_step", "decisions", "open_items", "open_questions", "links"}
+
+
+def decode_config(raw: bytes) -> HandoffConfig:
+    """Parse versioned opt-in settings without accepting unknown fields."""
+    try:
+        payload = _load(raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise HandoffError("handoff config is not valid JSON") from exc
+    match payload:
+        case {"version": 1, "enabled": bool() as enabled, "max_tokens": int() as maximum} \
+                if set(payload) == {"version", "enabled", "max_tokens"} and \
+                type(payload["version"]) is int:
+            return HandoffConfig(enabled, maximum)
+        case _:
+            raise HandoffError("handoff config must have version, enabled and max_tokens")
 
 
 def _strings(values: list[JsonValue]) -> tuple[str, ...]:

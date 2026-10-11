@@ -19,6 +19,10 @@ Replacement: TypeAlias = (
 )
 
 
+def test_handoff_error_is_a_value_error() -> None:
+    assert issubclass(HandoffError, ValueError)
+
+
 def _scope(project: str = "mn-070", task: str | None = "handoff") -> HandoffScope:
     return HandoffScope(project, task)
 

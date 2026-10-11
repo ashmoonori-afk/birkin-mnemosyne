@@ -21,6 +21,23 @@ class HandoffError(ValueError):
     """A handoff value or file violates its contract."""
 
 
+@dataclass(frozen=True, slots=True)
+class HandoffConfig:
+    """Vault opt-in and soft budget, independent of any active scope."""
+
+    enabled: bool
+    max_tokens: int
+    version: int = 1
+
+    def __post_init__(self) -> None:
+        if type(self.enabled) is not bool:
+            raise HandoffError("handoff config enabled must be a bool")
+        if type(self.max_tokens) is not int or self.max_tokens < 1:
+            raise HandoffError("handoff config max_tokens must be a positive integer")
+        if type(self.version) is not int or self.version != 1:
+            raise HandoffError("handoff config version must be the integer 1")
+
+
 def _key(value: str | None, name: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise HandoffError(f"{name} must be a nonblank string")

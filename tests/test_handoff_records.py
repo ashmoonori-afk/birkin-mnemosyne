@@ -51,10 +51,6 @@ def _encoded(record: HandoffRecord) -> tuple[bytes, str]:
     return raw, record_filename(record, raw)
 
 
-def test_handoff_error_is_a_value_error() -> None:
-    assert issubclass(HandoffError, ValueError)
-
-
 def test_capture_round_trip_preserves_every_field() -> None:
     rec = _record(provenance=(("memory/policy.md", "ab" * 32),))
     raw, name = _encoded(rec)
