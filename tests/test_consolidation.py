@@ -349,11 +349,14 @@ def test_no_hardlink_merge_rolls_back_before_exclusive_creation_failure(tmp_path
 def test_merge_and_undo_without_hard_links_preserve_exact_images(tmp_path, monkeypatch, survivor):
     # Given captured original notes and no hard-link capability.
     seed(tmp_path)
-    for path in tmp_path.glob("*.md"):
+    for path in tmp_path.rglob("*.md"):
         path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n").rstrip(b"\r\n"))
     service = Consolidation(tmp_path)
     question = service.questions()[0]
     before = images(tmp_path)
+    assert len(before) == 2 and all(
+        b"\r\n" in raw and not raw.endswith(b"\n") for raw in before.values()
+    )
     selected = getattr(question, survivor)
     original_inode = (tmp_path / selected.path).stat().st_ino
 
