@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Installed-wheel CLI checks no longer prepend the checkout to subprocess
+  imports (#66). Every INDEX CLI test subprocess verifies that its package
+  origin matches the parent's interpreter before running the real command,
+  so checkout or working-directory shadow packages fail provenance checks.
 - Review merges and checked undo now work on filesystems without hard links
   (#65). Exclusive copies verify their complete bytes and destination identity
   after file synchronization, retaining original captured inodes and refusing

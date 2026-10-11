@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+import birkin_mnemosyne
 from birkin_mnemosyne import MemoryIndex
 from birkin_mnemosyne.startup_coverage import digest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 ROW = re.compile(r"^\| (\d+) \|")
 
 # Explicit UTF-8 bytes: BOM + CRLF + a unicode heading + a final line with no
@@ -27,11 +28,24 @@ SOURCE = (
 
 
 def run_cli(*args: str, cwd: Path) -> subprocess.CompletedProcess[bytes]:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(REPO_ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+    module_file = birkin_mnemosyne.__file__
+    assert module_file is not None
+    code = """
+import pathlib
+import runpy
+import sys
+import birkin_mnemosyne
+
+expected = pathlib.Path(sys.argv.pop(1)).resolve()
+actual = birkin_mnemosyne.__file__
+if actual is None or pathlib.Path(actual).resolve() != expected:
+    print(f"CLI package origin mismatch: expected {expected}, got {actual}", file=sys.stderr)
+    raise SystemExit(93)
+runpy.run_module("birkin_mnemosyne.memory_index_cli", run_name="__main__", alter_sys=True)
+"""
     return subprocess.run(
-        [sys.executable, "-m", "birkin_mnemosyne.memory_index_cli", *args],
-        cwd=cwd, capture_output=True, env=env, check=False,
+        [sys.executable, "-c", code, str(Path(module_file).resolve()), *args],
+        cwd=cwd, capture_output=True, check=False,
     )
 
 
@@ -147,3 +161,27 @@ def test_coverage_output_is_utf8_even_when_host_encoding_is_ascii(tmp_path, monk
     assert result.returncode == 0, result.stderr
     assert data_rows(result.stdout) == list(
         range(1, len(SOURCE.decode("utf-8").splitlines(keepends=True)) + 1))
+
+
+@pytest.mark.parametrize("poison", ["cwd", "pythonpath"])
+def test_cli_refuses_a_package_origin_different_from_its_interpreter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, poison: str,
+) -> None:
+    # Given a package shadowing the interpreter's package through its search path.
+    shadow = tmp_path / "shadow"
+    package = shadow / "birkin_mnemosyne"
+    package.mkdir(parents=True)
+    _ = (package / "__init__.py").write_text("", encoding="utf-8")
+    _ = (package / "memory_index_cli.py").write_text("raise SystemExit(77)\n", encoding="utf-8")
+    monkeypatch.delenv("CHECKOUT", raising=False)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    if poison == "pythonpath":
+        monkeypatch.setenv("PYTHONPATH", str(shadow))
+    cwd = shadow if poison == "cwd" else tmp_path
+
+    # When the real subprocess resolves a different package before running the CLI.
+    result = run_cli("--vault", str(tmp_path), "check", cwd=cwd)
+
+    # Then provenance fails instead of silently executing the shadow CLI.
+    assert result.returncode == 93, result.stderr
+    assert result.stdout == b""
