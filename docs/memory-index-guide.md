@@ -124,9 +124,13 @@ The existing `open(query, limit=3)` remains an optional ranked lookup.
 
 Matching ignores ordinary function words, uses whole words and conservative
 English variants, and keeps the existing Unicode tokenization without its
-English prefix stems. One shared non-function word can match a route. Use
-distinctive subjects and explicit aliases; this favors recall and can load
-extra documents. It does not infer synonyms or interpret negated intent.
+English prefix stems. `lexical-v2` discounts generic-action terms repeated
+across distinct conditions when subject terms remain, and expands a bounded
+technical equivalence vocabulary on the task side. See the
+[exact matching policy](memory-trigger-design.md#task-matching).
+One remaining content term can match a route. Use distinctive subjects and
+explicit aliases; extra documents can still load. Arbitrary paraphrases and
+negated intent are not inferred.
 
 The bundle includes a receipt bound to the exact task and current routing.
 Verification with another task, changed source bytes, or omitted bodies fails.
@@ -262,6 +266,7 @@ print(check.ok, check.entries, check.documents)
 print(check.orphan_documents)     # visible active .md notes with no INDEX entry
 print(check.dangling_entries)     # entries whose target no longer reads
 print(check.errors)               # coverage-receipt / notice errors
+print(check.warnings)             # human-readable warnings, also in CLI/MCP JSON
 ```
 
 - `orphan_documents` lists visible active Markdown documents with no route;
@@ -272,6 +277,34 @@ print(check.errors)               # coverage-receipt / notice errors
 - `ok` is false when any of the above is present.
 
 The check never repairs or removes anything.
+
+The unreleased `IndexCheck.warnings` reports each missing or unreadable route
+in registration order (including every alias), then each unindexed document
+in sorted path order, then integrity errors. Renaming a document leaves its old
+routes intact: the old target warns and the new document is unindexed unless
+it already has a route. Checks never infer renames or delete entries.
+
+The document scan covers regular `.md` files at every visible path depth
+supported by INDEX routing. It excludes dot-files/directories,
+`_archive`, symlinks, non-Markdown files and transient
+files such as `.md.tmp` or `source.snapshot`. Hidden INDEX state, review journals,
+captured revisions, caches and trash are not orphan candidates. A source
+covered by a valid split receipt is managed and needs no redundant route.
+Explicit routes to other visible file types or deeper paths are still checked
+for readability. No TTL or frontmatter policy narrows this audit.
+
+Startup reads expose the audit in `bundle.coverage.warnings`; independent
+verification exposes the same fresh audit in `coverage.warnings`, separately
+from byte/line coverage errors. MCP returns these as `coverage.warnings` on read
+and `warnings` on verify. The audit emits at most three compact count warnings
+(broken routes, unindexed documents, integrity errors), directing callers to
+`memory_index_check` for every affected path. It returns no warnings for a disabled INDEX
+and preserves malformed/required-state failures. Warnings are refreshed even
+when the context cache hits; they do not change generated context, byte coverage, or route
+selection, and a missing matched body still fails a complete task read.
+These consistency summaries are separate from `IndexView.warnings`: existing
+budget warnings appear both there and in `IndexView.context`, while consistency
+warnings are separate startup/verify audit metadata.
 
 ### CLI
 

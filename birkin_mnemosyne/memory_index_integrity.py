@@ -19,10 +19,35 @@ class IndexCheck:
     orphan_documents: tuple[str, ...]
     dangling_entries: tuple[IndexEntry, ...]
     errors: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
         return not (self.orphan_documents or self.dangling_entries or self.errors)
+
+
+def consistency_warnings(index: MemoryIndex) -> tuple[str, ...]:
+    """Summarize enabled INDEX drift; full path detail remains in check_index."""
+    if not index.read().enabled:
+        return ()
+    checked = check_index(index.root)
+    warnings: list[str] = []
+    if checked.dangling_entries:
+        warnings.append(
+            f"Memory INDEX has {len(checked.dangling_entries)} missing or unreadable "
+            "target routes; all retained. Run memory_index_check for details."
+        )
+    if checked.orphan_documents:
+        warnings.append(
+            f"Memory INDEX has {len(checked.orphan_documents)} unindexed documents. "
+            "Run memory_index_check for details."
+        )
+    if checked.errors:
+        warnings.append(
+            f"Memory INDEX has {len(checked.errors)} integrity errors. "
+            "Run memory_index_check for details."
+        )
+    return tuple(warnings)
 
 
 def _coverage_source(index: MemoryIndex, path: Path, entries: set[IndexEntry]) -> str:
@@ -77,19 +102,23 @@ def check_index(root: str | Path) -> IndexCheck:
     """Report every visible active Markdown document without a route and broken routes."""
     index = MemoryIndex(root)
     documents: set[str] = set()
-    for node in sorted(index.root.iterdir()):
-        if node.name.startswith(".") or node.name == "_archive" or node.is_symlink():
-            continue
-        candidates = [node] if node.is_file() else list(node.iterdir()) if node.is_dir() else []
-        for path in candidates:
-            if path.suffix == ".md" and not path.name.startswith(".") and \
-                    not path.is_symlink() and path.is_file():
-                documents.add(path.relative_to(index.root).as_posix())
+    pending = [index.root]
+    while pending:
+        for node in sorted(pending.pop().iterdir()):
+            if node.name.startswith(".") or node.name == "_archive" or node.is_symlink():
+                continue
+            if node.is_dir():
+                pending.append(node)
+            elif node.is_file() and node.suffix == ".md":
+                documents.add(node.relative_to(index.root).as_posix())
     errors: list[str] = []
     try:
         view = index.read()
     except MemoryIndexError as exc:
-        return IndexCheck(True, 0, len(documents), tuple(sorted(documents)), (), (str(exc),))
+        return IndexCheck(
+            True, 0, len(documents), tuple(sorted(documents)), (), (str(exc),),
+            (f"Memory INDEX integrity error: {exc}",),
+        )
     linked = {entry.document for entry in view.entries}
     dangling: list[IndexEntry] = []
     for entry in view.entries:
@@ -127,7 +156,16 @@ def check_index(root: str | Path) -> IndexCheck:
     for document, receipt in notices.items():
         if verified_receipts.get(receipt) != document:
             errors.append(f"routing notice lacks its valid coverage receipt: {document}")
+    orphans = tuple(sorted(documents - linked - managed_sources))
+    warnings = (
+        *(f"Memory INDEX target is missing or unreadable: "
+          f"{entry.trigger!r} -> {entry.document!r}; route retained."
+          for entry in dangling),
+        *(f"Memory document lacks an INDEX entry: {document!r}."
+          for document in orphans),
+        *(f"Memory INDEX integrity error: {error}" for error in errors),
+    )
     return IndexCheck(
         view.enabled, len(view.entries), len(documents),
-        tuple(sorted(documents - linked - managed_sources)), tuple(dangling), tuple(errors),
+        orphans, tuple(dangling), tuple(errors), warnings,
     )
