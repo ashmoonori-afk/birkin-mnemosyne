@@ -7,6 +7,13 @@ The unchanged baseline is `/Volumes/toshiba/work/mn-070-features/repo`.
 After plan approval, export an identical reviewed copy into the feature PR's
 `.omo/plans/` directory; this task-root file remains the canonical plan.
 
+Execution checkpoint: Item A merged as PR #79 at
+`4b258d8a8bce95ec115d7a2537f5a24bbe07b98a`, after exact-head Sol approval and
+all 21 CI jobs passed. Item B references now resolve against
+`/Volumes/toshiba/work/mn-070-features/labeling` on branch `mn-070-labels`.
+The baseline checkout remains unchanged. Routine label interfaces are specified
+in the task evidence file `evidence/labeling-contract.md`.
+
 ## TL;DR (For humans)
 <!-- Fill this LAST, after the detailed plan below is written, so it summarizes the REAL plan. -->
 <!-- Plain English for a non-engineer: NO file paths, NO todo numbers, NO wave/agent/tool names. -->
@@ -480,7 +487,7 @@ required but opt-in; default routing remains compatible.
   QA: examples succeed without API keys; wrong-scope/oversized/conflicting cases are honestly documented; no false automatic MCP lifecycle claim. Prose is reviewed, not pinned by new tests.
   Evidence: evidence/handoff/docs-qa.md. Commit: Y | docs: explain scoped handoffs for 0.7.0.
 
-- [ ] 12. Freeze handoff head and obtain independent approval and CI
+- [x] 12. Freeze handoff head and obtain independent approval and CI
   Recommended task executor category: quick - lead git/CI orchestration; reviewer uses the explicit Sol model.
   What to do / Must NOT do: full suite and diagnostics, freeze/push head, create one A PR, launch separate non-author GPT-6.1 Sol reviewer and monitor all 21 checks; no release workflow.
   Closes: GAP-9. Parallelization: independent review and CI together.
@@ -489,7 +496,7 @@ required but opt-in; default routing remains compatible.
   QA: re-fetch head after review/checks; any changed tree invalidates affected evidence and any changed head requires exact-head approval. Save full head/tree and reviewer provider/model.
   Evidence: evidence/handoff/{tests,ci,review,head}. Commit: only verified fixes, each rechecked; final footer names this plan.
 
-- [ ] 13. Merge the reviewed handoff PR by exact head
+- [x] 13. Merge the reviewed handoff PR by exact head
   Recommended task executor category: quick - authorized protected merge.
   What to do / Must NOT do: lead runs `gh pr merge <A-PR> --squash --match-head-commit <reviewed-head>` after fresh gate checks; no tag/publish.
   Closes: GAP-9. Parallelization: after 12 only.
