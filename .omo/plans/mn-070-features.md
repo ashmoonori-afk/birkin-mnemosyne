@@ -504,7 +504,7 @@ required but opt-in; default routing remains compatible.
   QA: a stale head must not be substituted; record the resulting merge commit separately from PR head. Refresh main for B.
   Evidence: evidence/handoff/merge.json. Commit: GitHub merge only.
 
-- [ ] 14. Implement pure deterministic labels and safe field edits
+- [x] 14. Implement pure deterministic labels and safe field edits
   Recommended task executor category: quick - pure inference and byte-span edits.
   What to do / Must NOT do: add labels.py and tests/test_labels.py; dedicated namespaces, existing-fields/path/INDEX/lexical inference, manual ownership and safe byte-preserving labels field; no tags/ranking changes.
   Closes: GAP-5. Parallelization: B foundation after 13.
@@ -513,7 +513,7 @@ required but opt-in; default routing remains compatible.
   QA: all requested families and mixed-language inputs; identical input gives identical suggestions; manual empty labels retained; BOM/CRLF/comments/body preserved; malformed/ambiguous headers unchanged with warnings.
   Evidence: evidence/labeling/unit-14-tests.log. Commit: Y | feat: infer editable memory label suggestions.
 
-- [ ] 15. Filter indexed search by labels without changing ranking
+- [x] 15. Filter indexed search by labels without changing ranking
   Recommended task executor category: quick - add metadata and pre-cut eligibility to current search.
   What to do / Must NOT do: edit mnemosyne.py and add tests/test_label_search.py; cache schema upgrade, AND filters before candidate cut, no score/term/doclen/tie changes.
   Closes: GAP-7, GAP-8. Parallelization: B foundation with 17.
@@ -531,7 +531,7 @@ required but opt-in; default routing remains compatible.
   QA: create/append/replace retain tags and editable labels; explicit [] stays empty; note version/evidence/source/TTL contracts remain unchanged; no provider/network call.
   Evidence: evidence/labeling/unit-16-tests.log. Commit: Y | feat: preserve label suggestions on note writes.
 
-- [ ] 17. Journal label annotation and explicit replacement
+- [x] 17. Journal label annotation and explicit replacement
   Recommended task executor category: quick - existing Change before/after transaction pattern.
   What to do / Must NOT do: add labeling.py and tests/test_label_journal.py; preview no-write, apply/replace checked images and label counts; no body or other-header rewrites.
   Closes: GAP-5. Parallelization: B foundation with 15.

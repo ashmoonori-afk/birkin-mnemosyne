@@ -114,6 +114,29 @@ def apply_label_edit(raw: bytes, rendered: str) -> tuple[bytes, str | None]:
     return _replace_line(raw, scan.labels_index, payload), None
 
 
+def scoring_text(raw: bytes) -> str:
+    """Decode retrieval input without letting a label field create terms/links.
+
+    Keep all other metadata and body content. Invalid label blocks are excluded
+    too: the strict label reader rejects them separately, while ordinary recall
+    must not fail because the legacy parser cannot parse that block.
+    """
+    scan = inspect(raw)
+    if scan.present and scan.closed:
+        lines = [scan.lines[0]]
+        in_labels = False
+        for line in scan.lines[1:scan.close_index]:
+            matched = HEADER_KEY.match(line)
+            if matched is not None:
+                in_labels = matched[1] == LABELS_KEY
+            if not in_labels:
+                lines.append(line)
+        lines.extend(scan.lines[scan.close_index:])
+        raw = b"".join(lines)
+    # Match read_text's existing universal-newline retrieval representation.
+    return raw.decode("utf-8-sig", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _line_eol(line: bytes) -> bytes:
     if line.endswith(b"\r\n"):
         return b"\r\n"
