@@ -66,6 +66,90 @@ def test_blank_task_fails_instead_of_returning_empty_success(
         _ = index.match(task)
 
 
+@pytest.mark.parametrize(("triggers", "task", "expected"), [
+    (("When checking deployment", "When checking retention"), "Check deployment", (0,)),
+    (("writing letters",), "writing", (0,)),
+    (("checking retention", "checking retention"), "check", (0, 1)),
+    (("writing", "writing deployment"), "writing", (0,)),
+    (("When shopping cart fails", "When checking deployment"), "Shopping is broken", (0,)),
+    (("writing poetry or checking invoices", "writing letters"), "invoices", (0,)),
+    (("checking deployment", "checking retention"), "checking retention", (1,)),
+])
+def test_repeated_actions_preserve_subjects_unique_terms_and_aliases(
+    tmp_path: Path, triggers: tuple[str, ...], task: str, expected: tuple[int, ...],
+) -> None:
+    index = MemoryIndex(tmp_path)
+    for number, trigger in enumerate(triggers):
+        path = f"route-{number}.md"
+        _ = (tmp_path / path).write_bytes(b"Complete routed body.")
+        _ = index.register(trigger, path)
+    reader = StartupReader(tmp_path)
+    result = reader.read([], task=task)
+    assert tuple(entry.document for entry in result.matched_entries) == tuple(
+        f"route-{number}.md" for number in expected
+    )
+    assert reader.verify(result.context, [], task=task).complete
+    for number in expected:
+        assert body_from(result.context, f"route-{number}.md") == b"Complete routed body."
+
+
+def test_distinct_condition_changes_generic_action_selection(tmp_path: Path) -> None:
+    index = MemoryIndex(tmp_path)
+    for path in ("retention.md", "deployment.md"):
+        _ = (tmp_path / path).write_bytes(b"Complete routed body.")
+    _ = index.register("checking retention", "retention.md")
+    reader = StartupReader(tmp_path)
+    before = reader.read([], task="check")
+    assert tuple(entry.document for entry in before.matched_entries) == ("retention.md",)
+    _ = index.register("checking deployment", "deployment.md")
+    after = reader.read([], task="check")
+    assert after.matched_entries == ()
+    assert not after.cache_hit
+    assert not reader.verify(before.context, [], task="check").complete
+    assert reader.verify(after.context, [], task="check").complete
+
+
+@pytest.mark.parametrize(("trigger", "task", "expected"), [
+    ("automating a browser", "Navigate the site and complete the required fields.", True),
+    ("account login", "Sign in to the account.", True),
+    ("repository maintenance", "Clean up the codebase.", True),
+    ("rollback deployment", "Back out the deployment.", True),
+    ("browser automation", "Inspect the offsite backups.", False),
+    ("login", "Sign the report and put it in the folder.", False),
+    ("배포 검증", "배포 검증을 진행", True),
+    ("发布部署", "检查部署", True),
+])
+def test_task_equivalents_use_whole_phrases_and_existing_unicode_tokens(
+    tmp_path: Path, trigger: str, task: str, expected: bool,
+) -> None:
+    _ = (tmp_path / "rule.md").write_bytes(b"Complete unrelated body.")
+    index = MemoryIndex(tmp_path)
+    _ = index.register(trigger, "rule.md")
+    result = StartupReader(tmp_path).read([], task=task)
+    assert bool(result.matched_entries) is expected
+    if expected:
+        assert body_from(result.context, "rule.md") == b"Complete unrelated body."
+    assert StartupReader(tmp_path).verify(result.context, [], task=task).complete
+
+
+def test_old_matcher_receipt_fails_even_with_identical_matches(tmp_path: Path) -> None:
+    _ = seed(tmp_path)
+    reader = StartupReader(tmp_path)
+    result = reader.read([], task="deployment")
+    payload = _payload(result.context)
+    path = ".mnemosyne-memory-index/task"
+    receipt: dict[str, object] = json.loads(body_from(result.context, path))
+    receipt["matcher"] = "lexical-v1"
+    forged = json.dumps(receipt, ensure_ascii=False, separators=(",", ":")).encode()
+    payload["blocks"] = [
+        block for block in payload["blocks"] if block["path"] != path
+    ] + source_blocks(path, forged)
+    for record in payload["files"]:
+        if record["path"] == path:
+            record.update(sha256=digest(forged), bytes=len(forged), lines=1)
+    assert not reader.verify(json.dumps(payload), [], task="deployment").complete
+
+
 def test_task_read_includes_every_body_and_preserves_all_matching_aliases(
     tmp_path: Path,
 ) -> None:
