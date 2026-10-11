@@ -126,7 +126,8 @@ constraint. Continue after README PR merge and green main CI. Inspect previous
 release PR #62 and workflow: release.yml is workflow_dispatch only, not tag
 triggered. Previous process tags the squash merge, dispatches on tag, downloads
 the exact published dist artifact, then manually creates GitHub release with
-those sdist/wheel assets. Follow it, do not alter the release workflow.
+those sdist/wheel assets. Follow it; the later authorized #66 fix must first
+correct installed-wheel CLI verification in the release workflow and tests.
 
 Repository had no CHANGELOG.md: #62 kept notes solely in GitHub release body.
 Owner explicitly requests a CHANGELOG entry; create a 0.7.0 entry from merged
@@ -141,8 +142,8 @@ Release sequence/QA:
    plugin.yaml,README.md}, integrations/openclaw/README.md. Bump 0.6.0 -> 0.7.0.
 3. Move any actually existing Unreleased notes to 0.7.0, create CHANGELOG if
    absent, update English/Korean current-feature labels and current usage guide.
-   Preserve unresolved #65 hard-link filesystem regression and #66 wheel CLI
-   checkout-testing gap as known issues, not fixes.
+   The later 14:53 KST instruction requires #65 and #66 fixed and CLOSED before
+   this release. Remove their known-issue notes and list the verified fixes.
 4. Run full installed-extra tests, version-alignment cases and package build +
    twine strict validation; evidence saved under evidence/release/.
 5. Commit release increment, open second dedicated release PR, Sol exact-head
@@ -166,4 +167,89 @@ Release sequence/QA:
 13. `gh run watch <release-main-tests-run> --exit-status`: PASS main CI green.
 14. Remove owned verification envs/build/runtime resources, preserve evidence,
     append final RESULT with README PR and release URLs, install yes/no and
-    known #65/#66 open. Complete goal only at this extended stop condition.
+    closed issue #65/#66 PR URLs. Complete goal only at the extended stop
+    condition including the subsequently authorized Hermes deliverables.
+
+## Authorized pre-release onboarding and issue fixes
+
+The owner's 14:46 KST and 14:53 KST instructions override the old direct
+README-to-release sequence. Order is now:
+
+1. README PR73, already merged at bfe0a9ac18d75e954f664b9a75fe0202102738b4;
+   its main CI run 38115332935 passed all 21 jobs.
+2. First-run onboarding in one separate PR, developed in
+   /home/hp/work/mn-readme-results/onboarding, not the release WIP checkout.
+   Extend the existing memory_index_cli dispatcher and expose mnemosyne init.
+   Scan/import plain Markdown, report existing review-question candidates,
+   normalize safely, build deterministic topic documents plus retained INDEX,
+   and run startup verification with drift warnings and a short summary.
+   Default preview changes zero files. Explicit apply never loses notes,
+   preserves all prior routes, supports undo for permitted journaled changes,
+   and is idempotent without requiring any provider/API key.
+   Required real CLI scenarios: absent/empty vault, messy duplicate and
+   missing-frontmatter fixture with Korean/Japanese, repeated apply,
+   byte-identical dry-run including import sources, Windows CI paths.
+   Add both First run README sections and an Unreleased CHANGELOG entry.
+3. Separate #65 PR: reproduce os.link failure first using unsupported-link
+   EPERM/EOPNOTSUPP/ENOSYS errors and available physical no-link mounts;
+   add a safe fallback preserving exclusive publication, fsync,
+   captured bytes, journal and checked undo. Run byte-exact merge/undo
+   regressions, available real filesystem reproduction and Windows CI.
+   PR body includes Fixes #65. Verify CLOSED after gated merge.
+4. Separate #66 PR: CLI subprocesses must exercise the built wheel in a
+   clean environment outside checkout, with a failing provenance guard for
+   checkout imports. Existing release dispatch always publishes: never use
+   a branch dispatch as an assumed dry-run. Prove a supported non-publishing
+   tag-less run if available; otherwise record that limitation and run the
+   exact installed-wheel checks locally. PR body includes Fixes #66.
+   Verify CLOSED after gated merge.
+5. Evaluate the subsequently authorized heading-bounded BM25 chunk indexing
+   after #65/#66 and before release, following the section below.
+6. Resume the authorized 0.7.0 release only after those merges and green
+   main CI; then complete Hermes plugin 0.2.0/core 0.7.0 and the upstream
+   catalog tag-pin PR from the later owner instruction.
+
+Every project PR above requires captured local evidence, an independent
+GPT-6.1 Sol APPROVE on the exact head, every CI job green, and squash merge
+with --match-head-commit. The final owner RESULT includes README/onboarding/
+issue/release/plugin/catalog receipts and both closed issue PR URLs.
+Keep owned six-path 0.7.0 version edits uncommitted in release/0.7.0 meanwhile;
+their pre-onboarding backup is evidence/release-version-wip.patch.
+
+## Authorized pre-release BM25 chunk evaluation
+
+The owner's 17:30 KST instruction adds a conditional core upgrade before
+0.7.0. It is birkin-mnemosyne work only; Vega35 owns the analogous omo
+upstream work, and this session must not modify omo.
+
+1. After #65/#66 close and their merged main checks pass, inspect exactly
+   what the current compressed BM25 index stores for each note. Establish
+   whether title, summary, full body or a prefix is indexed before attributing
+   any observed effect to whole-note indexing.
+2. Implement opt-in indexed chunks split at Markdown headings and bounded
+   to 1000/2000/4000 characters for comparison. Preserve source Markdown
+   byte-for-byte and include the note title in every indexed chunk.
+3. Rank a note by its best chunk, deduplicate returned note hits, and drive
+   the snippet from that best chunk. Keep usage dynamics at note level.
+   The compressed index must remain disposable and rebuildable from notes.
+4. Use the existing frozen retrieval benchmark test split: both question
+   authors, every language slice, 160/1000/10000 notes, with and without
+   search-time expansions. Preserve fixtures, scorers and baseline settings;
+   report all cap configurations, not only the winning cells.
+5. Capture quality, compressed index bytes and latency under the same
+   declared measurement conditions. Predeclare the gain/regression criteria
+   from the benchmark's sample counts before examining candidate test
+   results; never relax a gate after seeing a failed candidate.
+6. Ship only if both authors gain without a meaningful language-slice
+   regression. Disclose every observed slice loss, including losses below
+   the declared rejection threshold. Make default-on only if the gain is
+   clear for both authors at all three corpus sizes; otherwise remain opt-in.
+7. If the candidates do not qualify, discard the unshipped implementation,
+   preserve and report the complete measurement evidence, and continue
+   release without claiming a chunk upgrade.
+8. A qualifying implementation gets full regression/real retrieval QA,
+   one dedicated PR, a separate exact-head Sol APPROVE, all Windows/other
+   CI green, guarded squash merge, merged main CI and runtime cleanup.
+
+Updated binding order: README, onboarding, #65, #66, conditional BM25 chunk
+evaluation, 0.7.0 release, Hermes plugin and upstream catalog PR.

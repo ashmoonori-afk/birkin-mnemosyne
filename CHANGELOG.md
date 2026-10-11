@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 - 2026-10-11
 
 ### Fixed
 
@@ -17,6 +17,12 @@
 
 ### Added
 
+- Task-bound startup reads return every lexically matched document in full
+  and include complete topic views from one routing snapshot. Managed startup
+  verification reports INDEX drift without removing routes.
+- Resident INDEX rendering chooses a flat map or a complete two-level topic
+  map, retaining every route and same-document alias. Budget warnings do not
+  evict entries; topic expansion returns the complete registered view.
 - First-run `mnemosyne init` through the existing INDEX CLI dispatcher.
   The default offline plan scans visible Markdown and optional external
   imports without writing files, reports existing review candidates, and
@@ -26,3 +32,13 @@
   retained existing aliases, resident startup verification and drift warnings.
   Original information is never automatically merged, archived or deleted;
   split-receipt bytes and ambiguous headers remain unchanged.
+
+### Documentation
+
+- English and Korean retrieval, expansion, INDEX, task-read and footprint
+  results now share fresh 2026-10-11 measurements with explicit source
+  revisions and separate-corpus caveats.
+- Heading-bounded BM25 chunks were evaluated at 1000, 2000 and 4000 body
+  characters but are not included: the dev-selected candidate failed the
+  declared held-out quality and language-slice gates. Whole-note indexing
+  remains unchanged.

@@ -33,7 +33,7 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## First run
 
-On main, ahead of v0.7.0, `mnemosyne init` previews first-run organization
+From v0.7.0, `mnemosyne init` previews first-run organization
 without changing any files. It works offline with the standard-library-only
 core and needs no model or API key:
 
@@ -126,8 +126,8 @@ upper bound: see
 
 Keep a complete **when to read -> which document** map available from startup
 context, then open the details only when needed. The INDEX is available from
-v0.6.0. Task-bound reads and the two-level topic map described below are on
-main; no tag covers them yet, so they are not labelled with a version here.
+v0.6.0. Task-bound reads and the two-level topic map described below are
+available from v0.7.0.
 
 ```python
 from birkin_mnemosyne import MemoryIndex
@@ -148,7 +148,7 @@ across restarts and re-read the complete INDEX after context compaction.
 Exact triggers are reliable; lexical matching and BM25 fallback are not
 semantic guarantees.
 
-On main, task-bound reads let a host call
+From v0.7.0, task-bound reads let a host call
 `StartupReader("my_vault").read([], task="Check Ingress DNS")` before acting.
 They return every lexically matched document in full, without the optional
 lookup's top-k cutoff or search fallback. Pass the same `task` to
@@ -156,7 +156,7 @@ lookup's top-k cutoff or search fallback. Pass the same `task` to
 `prefetch` uses this path automatically. See the usage guide below for the
 lexical limits and complete-read failure behavior.
 
-Main also chooses between a flat INDEX and a smaller two-level
+From v0.7.0, the renderer also chooses between a flat INDEX and a smaller two-level
 topic map. Topics follow complete parent-directory paths; every route remains
 in its complete topic view. `index.read(topic="dir:devops")` and MCP
 `memory_index_read(topic="dir:devops")` expand that topic. Task-bound startup
