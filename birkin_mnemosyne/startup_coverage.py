@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import TypedDict
 
 
+class StartupError(ValueError):
+    """A complete startup claim cannot be made."""
+
+
 class FileRecord(TypedDict):
     path: str
     sha256: str
