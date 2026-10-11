@@ -31,6 +31,45 @@ pip install -e ".[semantic]"     # optional meaning-based retrieval
 The extras are optional. `[bench]` reproduces embedding baselines; it does
 not enable semantic retrieval. See below for explicit semantic preparation.
 
+## First run
+
+On main, ahead of v0.7.0, `mnemosyne init` previews first-run organization
+without changing any files. It works offline with the standard-library-only
+core and needs no model or API key:
+
+```bash
+mnemosyne init --vault my_vault
+mnemosyne init --vault my_vault --apply
+
+# Optional external Markdown import: keep the option when applying its plan.
+mnemosyne init --vault my_vault --import ./markdown_export
+mnemosyne init --vault my_vault --import ./markdown_export --apply
+```
+
+Without `--vault`, `init` uses the current directory. The existing
+`mnemosyne-index --vault my_vault init` command uses the same dispatcher.
+The JSON output lists the plan and reports notes, topics, INDEX token
+estimates, warnings, and verification status. A preview says `planned`;
+an applied run independently verifies the resident INDEX and checks drift.
+This does not claim that every note fits into one startup bundle.
+
+Initialization reports duplicate and possible overlap/conflict candidates,
+but never chooses a winner, merges, archives, or deletes notes. It completes
+missing `title`, `type`, and `tags` through the existing byte-exact review
+journal, preserving existing fields and body bytes; ambiguous headers and
+bytes bound by split receipts are retained with warnings. If the output has
+an `undo_transaction`, use it with `Consolidation(vault).undo(transaction_id)`
+or the existing `memory_review_undo` tool to restore the original source
+images. Added imports, topic catalogues, and INDEX routes remain after undo.
+
+Topic documents are deterministic source-link catalogues, grouped by tag,
+source directory, or note type. Every source stays routed alongside its
+catalogue. Existing aliases are retained; large INDEX views use the existing
+complete topic map or warn about the UTF-8-bytes/4 budget without dropping
+routes. `--max-tokens` changes that warning budget. Unchanged reruns reuse
+outputs and create no additional journal. Changed destinations are refused
+rather than overwritten; an unfinished journal requires checked recovery.
+
 ## 30-second usage
 
 ```python

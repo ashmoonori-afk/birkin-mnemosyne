@@ -31,6 +31,44 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 엑스트라는 모두 선택 사항입니다. `[bench]`는 임베딩 베이스라인을 재현할 뿐
 의미 검색을 켜지 않습니다. 명시적인 의미 모드 준비는 아래를 참고하세요.
 
+## 첫 실행 (First run)
+
+0.7.0 출시 전 main의 `mnemosyne init`은 파일을 바꾸지 않고 첫 정리 계획을
+보여줍니다. 표준 라이브러리만 쓰는 코어로 동작하며 모델이나 API 키가
+필요하지 않습니다:
+
+```bash
+mnemosyne init --vault my_vault
+mnemosyne init --vault my_vault --apply
+
+# 외부 Markdown을 가져올 때는 적용 명령에도 같은 옵션을 넣으세요.
+mnemosyne init --vault my_vault --import ./markdown_export
+mnemosyne init --vault my_vault --import ./markdown_export --apply
+```
+
+`--vault`를 생략하면 현재 폴더를 사용합니다. 기존
+`mnemosyne-index --vault my_vault init`도 같은 진입점을 사용합니다.
+JSON 출력에는 계획과 메모·주제 수, INDEX 토큰 추정치, 경고, 검증 상태가
+나옵니다. 미리보기는 `planned`이며, 적용 후에는 상주 INDEX를 독립적으로
+검증하고 드리프트를 확인합니다. 모든 메모가 하나의 시작 번들에 들어간다는
+뜻은 아닙니다.
+
+중복과 겹침·충돌 가능성이 있는 후보를 보고하지만 어느 쪽이 맞는지 정하거나
+자동으로 병합·보관·삭제하지 않습니다. 빠진 `title`, `type`, `tags`는 기존의
+바이트 단위 검토 저널을 통해 보완하며 기존 필드와 본문 바이트를 보존합니다.
+해석이 불분명한 헤더와 분할 영수증에 묶인 바이트는 경고와 함께 유지합니다.
+출력에 `undo_transaction`이 있으면
+`Consolidation(vault).undo(transaction_id)` 또는 기존
+`memory_review_undo` 도구로 원래 메모 바이트를 복구할 수 있습니다.
+추가된 가져오기 파일·주제 목차·INDEX 경로는 되돌린 뒤에도 남습니다.
+
+주제 문서는 태그, 원래 폴더, 메모 유형으로 묶은 결정적인 원문 링크 목차입니다.
+원문마다 목차와 별도로 읽기 경로가 등록됩니다. 기존 별칭을 유지하며,
+큰 INDEX는 기존의 완전한 주제 목차를 사용하거나 UTF-8 바이트/4 예산 초과를
+경고할 뿐 경로를 버리지 않습니다. `--max-tokens`로 경고 예산을 바꿀 수 있습니다.
+변경 없는 재실행은 결과물을 재사용하고 새 저널을 만들지 않습니다.
+바뀐 대상 파일은 덮어쓰지 않고 거부하며 미완료 저널은 체크된 복구가 먼저 필요합니다.
+
 ## 30초 사용법
 
 ```python

@@ -14,6 +14,7 @@ import json
 import threading
 from bisect import bisect_left
 from collections import OrderedDict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from typing import Literal
 
 from . import frontmatter
 from .capacity import CapacityBudget, retire_candidates
+from .consolidation_questions import score_pairs
 from .memory import _one_line, _yaml_str
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, tokenize
 from .review_journal import Change, Receipt, ReviewError, commit, undo_receipt
@@ -171,6 +173,22 @@ def _candidate_pairs(terms: list[set[str]]) -> set[tuple[int, int]]:
     return pairs
 
 
+def questions_from_snapshots(
+    notes: Sequence[NoteSnapshot], limit: int = 20,
+) -> tuple[Question, ...]:
+    """Reuse the review detector on path-keyed snapshots without any writes."""
+    if limit < 1:
+        return ()
+    ordered = sorted(notes, key=lambda note: note.path)
+    bodies = [note.body for note in ordered]
+    terms = [set(tokenize(body)) for body in bodies]
+    questions = tuple(Question(
+        _question_id(ordered[score.first], ordered[score.second]),
+        ordered[score.first], ordered[score.second], score.reason, score.similarity,
+    ) for score in score_pairs(bodies, terms, _candidate_pairs(terms)))
+    return tuple(sorted(questions, key=lambda question: (-question.similarity, question.id))[:limit])
+
+
 _CACHE_LOCK = threading.Lock()
 # Memory: entries hold full NoteSnapshot bodies, bounded by MAX_CACHED_QUESTIONS
 # questions per vault (at most twice that many distinct notes).
@@ -242,26 +260,9 @@ class Consolidation:
                     sources=tuple(sources) if isinstance(sources, list) else (),
                 ))
             self.skipped = tuple(sorted(skipped))
-            notes.sort(key=lambda n: n.path)
-            terms = [set(tokenize(n.body)) for n in notes]
-            result: list[Question] = []
-            for i, j in sorted(_candidate_pairs(terms)):
-                first, second = notes[i], notes[j]
-                common = terms[i] & terms[j]
-                union = terms[i] | terms[j]
-                similarity = len(common) / len(union) if union else 0.0
-                same = " ".join(first.body.split()).casefold() == \
-                    " ".join(second.body.split()).casefold()
-                if not same and (len(common) < 3 or similarity < 0.55):
-                    continue
-                result.append(Question(
-                    _question_id(first, second), first, second,
-                    "duplicate" if same else "overlap-or-conflict", similarity,
-                ))
-            result.sort(key=lambda q: (-q.similarity, q.id))
-            found = tuple(result[:limit])
-            _remember(self.vault, found)
-            return found
+            scored = questions_from_snapshots(notes, limit)
+            _remember(self.vault, scored)
+            return scored
 
     def lookup(self, question_id: str) -> Question | None:
         """Return a remembered question if both notes are byte-identical now.

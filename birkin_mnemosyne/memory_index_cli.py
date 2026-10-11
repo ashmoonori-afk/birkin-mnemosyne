@@ -1,7 +1,9 @@
-"""Command-line checker and splitter for the always-loaded memory INDEX.
+"""First-run onboarding, checker and splitter for the memory INDEX.
 
-Two commands over one vault:
+Three commands over one vault:
 
+* ``init`` previews deterministic onboarding, or applies additive writes and
+  journaled frontmatter completion only with ``--apply``.
 * ``check`` reports orphan documents, dangling routes, and lost coverage as
   JSON (the ``IndexCheck`` fields plus ``ok``) and never writes.
 * ``split`` previews a lossless note split by default, or applies it with
@@ -22,7 +24,10 @@ from io import TextIOWrapper
 from .memory_index import MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import format_coverage, split_note
+from .onboarding import run_init
+from .onboarding_plan import plan_init
 from .review_journal import ReviewError
+from .startup import StartupError
 
 INVALID_EXIT = 2
 
@@ -31,6 +36,8 @@ class _Arguments(argparse.Namespace):
     """Typed parse result; attribute defaults mirror the parser defaults."""
 
     vault: str | None = None
+    init_vault: str | None = None
+    import_dir: str | None = None
     command: str | None = None
     note: str | None = None
     apply: bool = False
@@ -39,11 +46,16 @@ class _Arguments(argparse.Namespace):
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="mnemosyne-index",
-        description="Check the memory INDEX or split one note into routed topics.",
+        prog="mnemosyne",
+        description="Initialize a vault, check its INDEX, or split one note into routed topics.",
     )
-    _ = parser.add_argument("--vault", type=str, required=True, help="vault root directory")
+    _ = parser.add_argument("--vault", type=str, help="vault root directory")
     commands = parser.add_subparsers(dest="command", required=True)
+    init = commands.add_parser("init", help="preview or apply deterministic first-run onboarding")
+    _ = init.add_argument("--vault", dest="init_vault", help="vault root; defaults to current directory")
+    _ = init.add_argument("--import", dest="import_dir", help="external plain-Markdown directory")
+    _ = init.add_argument("--apply", action="store_true", help="authorize additive and journaled writes")
+    _ = init.add_argument("--max-tokens", type=int, default=None, help="INDEX estimated-token budget")
     _ = commands.add_parser("check", help="report orphans, dangling routes, and lost coverage")
     split = commands.add_parser("split", help="preview or apply a lossless note split")
     _ = split.add_argument("note", help="vault-relative path of the .md note to split")
@@ -58,9 +70,23 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if isinstance(stream, TextIOWrapper):
             stream.reconfigure(encoding="utf-8")
-    args = _build_parser().parse_args(argv, namespace=_Arguments())
-    assert args.vault is not None and args.command is not None
+    parser = _build_parser()
+    arguments = sys.argv[1:] if argv is None else argv
+    args = parser.parse_args(arguments, namespace=_Arguments())
+    assert args.command is not None
+    if args.command == "init":
+        if sum(argument.split("=", 1)[0] == "--vault" for argument in arguments) > 1:
+            parser.error("supply --vault only once")
+        args.vault = args.init_vault or args.vault or "."
+    elif args.vault is None:
+        parser.error("--vault is required for check and split")
+    assert args.vault is not None
     try:
+        if args.command == "init":
+            report = run_init(plan_init(args.vault, import_dir=args.import_dir,
+                                        max_tokens=args.max_tokens), apply=args.apply)
+            print(json.dumps(asdict(report), ensure_ascii=False))
+            return 0 if not args.apply or report.ok else 1
         if args.command == "check":
             checked = check_index(args.vault)
             payload = asdict(checked)
@@ -80,8 +106,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"receipt: {report.coverage_receipt}")
             print(f"journal: {report.backup_journal}")
         return 0
-    except (MemoryIndexError, ReviewError, OSError, UnicodeError) as exc:
-        print(f"mnemosyne-index: {exc}", file=sys.stderr)
+    except (MemoryIndexError, ReviewError, StartupError, OSError, UnicodeError) as exc:
+        print(f"{parser.prog}: {exc}", file=sys.stderr)
         return INVALID_EXIT
 
 
