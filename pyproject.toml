@@ -26,6 +26,7 @@ mcp = ["mcp>=2.2,<3"]                                 # MCP server only; core st
 semantic = ["numpy", "safetensors", "huggingface_hub"]  # optional semantic leg; core stays stdlib
 
 [project.scripts]
+mnemosyne = "birkin_mnemosyne.memory_index_cli:main"
 mnemosyne-mcp = "birkin_mnemosyne.mcp_server:main"
 mnemosyne-index = "birkin_mnemosyne.memory_index_cli:main"
 

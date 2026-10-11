@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path, PureWindowsPath
 from typing import Final, Literal, TypeAlias
 
-from .atomic import atomic_write_bytes
+from .atomic import atomic_write_bytes, sync_directory
 from .memory_index_views import (
     IndexView,
     TopicSummary,
@@ -81,6 +83,14 @@ def validate_index_budget(value: int) -> int:
     if type(value) is not int or value < 1:
         raise MemoryIndexError("max_tokens must be a positive integer")
     return value
+
+
+def _encode_state(maximum: int, entries: tuple[IndexEntry, ...]) -> bytes:
+    record = {"version": 1, "max_tokens": maximum,
+              "entries": [asdict(item) for item in entries]}
+    return (json.dumps(
+        record, ensure_ascii=False, separators=(",", ":"),
+    ) + "\n").encode("utf-8")
 
 
 class MemoryIndex:
@@ -165,6 +175,28 @@ class MemoryIndex:
     def match(self, task: str) -> tuple[IndexEntry, ...]:
         """Select every task-matched route without a cutoff or search fallback."""
         return match_entries(self.read().entries, task)
+
+    def enable(self, *, max_tokens: int | None = None) -> IndexView:
+        """Opt in without a document, retaining all existing routes and state."""
+        if max_tokens is not None:
+            _ = validate_index_budget(max_tokens)
+        with VaultLock(self.root).hold():
+            state = self._state()
+            maximum, entries = state if state is not None else (DEFAULT_INDEX_TOKENS, ())
+            if max_tokens is not None:
+                maximum = max_tokens
+            if state is None:
+                with tempfile.TemporaryDirectory(
+                    dir=self.root, prefix=INDEX_DIRECTORY + ".",
+                ) as staged:
+                    ready = Path(staged) / INDEX_DIRECTORY
+                    ready.mkdir()
+                    atomic_write_bytes(ready / "index.json", _encode_state(maximum, entries))
+                    os.replace(ready, self.directory)
+                sync_directory(self.root)
+            elif state != (maximum, entries):
+                atomic_write_bytes(self.path, _encode_state(maximum, entries))
+            return self.read()
 
     def register(self, trigger: str, document: str, *,
                  max_tokens: int | None = None) -> IndexView:
