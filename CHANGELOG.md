@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Review merges and checked undo now work on filesystems without hard links
+  (#65). Exclusive copies verify their complete bytes and destination identity
+  after file synchronization, retaining original captured inodes and refusing
+  to overwrite arrivals. A copy in progress can be visible to readers; an
+  incomplete or changed publication remains `recovery-required`, with its
+  original capture preserved, rather than risking destructive rollback.
+
 ### Added
 
 - First-run `mnemosyne init` through the existing INDEX CLI dispatcher.

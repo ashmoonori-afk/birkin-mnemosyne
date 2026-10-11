@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import errno
 import json
 import multiprocessing
@@ -317,19 +318,137 @@ def test_handled_failure_rolls_back_all_note_images(tmp_path, monkeypatch, bound
     assert json.loads(journal.read_text("utf-8"))["state"] == "rolled-back"
 
 
-def test_merge_without_hard_links_rolls_back_survivor_in_place(tmp_path, monkeypatch):
+def test_no_hardlink_merge_rolls_back_before_exclusive_creation_failure(tmp_path, monkeypatch):
     _, service, question = seed(tmp_path)
     before = images(tmp_path)
 
     def no_link(src, dst, *args, **kwargs):
         raise OSError(errno.EPERM, "hard links not supported", str(dst))
 
+    real_open = os.open
+    failed = False
+
+    def fail_creation_once(path, flags, *args, **kwargs):
+        nonlocal failed
+        if Path(path) == tmp_path / question.first.path and flags & os.O_EXCL and not failed:
+            failed = True
+            raise OSError(errno.ENOSPC, "injected destination creation failure")
+        return real_open(path, flags, *args, **kwargs)
+
     monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "open", fail_creation_once)
     with pytest.raises(ReviewError, match="rolled back"):
         service.apply(question, Answer(question.id, "merge", "Explicit merged fact."))
     assert images(tmp_path) == before
     journal = next((tmp_path / ".mnemosyne-reviews").glob("*.json"))
     assert json.loads(journal.read_text("utf-8"))["state"] == "rolled-back"
+    assert failed
+
+
+@pytest.mark.parametrize("survivor", ["first", "second"])
+def test_merge_and_undo_without_hard_links_preserve_exact_images(tmp_path, monkeypatch, survivor):
+    # Given captured original notes and no hard-link capability.
+    seed(tmp_path)
+    for path in tmp_path.rglob("*.md"):
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n").rstrip(b"\r\n"))
+    service = Consolidation(tmp_path)
+    question = service.questions()[0]
+    before = images(tmp_path)
+    assert len(before) == 2 and all(
+        b"\r\n" in raw and not raw.endswith(b"\n") for raw in before.values()
+    )
+    selected = getattr(question, survivor)
+    original_inode = (tmp_path / selected.path).stat().st_ino
+
+    def no_link(source, destination, *args, **kwargs):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    monkeypatch.setattr(os, "link", no_link)
+
+    # When a reviewed merge is committed and explicitly undone.
+    receipt = service.apply(question, Answer(
+        question.id, "merge", "Explicit merged fact.", survivor=survivor,
+    ))
+    assert receipt.state == "committed"
+    assert "Explicit merged fact." in (tmp_path / selected.path).read_text("utf-8")
+    captured = list((tmp_path / ".mnemosyne-reviews").rglob("source.snapshot"))
+    assert any(path.read_bytes() == before[selected.path] and path.stat().st_ino == original_inode
+               for path in captured)
+    journal = json.loads((tmp_path / receipt.journal_path).read_text("utf-8"))
+    for image in journal["changes"]:
+        assert base64.b64decode(image["before"], validate=True) == before[image["source"]]
+    restored = service.undo(receipt.transaction_id)
+
+    # Then every original Markdown byte image is restored through the journal.
+    assert restored.state == "undone"
+    assert images(tmp_path) == before
+
+
+@pytest.mark.parametrize("fault", ["partial", "fsync", "arrival"])
+def test_uncertain_no_hardlink_merge_preserves_destination_and_capture(tmp_path, monkeypatch, fault):
+    # Given original note inodes and an injected failure after exclusive creation.
+    _, service, question = seed(tmp_path)
+    before = images(tmp_path)
+    source = tmp_path / question.first.path
+    original_inode = source.stat().st_ino
+    real_write, real_fsync = os.write, os.fsync
+    failed = False
+    blocked = False
+    external = b"Owner arrival must remain at its original public path."
+
+    def no_link(first, second, *args, **kwargs):
+        raise OSError(errno.EPERM, "hard links not supported", str(second))
+
+    def write(fd, data):
+        if fault == "partial":
+            real_write(fd, data[:3])
+            raise OSError(errno.EIO, "injected partial copy")
+        return real_write(fd, data)
+
+    def fsync(fd):
+        nonlocal failed, blocked
+        if source.exists() and not failed and source.stat().st_ino != original_inode:
+            failed = True
+            if fault == "fsync":
+                raise OSError(errno.EIO, "injected destination fsync failure")
+            if fault == "arrival":
+                arrival = tmp_path / "arrival"
+                arrival.write_bytes(external)
+                try:
+                    os.replace(arrival, source)
+                except PermissionError:
+                    if os.name != "nt":
+                        raise
+                    blocked = True
+                    raise
+        return real_fsync(fd)
+
+    with monkeypatch.context() as injected:
+        injected.setattr(os, "link", no_link)
+        injected.setattr(os, "write", write)
+        injected.setattr(os, "fsync", fsync)
+
+        # When publication becomes uncertain, the journal refuses destructive rollback.
+        with pytest.raises(ReviewError, match="recovery required"):
+            service.apply(question, Answer(question.id, "merge", "Explicit merged fact."))
+
+    # Then the original captured inode survives and uncertain output stays in place.
+    journal = next((tmp_path / ".mnemosyne-reviews").glob("*.json"))
+    assert json.loads(journal.read_text("utf-8"))["state"] == "recovery-required"
+    captured = list((tmp_path / ".mnemosyne-reviews").rglob("source.snapshot"))
+    assert len(captured) == 1
+    assert captured[0].read_bytes() == before[question.first.path]
+    assert captured[0].stat().st_ino == original_inode
+    if fault == "arrival" and not blocked:
+        assert source.read_bytes() == external
+    if blocked:
+        assert (tmp_path / "arrival").read_bytes() == external
+    if fault == "fsync" or blocked:
+        assert service.undo(journal.stem).state == "undone"
+        assert images(tmp_path) == before
+    else:
+        with pytest.raises(ReviewError, match="post-image"):
+            service.undo(journal.stem)
 
 
 def test_recovery_required_journal_keeps_originals(tmp_path, monkeypatch):

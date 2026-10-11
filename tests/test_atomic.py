@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import stat
 from pathlib import Path
@@ -162,3 +163,236 @@ def test_exclusive_publication_preserves_a_late_destination(tmp_path, monkeypatc
         atomic.atomic_create_bytes(target, b"New complete document.")
     assert target.read_bytes() == external
     assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize("code", [errno.EPERM, errno.EOPNOTSUPP, errno.ENOSYS])
+def test_exclusive_publication_without_hard_links(tmp_path: Path, monkeypatch, code: int):
+    # Given a filesystem that refuses hard-link publication.
+    def no_link(source, destination):
+        raise OSError(code, "hard links not supported", str(destination))
+
+    monkeypatch.setattr(os, "link", no_link)
+    target = tmp_path / "note.md"
+    payload = b"Complete binary image\r\n\x00\xff"
+
+    # When complete bytes are published exclusively.
+    atomic.atomic_create_bytes(target, payload)
+
+    # Then exact bytes are durable and no temporary sibling remains.
+    assert target.read_bytes() == payload
+    assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize("windows_code", [1, 50])
+def test_windows_unsupported_link_uses_exclusive_copy(tmp_path, monkeypatch, windows_code):
+    # Given Windows' invalid-function or unsupported-operation error.
+    class UnsupportedWindowsLink(OSError):
+        winerror = windows_code
+
+    def no_link(source, destination):
+        raise UnsupportedWindowsLink(errno.EINVAL, "unsupported link", str(destination))
+
+    monkeypatch.setattr(os, "link", no_link)
+    target = tmp_path / "note.md"
+
+    # When the portable errno alone does not identify missing hard-link support.
+    atomic.atomic_create_bytes(target, b"Complete Windows image.")
+
+    # Then exclusive creation still succeeds without replacing an arrival.
+    assert target.read_bytes() == b"Complete Windows image."
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_no_hardlink_fallback_never_replaces_destination_arrival(tmp_path, monkeypatch):
+    # Given an owner file arriving at the unsupported-link boundary.
+    target = tmp_path / "note.md"
+    external = b"Owner's new complete image."
+
+    def arrival(source, destination):
+        Path(destination).write_bytes(external)
+        raise OSError(errno.EOPNOTSUPP, "hard links not supported", str(destination))
+
+    monkeypatch.setattr(os, "link", arrival)
+
+    # When exclusive publication encounters that arrival.
+    with pytest.raises(FileExistsError):
+        atomic.atomic_create_bytes(target, b"Reviewed replacement.")
+
+    # Then the owner's file is retained and temporary staging is removed.
+    assert target.read_bytes() == external
+    assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize("code", [errno.EIO, errno.ENOSPC, errno.EACCES])
+def test_exclusive_publication_propagates_real_link_errors(tmp_path, monkeypatch, code):
+    # Given an I/O or permission failure, rather than unsupported linking.
+    def fail_link(source, destination):
+        raise OSError(code, "injected link failure", str(destination))
+
+    monkeypatch.setattr(os, "link", fail_link)
+
+    # When publication fails at that boundary.
+    with pytest.raises(OSError) as caught:
+        atomic.atomic_create_bytes(tmp_path / "note.md", b"Complete bytes.")
+
+    # Then no fallback or public destination was created.
+    assert caught.value.errno == code
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("boundary", ["short", "zero", "write-error", "fsync-error"])
+def test_no_hardlink_copy_progress_and_failure_ownership(tmp_path, monkeypatch, boundary):
+    # Given an unsupported link and a deterministic descriptor fault.
+    target = tmp_path / "note.md"
+    payload = b"Complete binary image."
+    real_write, real_fsync = os.write, os.fsync
+
+    def no_link(source, destination):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    def write(fd, data):
+        if boundary == "zero":
+            return 0
+        if boundary == "write-error":
+            real_write(fd, data[:3])
+            raise OSError(errno.EIO, "injected copy write failure")
+        return real_write(fd, data[:3] if boundary == "short" else data)
+
+    def fsync(fd):
+        if boundary == "fsync-error" and target.exists():
+            raise OSError(errno.EIO, "injected destination fsync failure")
+        return real_fsync(fd)
+
+    monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "write", write)
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    # When the exclusive descriptor is copied.
+    if boundary == "short":
+        atomic.atomic_create_bytes(target, payload)
+        assert target.read_bytes() == payload
+    else:
+        with pytest.raises(atomic.ExclusiveCopyError):
+            atomic.atomic_create_bytes(target, payload)
+        assert target.read_bytes() == {
+            "zero": b"", "write-error": payload[:3], "fsync-error": payload,
+        }[boundary]
+
+    # Then successful copies are complete; uncertain public files are never unlinked.
+    assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize("replacement", [b"Owner arrival.", b"Complete binary image."])
+def test_no_hardlink_copy_rejects_replaced_inode_without_unlink(tmp_path, monkeypatch, replacement):
+    # Given a new inode arriving just before descriptor verification.
+    target = tmp_path / "note.md"
+    real_fsync = os.fsync
+    arrived = False
+    blocked = False
+
+    def no_link(source, destination):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    def fsync(fd):
+        nonlocal arrived, blocked
+        result = real_fsync(fd)
+        if target.exists() and not arrived:
+            arrived = True
+            arrival = tmp_path / "arrival"
+            arrival.write_bytes(replacement)
+            try:
+                os.replace(arrival, target)
+            except PermissionError:
+                if os.name != "nt":
+                    raise
+                blocked = True
+                raise
+        return result
+
+    monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    # When completion discovers that its public pathname changed ownership.
+    with pytest.raises(atomic.ExclusiveCopyError):
+        atomic.atomic_create_bytes(target, b"Complete binary image.")
+
+    # Then even an identical-byte replacement remains untouched.
+    assert target.read_bytes() == (b"Complete binary image." if blocked else replacement)
+    if blocked:
+        assert (tmp_path / "arrival").read_bytes() == replacement
+        assert set(tmp_path.iterdir()) == {target, tmp_path / "arrival"}
+    else:
+        assert list(tmp_path.iterdir()) == [target]
+
+
+@posix_only
+def test_no_hardlink_copy_preserves_explicit_mode(tmp_path, monkeypatch):
+    # Given a captured permission mode and a filesystem without links.
+    def no_link(source, destination):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    monkeypatch.setattr(os, "link", no_link)
+    target = tmp_path / "note.md"
+
+    # When the captured mode is explicitly requested.
+    atomic.atomic_create_bytes(target, b"Complete bytes.", mode=0o640)
+
+    # Then descriptor mode changes preserve the requested permission bits.
+    assert _mode(target) == 0o640
+
+
+def test_no_hardlink_copy_detects_in_place_interference(tmp_path, monkeypatch):
+    # Given an in-place edit before completeness verification.
+    target = tmp_path / "note.md"
+    real_fsync = os.fsync
+    changed = False
+    external = b"Owner's changed bytes."
+
+    def no_link(source, destination):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    def fsync(fd):
+        nonlocal changed
+        result = real_fsync(fd)
+        if target.exists() and not changed:
+            changed = True
+            target.write_bytes(external)
+        return result
+
+    monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    # When the owned descriptor no longer contains the expected image.
+    with pytest.raises(atomic.ExclusiveCopyError):
+        atomic.atomic_create_bytes(target, b"Reviewed complete bytes.")
+
+    # Then the changed destination stays intact, never cleaned up by pathname.
+    assert target.read_bytes() == external
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_no_hardlink_copy_fsyncs_destination_before_success(tmp_path, monkeypatch):
+    # Given a copy that needs both staging and destination synchronization.
+    target = tmp_path / "note.md"
+    real_fsync = os.fsync
+    files: list[tuple[int, int]] = []
+
+    def no_link(source, destination):
+        raise OSError(errno.EPERM, "hard links not supported", str(destination))
+
+    def fsync(fd):
+        info = os.fstat(fd)
+        if stat.S_ISREG(info.st_mode):
+            files.append((info.st_dev, info.st_ino))
+        return real_fsync(fd)
+
+    monkeypatch.setattr(os, "link", no_link)
+    monkeypatch.setattr(os, "fsync", fsync)
+
+    # When exclusive copying reports success.
+    atomic.atomic_create_bytes(target, b"Complete bytes.")
+
+    # Then the staged and actual destination files were independently synced.
+    final = target.stat()
+    assert len(files) == 2 and files[0] != files[1]
+    assert files[1] == (final.st_dev, final.st_ino)
