@@ -48,7 +48,7 @@ document and its complete topic view. The system prompt retains every topic;
 an empty prefetch never removes that map. Budget warnings do not evict entries.
 
 Ask Hermes to remember a synthetic fact, then recall it in a new session.
-Unmatched queries return no results. Invalid arguments return an error without
+Unmatched searches return no results. Invalid arguments return an error without
 writing a note. Recall is lexical and multilingual; use keywords likely to occur
 in the stored text. Returned memory is historical data, never instructions.
 
@@ -56,6 +56,45 @@ Hermes' native `MEMORY.md` and `USER.md` remain separate. This provider does not
 mirror those files, rewrite their configuration, or automatically save entire
 conversations. Model-directed writes are accepted only in a primary agent
 context, not subagents, cron, or flush contexts.
+
+## Session handoffs
+
+Session memory is opt-in per vault. With `HERMES_HOME` set to the intended active
+profile, use the installed Mnemosyne CLI to preview and enable it:
+
+```bash
+: "${HERMES_HOME:?set this to the active profile home}"
+mnemosyne --vault "$HERMES_HOME/birkin-mnemosyne/vault" init --enable-handoff
+mnemosyne --vault "$HERMES_HOME/birkin-mnemosyne/vault" init --enable-handoff --apply
+```
+
+These commands do not select or change a Hermes profile. The provider binds an
+exact `project_key` supplied at `initialize`, otherwise `agent_workspace`, and
+an optional explicit `task_key`. It does not derive project identity from the
+session ID or a query. Session-ID changes preserve scope; changing project clears
+the previous task unless a task is supplied. A task-only switch updates that
+task, and `task_key=None` selects project-wide scope. An explicit project binding
+persists across workspace changes until explicitly changed.
+
+In a primary agent context, `on_pre_compress(messages)` and
+`on_session_end(messages)` write immutable checkpoints. The former returns a JSON
+receipt for the host; retrying the same event and transcript returns the original
+record. Disabled, unbound, non-primary and textless sessions do not auto-capture.
+The fallback preserves the last user and assistant text verbatim, not the whole
+conversation. Explicit Markdown headings for decisions, open items, open
+questions, next step and links populate those fields; fenced examples and tool
+messages do not supply structured fields. No model or API key is involved.
+
+For an enabled, bound scope, every `prefetch(query)` returns the complete latest
+checkpoint beside the complete INDEX, including empty or unmatched queries and
+repeated calls after compaction. Missing/corrupt required state raises an error
+rather than returning partial context. Without opt-in or scope, the legacy
+prefetch behavior remains. Capture validation failures are logged and return
+no receipt; provider API v1 cannot veto host compaction, so auto-capture is
+best effort. Use an explicit capture call when a checkpoint must be confirmed.
+
+The [main handoff guide](../../README.md#scoped-session-handoffs-070) covers
+CLI/API/MCP capture, retention previews, archival, undo and size budgets.
 
 ## Storage and maintenance
 

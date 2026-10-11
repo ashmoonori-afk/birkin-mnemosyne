@@ -381,7 +381,7 @@ required but opt-in; default routing remains compatible.
 ## Todos
 > Implementation + Test = ONE todo. Never separate.
 <!-- APPEND TASK BATCHES BELOW THIS LINE WITH edit/apply_patch - never rewrite the headers above. -->
-- [ ] 1. Define canonical scoped handoff record encoding
+- [x] 1. Define canonical scoped handoff record encoding
   Recommended task executor category: quick - pure types/codec with fixed contracts.
   What to do / Must NOT do: add handoff_records.py and tests/test_handoff_records.py; full hashes, exact opaque keys, six fields, safe Markdown/JSON, strict parse; no I/O or provider.
   Closes: GAP-1. Parallelization: A foundation; independent of 2, blocks 3.
@@ -390,7 +390,7 @@ required but opt-in; default routing remains compatible.
   QA: round-trip keys `Foo`, `foo`, `C:\\Work\\Repo`, null task and task `release`; reject empty/control keys, malformed schema, hash mismatch and fence injection. Real capture/resume proof is paired in 10.
   Evidence: evidence/handoff/unit-1-tests.log. Commit: Y | feat: define scoped immutable handoff records.
 
-- [ ] 2. Fix journal pure moves and checked inverse moves
+- [x] 2. Fix journal pure moves and checked inverse moves
   Recommended task executor category: quick - implement the fully specified exclusive move protocol, not a new design.
   What to do / Must NOT do: edit review_journal.py, add journal_moves.py and tests/test_journal_moves.py; preserve schema/in-place behavior and retain every race image.
   Closes: GAP-3. Parallelization: A foundation with 1/3; blocks 5.
@@ -399,7 +399,7 @@ required but opt-in; default routing remains compatible.
   QA: `PYTHONPATH=. .venv/bin/python qa_journal_races.py` must change all three real-file scenarios from unsafe to safe; inject partial exclusive copy and interrupted move, then checked recovery; no sleeps.
   Evidence: evidence/journal-races-after.json and evidence/handoff/unit-2-tests.log. Commit: Y | fix: preserve concurrent arrivals during journal moves.
 
-- [ ] 3. Implement immutable capture and archive-aware latest lookup
+- [x] 3. Implement immutable capture and archive-aware latest lookup
   Recommended task executor category: quick - one store over existing atomic/lock primitives.
   What to do / Must NOT do: add handoffs.py, exports in __init__.py and tests/test_handoffs.py; implement exact store contract, enablement and warnings; no mutable current-scope pointer.
   Closes: GAP-1. Parallelization: after 1, with 2.
@@ -408,7 +408,7 @@ required but opt-in; default routing remains compatible.
   QA: real subprocess capture twice with scope `mn-070`/`handoff`, ID `checkpoint-1`; a changed request at that ID must fail; second process reads the original; two processes synchronize on an event before simultaneous capture; partial files and symlink ancestors fail closed.
   Evidence: evidence/handoff/unit-3-tests.log; paired real-surface capture evidence in 10. Commit: Y | feat: persist immutable scoped handoff captures.
 
-- [ ] 4. Include scoped handoffs in complete startup verification
+- [x] 4. Include scoped handoffs in complete startup verification
   Recommended task executor category: quick - extend the existing source-set pipeline.
   What to do / Must NOT do: edit startup.py and add tests/test_handoff_startup.py; explicit scope receipt, INDEX-first/latest-next, fresh selection and warnings; never drop/truncate.
   Closes: GAP-2. Parallelization: A behavior with 5.
@@ -417,17 +417,17 @@ required but opt-in; default routing remains compatible.
   QA: empty/unmatched task still includes latest; foreign-scope and stale-latest verification fail; different identity/vault roots work; oversized complete bundles raise; no-scope output remains compatible.
   Evidence: evidence/handoff/unit-4-tests.log and 10. Commit: Y | feat: verify scoped handoffs alongside startup INDEX.
 
-- [ ] 5. Add curation-gated retention preview apply and undo
+- [x] 5. Add curation-gated retention preview apply and undo
   Recommended task executor category: quick - implement the accepted gate/staging/journal contract.
   What to do / Must NOT do: add handoff_retention.py and tests/test_handoff_retention.py; full fresh snapshot, true validate_clamp, plan_id, summary-last pure moves; no gate bypass or repeated cap draining.
   Closes: GAP-3. Parallelization: A behavior with 4.
   References: curation_gate.py:21-107; curation_contract.py; review_journal.py; mnemosyne.py:370-410,708-744,879-901.
-  Acceptance criteria: `.venv/bin/python -m pytest -q tests/test_handoff_retention.py tests/test_curation.py tests/test_consolidation.py` exits 0.
+  Acceptance criteria: `.venv/bin/python -m pytest -q tests/test_handoff_retention.py tests/test_handoff_retention_journal.py tests/test_handoff_retention_edges.py tests/test_curation.py tests/test_consolidation.py` exits 0.
   QA: preview preserves every byte/mtime and creates no sidecar; fold more than cap, preserve protected/linked records and latest; changed preview inputs refuse; undo restores all original paths/bytes and retains summary in staging; archived capture retry returns original.
   Evidence: evidence/handoff/unit-5-tests.log and retention-hosts.json. Commit: Y | feat: fold handoff history through curation and undo.
 
-- [ ] 6. Expose handoff capture read fold and scoped startup over MCP
-  Recommended task executor category: quick - follow existing FastMCP tool patterns.
+- [x] 6. Expose handoff capture read fold and scoped startup over MCP
+  Recommended task executor category: quick - follow the existing MCP 2.2 MCPServer tool patterns.
   What to do / Must NOT do: edit _mcp_app.py, add tests/test_mcp_handoffs.py, update stale tool-list assertions in test_mcp_server.py; no lifecycle fiction.
   Closes: GAP-1, GAP-2. Parallelization: A adapters with 7.
   References: _mcp_app.py memory_startup_read/verify and memory_review_undo; tests/test_mcp_memory_index.py; accepted names/fields above.
@@ -435,7 +435,7 @@ required but opt-in; default routing remains compatible.
   QA: actual stdio tools/list schema includes all six fields/scope/capture_id and correct annotations; tools/call capture/read/startup/fold/undo works; project override does not inherit foreign task; malformed data returns an MCP error without writes.
   Evidence: evidence/handoff/unit-6-tests.log and mcp-transcript.json from 10. Commit: Y | feat: expose scoped handoff tools over MCP.
 
-- [ ] 7. Add handoff CLI capture resume retention and recovery
+- [x] 7. Add handoff CLI capture resume retention and recovery
   Recommended task executor category: quick - argparse dispatch with fixed commands.
   What to do / Must NOT do: edit memory_index_cli.py, add a focused handoff_cli.py only if needed for size, add tests/test_handoff_cli.py; preserve init/check/split syntax.
   Closes: GAP-1, GAP-2, GAP-3. Parallelization: A adapters with 6.
@@ -444,7 +444,7 @@ required but opt-in; default routing remains compatible.
   QA: real separate CLI processes capture JSON/stdin and resume with INDEX; missing latest exits 1; malformed/duplicate incompatible options exit 2 and create nothing; fold requires its preview plan_id.
   Evidence: evidence/handoff/unit-7-tests.log and capture-resume transcript. Commit: Y | feat: add handoff capture and resume CLI.
 
-- [ ] 8. Implement real Hermes lifecycle capture and mandatory scoped prefetch
+- [x] 8. Implement real Hermes lifecycle capture and mandatory scoped prefetch
   Recommended task executor category: quick - fixed public provider callbacks and thin store calls.
   What to do / Must NOT do: edit integrations/hermes/provider.py and tests/test_host_adapters.py; add a focused helper only for transcript parsing if needed; no invented generic hooks or delivered-once suppression.
   Closes: GAP-4. Parallelization: A hosts/onboarding with 9.
@@ -453,7 +453,7 @@ required but opt-in; default routing remains compatible.
   QA: instantiate the registered MnemosyneProvider against the real pinned base; initialize, pre-compress twice, session-end, switch and prefetch on empty/unmatched text; a new instance resumes only its scope. Capture receipts and full context outside pytest in 10.
   Evidence: evidence/handoff/unit-8-tests.log and hermes-transcript.json. Commit: Y | feat: capture handoffs at Hermes session boundaries.
 
-- [ ] 9. Offer handoff enablement in reversible init onboarding
+- [x] 9. Offer handoff enablement in reversible init onboarding
   Recommended task executor category: quick - add one explicit option to the existing preview/apply flow.
   What to do / Must NOT do: edit onboarding_plan.py, onboarding.py, memory_index_cli.py and tests/test_onboarding_handoffs.py; --enable-handoff and report state; no automatic context scope shared in the vault.
   Closes: GAP-4. Parallelization: A hosts/onboarding with 8.
@@ -462,7 +462,7 @@ required but opt-in; default routing remains compatible.
   QA: preview creates neither directories nor changes; explicit apply enables and verifies INDEX; repeated apply is byte/mtime stable; existing notes/routes remain untouched by enablement.
   Evidence: evidence/handoff/unit-9-tests.log and retention-hosts.json. Commit: Y | feat: offer handoff memory during vault initialization.
 
-- [ ] 10. Run handoff real-surface scenarios and measure startup cost
+- [x] 10. Run handoff real-surface scenarios and measure startup cost
   Recommended task executor category: quick - lead-executed QA with fixed acceptance, not delegated approval.
   What to do / Must NOT do: implement evidence/qa_handoff.py as a real subprocess/MCP/provider driver, then run both registered scenarios; no mocks replacing storage/coverage/gate.
   Closes: GAP-8, GAP-9. Parallelization: after 6-9.
@@ -471,7 +471,7 @@ required but opt-in; default routing remains compatible.
   QA: normal capture/fresh resume; project/task/Windows isolation; idempotent compaction; oversized warning and hard-error boundaries; gated fold+undo+edited-postimage refusal; real schema; compare identical before/after full startup bundles and record bytes/estimated tokens.
   Evidence: evidence/handoff/{capture-resume,retention-hosts,startup-cost,mcp-transcript,hermes-transcript}.json. Commit: N, external evidence; no product stub.
 
-- [ ] 11. Document handoff usage and 0.7.0 release entry
+- [x] 11. Document handoff usage and 0.7.0 release entry
   Recommended task executor category: writing - bilingual product documentation only.
   What to do / Must NOT do: update README.md, README.ko.md, integrations/hermes/README.md and CHANGELOG.md under 0.7.0; include CLI/MCP/API examples, omo/Claude Code convention, enablement, failure/undo behavior and measured estimate.
   Closes: GAP-9. Parallelization: after 10.

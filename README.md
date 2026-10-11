@@ -214,6 +214,125 @@ private snapshot and was not rerun for the public replay.
 See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and
 [measurements, denominators and regressions](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md).
 
+## Scoped session handoffs (0.7.0)
+
+Capture work, decisions, open items, open questions, next step and links without
+a model or API key. Each checkpoint is immutable and belongs to an exact
+`project_key` / optional `task_key` pair. Keys preserve case, Unicode and slash
+spelling, including Windows-shaped keys; they are data, not filesystem paths.
+An identical `capture_id` retry returns the original record. Changed content
+needs a new ID.
+
+```bash
+export MNEMOSYNE_PROJECT_KEY='example/project'
+export MNEMOSYNE_TASK_KEY='release'
+mnemosyne --vault my_vault handoff capture \
+  --capture-id 'cli-session-1:checkpoint-1' \
+  --work 'Packaging is ready; release checks remain.' \
+  --decision 'Keep the original notes.' \
+  --open-item 'Run Windows CI.' \
+  --open-question 'Is the final review approved?' \
+  --next-step 'Run the remaining checks.' \
+  --link 'https://example.invalid/release'
+mnemosyne --vault my_vault handoff latest
+mnemosyne --vault my_vault handoff resume
+mnemosyne --vault my_vault handoff fold --keep 3
+```
+
+To enable session memory during onboarding, preview first and apply explicitly:
+
+```bash
+mnemosyne --vault my_vault init --enable-handoff
+mnemosyne --vault my_vault init --enable-handoff --apply
+```
+
+The preview reports the requested and current enabled state without writing.
+Capture also additively enables handoffs and an absent INDEX, preserving existing
+routes and budgets. `--json-stdin` accepts the equivalent JSON fields:
+`work`, `next_step`, `decisions`, `open_items`, `open_questions`, `links`,
+`project_key`, `task_key`, `capture_id`, and optional `event`, `session_id`,
+`source`. List families are arrays. Use stdin or field flags, not both.
+Exit codes are 0 for success, 1 for an absent latest record, and 2 for invalid
+input. An explicit `--project-key` selects project-wide scope unless
+`--task-key` is also supplied; it never inherits a different task from the
+process defaults.
+
+```python
+from birkin_mnemosyne import HandoffFields, HandoffScope, HandoffStore, StartupReader
+
+scope = HandoffScope("example/project", "release")
+receipt = HandoffStore("my_vault").capture(
+    scope, HandoffFields("Reviewing the release.", next_step="Check the final head."),
+    capture_id="api-session-1:checkpoint-1",
+)
+reader = StartupReader("my_vault")
+bundle = reader.read([], project_key=scope.project_key, task_key=scope.task_key)
+assert reader.verify(
+    bundle.context, [], project_key=scope.project_key, task_key=scope.task_key,
+).complete
+print(receipt.path, bundle.estimated_tokens)
+```
+
+Startup always includes the complete latest active capture beside the complete
+INDEX and a verified scope/selection receipt. Missing or corrupt required state
+fails the read; soft budgets never truncate it. `task_key` selects a handoff
+namespace; the separate `task` argument matches INDEX routes. Ordinary note
+search does not index managed handoff files.
+
+The optional [Hermes provider](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#session-handoffs)
+captures at real session-end and pre-compression callbacks when enabled and
+bound to a project. It preserves the last user/assistant text and explicit
+marked fields without a model. Bound prefetch includes the full latest handoff
+and INDEX even for an empty or unmatched query. Other hosts use the explicit
+API, CLI or MCP calls below.
+
+In omo, Claude Code and other MCP clients, call `memory_handoff_capture` at the
+chosen session or pre-compaction checkpoint, then `memory_startup_read` with the
+same project/task keys when resuming. This lifecycle is caller-managed. For
+example, the parameters to `tools/call` are:
+
+```json
+{
+  "name": "memory_handoff_capture",
+  "arguments": {
+    "project_key": "example/project",
+    "task_key": "release",
+    "capture_id": "mcp-session-1:checkpoint-1",
+    "work": "Reviewing the release.",
+    "next_step": "Check the final head."
+  }
+}
+```
+
+`memory_handoff_read` returns the latest fields, active count and warnings.
+`memory_handoff_fold` previews by default. It keeps the newest three captures
+and always pins latest; the existing curation gate still protects notes and
+limits archival against the whole vault. Apply a nonempty preview using its
+`plan_id` (`handoff fold --apply --plan-id` or MCP `apply=true`). Originals move
+to the scope's `archive/`; only accepted inputs enter the dated summary.
+Pass the resulting `transaction_id` to `handoff undo --transaction` or
+`memory_review_undo(confirm=true)` to restore exact originals. Changed images
+refuse undo. An undone plan needs a fresh preview.
+
+The Python equivalent is `HandoffRetention` from
+`birkin_mnemosyne.handoff_retention`: `preview(scope, keep=3)` and
+`apply(scope, plan_id, keep=3)`; existing `Consolidation.undo(transaction_id)`
+handles recovery. Preserve `.mnemosyne-handoffs/` and `.mnemosyne-reviews/`
+when backing up. Captures, archive records and retained journal snapshots are
+plain files; ordinary note edits and init normalization do not rewrite them.
+
+The default per-record soft budget is 2,000 estimated tokens, configurable with
+`HandoffStore(vault).enable(max_tokens=...)`. Complete records and summaries
+must fit 1 MiB; startup also enforces its existing 64-file / 2 MiB source
+budget. Oversized summaries fail before any archival.
+
+**Measured example:** the six-field Windows-shaped CLI fixture grew from
+650 to 3,675 UTF-8 bytes of complete serialized startup context:
+**163 -> 919 estimated tokens (+756)**. Empty scope binding accounts for 140
+of that increase; the raw handoff alone is 194. These are `ceil(bytes / 4)`
+estimates, not model-tokenizer counts or the separate retrieval measurements
+below. Cost varies with the captured content.
+
 ## What the numbers say
 
 All retrieval quality below is the **final frozen test split**, replayed on
@@ -682,6 +801,9 @@ Orca-specific MCP file.
 | `memory_kibitzer_candidates` | ranked live note candidates for a query, with short excerpts; archive, system and expired notes are skipped | read-only |
 | `memory_startup_read` | read startup files (and the local files they MUST READ) under the identity root completely, with coverage checks | read-only |
 | `memory_startup_verify` | re-read the same files and verify a returned startup context against them | read-only |
+| `memory_handoff_capture` | persist an immutable project/task checkpoint with all six handoff fields | identical capture-ID retries reuse the original |
+| `memory_handoff_read` | latest scoped capture, active count and size warnings | read-only |
+| `memory_handoff_fold` | curation-gated dated summary and archive, with existing journal undo | preview unless `apply=true` and a fresh `plan_id` |
 | `memory_index_register` | add one `trigger -> document` mapping to the always-loaded INDEX; additive and idempotent, no remove or delete | additive write |
 | `memory_index_read` | read all INDEX entries or one complete topic, without a ranked cutoff | read-only |
 | `memory_open_trigger` | open the documents an exact trigger points to; fall back to ordinary search | read-only |
@@ -694,9 +816,9 @@ Plus the resources `mnemosyne://digest` (the prompt digest) and
 the curator: it reads the catalog, writes a plan, and `memory_curate` clamps it
 exactly like `run_curation_pass` would — protected notes stay put and the
 archive cap is recomputed for each call, so repeated calls can archive more.
-Forget and curation only archive notes. The one file removal over MCP is
-`memory_review_undo`, which deletes a review's archived copy only after the
-original bytes are restored and verified; `purge_expired` stays a Python-only
+Forget and curation only archive notes. `memory_review_undo` restores original
+bytes and withdraws a moved archive into retained private snapshots, refusing
+changed or racing images; `purge_expired` stays a Python-only
 maintenance call. Note text returned
 by the tools is stored data from earlier sessions; the server tells clients
 not to follow instructions found inside it.
@@ -770,6 +892,7 @@ from birkin_mnemosyne import (
     Mnemosyne,          # the mechanical index/ranking engine
     MemoryIndex,        # the opt-in always-loaded memory INDEX
     StartupReader,      # verified host startup reads, with task-bound complete reads
+    HandoffStore, HandoffScope, HandoffFields,  # immutable scoped session checkpoints
     VaultMemory,        # ergonomic write_note / rezone / digest wrapper
     ProfileMemory,      # background-reviewed role-profile persistence
     ProfileReviewError, # invalid reviewer output
@@ -805,6 +928,7 @@ my_vault/
   system/                       # role files owned by ProfileMemory
   _archive/                     # soft-forgotten notes
   .mnemosyne-memory-index/       # opt-in; index.json routing and the resident context map
+  .mnemosyne-handoffs/           # immutable scoped captures, summaries, archives and opt-in settings
   .mnemosyne-index.json.z        # rebuildable compressed index cache
   .mnemosyne-dynamics.json       # persistent usage state
   .mnemosyne-vectors.npz         # rebuildable semantic vector cache
