@@ -6,8 +6,13 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .memory_index import IndexEntry, MemoryIndex, MemoryIndexError, decode_index_json
-from .memory_index_migration import NOTICE_PREFIX, TopicSpan
+from .memory_index import (
+    NOTICE_PREFIX,
+    IndexEntry,
+    MemoryIndex,
+    MemoryIndexError,
+    decode_index_json,
+)
 from .startup_coverage import digest
 
 
@@ -78,8 +83,7 @@ def _coverage_source(index: MemoryIndex, path: Path, entries: set[IndexEntry]) -
                         if any(type(n) is not int for n in (start, end, prefix)) or \
                                 start != cursor or end < start or end > size or prefix < 0:
                             raise MemoryIndexError("coverage ranges have a gap, overlap, or invalid bound")
-                        topic = TopicSpan(trigger, document, start, end, prefix)
-                        if IndexEntry(topic.trigger, topic.document) not in entries:
+                        if IndexEntry(trigger, document) not in entries:
                             raise MemoryIndexError(f"original rules lack an INDEX entry: {document}")
                         raw = index.document_path(document).read_bytes()
                         if len(raw) < prefix + end - start:

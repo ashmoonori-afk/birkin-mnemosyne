@@ -10,6 +10,7 @@ from pathlib import Path
 from .atomic import atomic_create_bytes
 from .identity_reader import parse_sections
 from .memory_index import (
+    NOTICE_PREFIX,
     IndexEntry,
     MemoryIndex,
     MemoryIndexError,
@@ -20,8 +21,6 @@ from .review_journal import Change, commit
 from .startup import source_blocks
 from .startup_coverage import digest
 from .vault_lock import VaultLock
-
-NOTICE_PREFIX = "<!-- mnemosyne-memory-index split:"
 
 
 @dataclass(frozen=True, slots=True)

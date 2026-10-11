@@ -24,6 +24,7 @@ __all__ = [
     "DEFAULT_INDEX_TOKENS",
     "INDEX_DIRECTORY",
     "INDEX_SOURCE",
+    "NOTICE_PREFIX",
     "IndexEntry",
     "IndexView",
     "JsonValue",
@@ -40,6 +41,7 @@ __all__ = [
 INDEX_DIRECTORY: Final = ".mnemosyne-memory-index"
 INDEX_SOURCE: Final = ".mnemosyne-memory-index/context"
 DEFAULT_INDEX_TOKENS: Final = 2000
+NOTICE_PREFIX: Final = "<!-- mnemosyne-memory-index split:"
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | \
     dict[str, "JsonValue"]
 
