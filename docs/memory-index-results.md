@@ -1,5 +1,75 @@
 # Memory INDEX measurements
 
+## Latest public main replay (2026-10-11)
+
+Replayed on main `876ad40159399666f11642cfcfaab536c2d8e9fc` after
+bounded task paraphrases and INDEX drift warnings. The measured product tree
+is `df17e621b752702765d37fd5a995fa4d3a986923`. Python 3.14.4,
+Linux x86_64/WSL2, tiktoken 0.14.0 and the unchanged frozen inputs were used;
+semantic retrieval was disabled. No model was invoked.
+
+- [Complete public INDEX replay](../benchmarks/memory_index/main-results.json).
+- [Complete public task-delivery replay](../benchmarks/memory_triggers/main-results.json).
+- The original [results.json](../benchmarks/memory_index/results.json) and
+  comparisons below remain historical measurements, not current-main costs.
+
+```bash
+python -m benchmarks.round4.run --check-inputs-only
+python -m benchmarks.memory_index.run --output index-main.json
+python -m benchmarks.memory_triggers.run --output triggers-main.json
+```
+
+The fictional large-note corpus and its full-original baseline are unchanged.
+The complete current startup payload includes the selected two-level INDEX,
+instructions and coverage certificates:
+
+| Measure | Full original | Current main |
+|---|---:|---:|
+| Whole startup, o200k_base tokens | 45,128 | 1,297 |
+| Whole startup, characters / UTF-8 bytes | 165,667 | 3,530 |
+| Whole startup, `ceil(UTF-8 bytes / 4)` estimate | 41,417 | 883 |
+| Resident INDEX, o200k_base tokens | not applicable | 144 |
+| Resident INDEX, `ceil(UTF-8 bytes / 4)` estimate | not applicable | 103 |
+
+The whole-startup reduction is 43,831 tokens (97.1%). All 30 original routes
+remain present and all 155,749 source bytes reconstruct exactly. The 144-token
+INDEX alone is not the 1,297-token whole startup.
+
+The separate frozen small-note answer fixtures still retain 12/12 for each
+author, with no accuracy gain or regression:
+
+| Author | Exact answers, before -> after | Resident before | Resident after | Combined task after, min-max | Tasks costing more than full original |
+|---|---|---:|---:|---:|---:|
+| GPT-6.1 Sol | 12/12 -> 12/12 | 146 | 141 | 199-221 | 12/12 |
+| Claude Opus | 12/12 -> 12/12 | 441 | 146 | 229-432 | 0/12 |
+
+Costs are o200k_base tokens. These use the original answer runner's complete
+serialized optional `OpenResult` plus resident INDEX, not task-bound startup.
+All Sol tasks still cost more than reading the tiny full original. Large-note
+task accuracy was not measured; answer extraction is not model obedience.
+
+The separately frozen public task fixture tests current automatic full-body
+delivery and startup verification, not answer generation:
+
+| Public task-delivery measure | Current main |
+|---|---:|
+| Positive tasks delivering all required bodies | 12/12 |
+| Negative tasks correctly empty | 4/4 |
+| All tasks with byte-exact bodies and fresh verification | 16/16 |
+| Extra document deliveries | 1 |
+| Small fixture whole startup, o200k_base tokens | 358 |
+| Complete task context, min-max o200k_base tokens | 616-1,556 |
+| Grown fixture whole startup, o200k_base tokens | 1,036 |
+| Grown fixture resident INDEX, o200k_base tokens | 814 |
+
+All 480 original routes across 240 documents expand exactly once through all
+12 resident topics. Each complete topic text is 756 tokens; its complete
+compact-JSON `IndexView` is 1,944-1,952 tokens. The single extra delivery is
+reported, not treated as semantic precision. Both runners removed all temporary
+vaults. No private snapshot was accessed or rerun for this replay.
+
+## Historical original split/index measurement (v0.6.0)
+
 The fictional large-note case drops from **45,128 to 1,781 o200k_base
 tokens** for the whole startup payload, a reduction of 43,347 tokens (96.1%).
 All 30 INDEX entries remain present, and all 155,749 original bytes reconstruct

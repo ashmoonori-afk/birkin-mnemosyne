@@ -78,10 +78,10 @@ mem.search(
 The query's own words weigh 1.0, and a note that contains all of them stays
 first. Over MCP the same four fields are parameters of `memory_search`. On
 the benchmark's test split at 10,000 notes, expansions written by two models
-that saw only the question moved paraphrase MRR from 0.205 to 0.981 and
+that saw only the question moved paraphrase MRR from 0.204 to 0.981 and
 0.952. Questions and expansions are both model-written, so read that as an
 upper bound: see
-[Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#search-time-query-expansion-core-zero-dependencies-opt-in-per-search).
+[Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11).
 
 ## Always-loaded memory INDEX (opt-in)
 
@@ -143,16 +143,43 @@ coverage. MCP exposes `memory_index_register`, `memory_index_read`,
 Keep `.mnemosyne-memory-index/` and `.mnemosyne-reviews/`, including captured
 source revisions, when backing up a vault.
 
-The v0.6.0 fictional large-note benchmark reduced the whole startup payload from
-**45,128 to 1,781 o200k_base tokens**. Separate frozen Sol and Claude sets
-both stayed at **12/12**, not an accuracy gain; small-note task costs can
-increase. See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and
+The latest public replay on **2026-10-11**, main `876ad40`, reduced the
+fictional large-note whole startup payload from **45,128 to 1,297 o200k_base
+tokens**. The resident INDEX alone is 144 tokens; all 30 routes and 155,749
+source bytes remain intact. Separate frozen Sol and Claude answer sets both
+stay at **12/12**, not an accuracy gain. Small-note combined task costs are
+199-221 tokens for Sol (12/12 cost more than the full original) and 229-432
+for Claude (0/12 cost more). These are separate measurements, not task
+accuracy on the large corpus.
+
+| Current public task-delivery replay | Result |
+|---|---:|
+| Positive tasks with complete required bodies | 12/12 |
+| Negative tasks correctly empty | 4/4 |
+| All tasks with byte-exact bodies and fresh verification | 16/16 |
+| Extra document deliveries | 1 |
+| Grown fixture whole startup / resident INDEX, o200k_base tokens | 1,036 / 814 |
+
+The grown fixture preserves all 480 routes across 240 documents and 12 topics.
+These are mechanical delivery checks, not model obedience or semantic
+precision.
+
+The separately measured **2026-10-11 replacement private snapshot** published
+only as anonymous aggregates has startup **2,193 -> 2,193** and full-run
+**211,935 -> 177,359** o200k_base tokens over 26 tasks (16.3% less).
+Complete delivery improves **25/26 -> 26/26**, with extra document deliveries
+**30 -> 12**. Its full-run sum counts complete task inner contexts, not tool
+JSON or JSON-RPC framing. It is a different corpus from the historical
+private snapshot and was not rerun for the public replay.
+
+See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and
 [measurements, denominators and regressions](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md).
 
 ## What the numbers say
 
-All retrieval quality below is the **final frozen test split**, copied from
-[RESULTS.md](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#optional-semantic-mode-semantic-extra).
+All retrieval quality below is the **final frozen test split**, replayed on
+**2026-10-11**, main `876ad40` (Linux x86_64/WSL2, Python 3.14.4), from
+[RESULTS.md](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11).
 The synthetic corpus has 160 gold notes in six languages, padded with
 invented distractors to 1,000 and 10,000 notes. **Three independent query
 authors** (claude-opus-5.5, gpt-6.1-sol, claude-fable-5.1) supply exact,
@@ -172,33 +199,33 @@ es Spanish, de German.
 | Language | MRR: core -> semantic | R@5: core -> semantic |
 |---|---|---|
 | en | 0.591 -> 0.640 | 0.698 -> 0.746 |
-| ko | 0.579 -> 0.640 | 0.654 -> 0.728 |
+| ko | 0.578 -> 0.640 | 0.654 -> 0.728 |
 | ja | 0.794 -> 0.843 | 0.848 -> 0.899 |
 | zh | 0.818 -> 0.871 | 0.867 -> 0.926 |
 | es | 0.698 -> 0.744 | 0.769 -> 0.861 |
-| de | 0.689 -> 0.749 | 0.756 -> 0.822 |
+| de | 0.690 -> 0.749 | 0.763 -> 0.822 |
 
 #### 1,000 notes
 
 | Language | MRR: core -> semantic | R@5: core -> semantic |
 |---|---|---|
 | en | 0.581 -> 0.620 | 0.679 -> 0.714 |
-| ko | 0.554 -> 0.614 | 0.613 -> 0.683 |
+| ko | 0.552 -> 0.614 | 0.613 -> 0.683 |
 | ja | 0.782 -> 0.809 | 0.848 -> 0.909 |
 | zh | 0.766 -> 0.823 | 0.830 -> 0.881 |
 | es | 0.655 -> 0.686 | 0.694 -> 0.713 |
-| de | 0.664 -> 0.708 | 0.741 -> 0.770 |
+| de | 0.667 -> 0.709 | 0.748 -> 0.778 |
 
 #### 10,000 notes
 
 | Language | MRR: core -> semantic | R@5: core -> semantic |
 |---|---|---|
 | en | 0.568 -> 0.604 | 0.655 -> 0.675 |
-| ko | 0.559 -> 0.608 | 0.609 -> 0.658 |
+| ko | 0.557 -> 0.608 | 0.609 -> 0.658 |
 | ja | 0.782 -> 0.816 | 0.848 -> 0.879 |
 | zh | 0.764 -> 0.782 | **0.822 -> 0.815** |
 | es | 0.673 -> 0.681 | 0.704 -> 0.704 |
-| de | 0.681 -> 0.708 | 0.741 -> 0.748 |
+| de | 0.683 -> 0.708 | 0.741 -> 0.748 |
 
 ### Per independent query author and language
 
@@ -221,59 +248,59 @@ MRR for gpt-6.1-sol at 10,000 notes; those cells are bold, not averaged away.
 | 1000 | ja | 0.784 | 0.795 |
 | 1000 | zh | 0.750 | 0.794 |
 | 1000 | es | 0.653 | **0.646** |
-| 1000 | de | 0.671 | 0.692 |
+| 1000 | de | 0.672 | 0.692 |
 | 10000 | en | 0.588 | 0.639 |
 | 10000 | ko | 0.570 | 0.608 |
 | 10000 | ja | 0.763 | 0.828 |
 | 10000 | zh | 0.746 | 0.764 |
 | 10000 | es | 0.653 | **0.639** |
-| 10000 | de | 0.671 | 0.687 |
+| 10000 | de | 0.672 | 0.687 |
 
 #### gpt-6.1-sol
 
 | Notes | Language | Core MRR | Semantic MRR |
 |---|---|---|---|
 | 160 | en | 0.524 | 0.559 |
-| 160 | ko | 0.612 | 0.671 |
+| 160 | ko | 0.607 | 0.671 |
 | 160 | ja | 0.827 | 0.840 |
 | 160 | zh | 0.811 | 0.877 |
 | 160 | es | 0.628 | 0.711 |
-| 160 | de | 0.612 | 0.663 |
+| 160 | de | 0.615 | 0.663 |
 | 1000 | en | 0.512 | 0.542 |
-| 1000 | ko | 0.609 | 0.674 |
+| 1000 | ko | 0.605 | 0.674 |
 | 1000 | ja | 0.821 | 0.851 |
 | 1000 | zh | 0.762 | 0.847 |
 | 1000 | es | 0.577 | 0.652 |
-| 1000 | de | 0.595 | 0.629 |
+| 1000 | de | 0.599 | 0.629 |
 | 10000 | en | 0.496 | 0.517 |
-| 10000 | ko | 0.613 | 0.668 |
+| 10000 | ko | 0.609 | 0.668 |
 | 10000 | ja | 0.826 | 0.828 |
 | 10000 | zh | 0.777 | **0.776** |
 | 10000 | es | 0.609 | 0.643 |
-| 10000 | de | 0.622 | 0.648 |
+| 10000 | de | 0.626 | 0.648 |
 
 #### claude-fable-5.1
 
 | Notes | Language | Core MRR | Semantic MRR |
 |---|---|---|---|
 | 160 | en | 0.643 | 0.691 |
-| 160 | ko | 0.530 | 0.581 |
+| 160 | ko | 0.529 | 0.581 |
 | 160 | ja | 0.781 | 0.876 |
 | 160 | zh | 0.822 | 0.884 |
 | 160 | es | 0.775 | 0.814 |
-| 160 | de | 0.761 | 0.844 |
+| 160 | de | 0.762 | 0.844 |
 | 1000 | en | 0.641 | 0.673 |
-| 1000 | ko | 0.487 | 0.548 |
+| 1000 | ko | 0.485 | 0.548 |
 | 1000 | ja | 0.742 | 0.781 |
 | 1000 | zh | 0.785 | 0.829 |
 | 1000 | es | 0.736 | 0.761 |
-| 1000 | de | 0.726 | 0.804 |
+| 1000 | de | 0.729 | 0.804 |
 | 10000 | en | 0.621 | 0.655 |
-| 10000 | ko | 0.493 | 0.548 |
+| 10000 | ko | 0.492 | 0.547 |
 | 10000 | ja | 0.759 | 0.790 |
 | 10000 | zh | 0.770 | 0.807 |
 | 10000 | es | 0.756 | 0.763 |
-| 10000 | de | 0.749 | 0.787 |
+| 10000 | de | 0.751 | 0.788 |
 
 The Chinese author-level R@5 losses at 10,000 notes are also explicit:
 
@@ -307,53 +334,54 @@ mostly keywords.
 
 ### Footprint
 
-Apple M1, macOS arm64 measurements, not service-level guarantees. Every arrow
-is **core -> semantic**. Install size is **0.18 MB -> 38.2 MB**, including the
-extra's dependencies but not the prepared model. The first preparation needs
-an approximately 530 MB download; the compact model is approximately 140 MB
-on disk. Preparation does not delete the download: the raw model stays in the
-Hugging Face cache, so budget about 670 MB in total. The cache is
-`$HF_HUB_CACHE`, which defaults to `$HF_HOME/hub` and then to
-`~/.cache/huggingface/hub`; the model is the folder
-`models--minishlab--potion-multilingual-128M` inside it. Once the model is
-prepared you can reclaim the ~530 MB by deleting that folder (with
-huggingface_hub 1.x or newer, `hf cache rm model/minishlab/potion-multilingual-128M`
-does the same); the compact model keeps working, and only preparing it
-again downloads it anew. The default model is fetched at a pinned commit, and
-that commit is recorded with the prepared model and the vectors sidecar. The
-memory budget was 150 MB on top of the core; the largest measured addition was
-61 MB while indexing. The prepared-model start-up budget was
-1 s; the slowest semantic start in the reference timing run took 439 ms.
+Latest main replay on **2026-10-11**, Linux x86_64/WSL2, Python 3.14.4;
+not service-level guarantees. Every arrow is **core -> semantic**. Install
+size is **0.38 MB -> 80.24 MB**, excluding the model files. The pinned raw
+model files are **531.0 MB**, the compact model **138.1 MB**, together
+**669.1 MB** (decimal MB). The Hugging Face cache is `$HF_HUB_CACHE`, or
+`$HF_HOME/hub`, or `~/.cache/huggingface/hub`; compact files are under
+`$MNEMOSYNE_MODEL_CACHE` or `~/.cache/birkin-mnemosyne`. Newer Hugging Face
+versions can share blobs outside the model folder, so deleting that folder
+alone is not a reclaim-size guarantee; use its cache-management tools.
+The prepared model and vectors sidecar record the pinned model revision.
+The original additional-memory budget was 150 MB; the largest measured
+indexing addition here is **163 MB**, exceeding it on this platform.
+The slowest semantic start is **617 ms** with the model prepared, below the
+original 1 s target in this run.
 
 #### Index and memory
 
 | Notes | Index on disk | RSS: search | RSS: indexing |
 |---|---|---|---|
-| 160 | 0.07 MB -> 0.09 MB | 25 -> 48 MB | 26 -> 83 MB |
-| 1000 | 0.35 MB -> 0.43 MB | 34 -> 56 MB | 40 -> 101 MB |
-| 10000 | 3.27 MB -> 4.08 MB | 138 -> 159 MB | 170 -> 231 MB |
+| 160 | 0.06 MB -> 0.08 MB | 21 -> 59 MB | 22 -> 185 MB |
+| 1000 | 0.33 MB -> 0.42 MB | 26 -> 64 MB | 34 -> 196 MB |
+| 10000 | 3.22 MB -> 4.03 MB | 81 -> 120 MB | 157 -> 298 MB |
 
 #### Start-up and latency
 
 | Notes | Start-up median (max) | p50 | p95 |
 |---|---|---|---|
-| 160 | 41 ms (42) -> 89 ms (95) | 0.5 -> 1.6 ms | 0.6 -> 3.4 ms |
-| 1000 | 65 ms (98) -> 125 ms (132) | 3.1 -> 7.4 ms | 3.9 -> 8.4 ms |
-| 10000 | 307 ms (547) -> 382 ms (439) | 35.4 -> 75.6 ms | 37.8 -> 79.4 ms |
+| 160 | 53 ms (62) -> 211 ms (260) | 0.1 -> 0.9 ms | 0.2 -> 1.7 ms |
+| 1000 | 82 ms (94) -> 234 ms (254) | 0.2 -> 2.8 ms | 0.4 -> 4.1 ms |
+| 10000 | 366 ms (395) -> 570 ms (617) | 1.3 -> 25.2 ms | 3.7 -> 33.0 ms |
 
-RSS is peak resident memory in separate fresh processes for search and
-whole-vault indexing. Start-up includes interpreter start, import, index load
-and first query. Reference timings were measured at a lower machine load
-(1-minute load average 5.6 to 7.8), using 10 processes per start-up cell and
-300 test queries in a warm process. Latency grows with vault size and machine
-load. The timing fields in `semantic_test_run.json` are **not** the reference;
-use the separately measured start-up and latency table in RESULTS.md.
+RSS is peak in separate fresh search/build processes spawned by a small
+standard-library-only parent. Start-up includes interpreter start, import,
+index load and first query: 10 processes per cell. Warm latency uses the first
+300 frozen test queries; index size is measured after that run. These are
+separate measurements from quality-run latency (dev + test pooled). The
+quality runner's Linux RSS can inherit its parent's earlier high-water mark,
+so those RSS/timing fields in `main_test_run.json` are **not** the reference;
+use `main_footprint.json` and RESULTS.md. Latency grows with vault size and
+machine load; platform and methodology differ from the historical macOS run.
 
 ## Honest limits
 
-- **Korean does not improve in the default core.** Against the earlier
-  tokenizer, at 10,000 notes its MRR is **0.569 -> 0.559**. English stems also
-  match English distractors for code-switched Korean questions; Korean
+- **Korean does not improve in the default core.** The earlier macOS
+  tokenizer run measured MRR **0.569**
+  at 10,000 notes; the latest Linux core replay is **0.557**. These are
+  separate measurements, not an isolated cross-platform comparison.
+  English stems also match English distractors for code-switched Korean questions; Korean
   tokenization itself is unchanged. Stem reweighting traded English for
   Korean, and a minority-script boost hurt independently authored mirror
   questions. Neither was shipped: see
@@ -372,8 +400,8 @@ use the separately measured start-up and latency table in RESULTS.md.
 - **Semantic results can be irrelevant.** With the mode on, even a query
   without a lexical match receives semantic candidates; there is no relevance
   floor. Tokenizer equivalence was checked on this benchmark only, and memory
-  in a long-lived process with varied CJK text was not measured. Footprint
-  measurements cover macOS arm64 only.
+  in a long-lived process with varied CJK text was not measured. Current footprint
+  measurements cover Linux x86_64/WSL2 only; historical ones cover macOS arm64.
 - **Compression has a write cost.** Saving recompresses the whole index;
   loading briefly holds compressed and decoded text together. Mixing older
   and newer library versions on a vault causes repeated cache rebuilding.
@@ -435,7 +463,13 @@ python benchmarks/retrieval/compare.py run.json run.json --engine-before bm25 --
 ```
 
 The committed quality run is
-[semantic_test_run.json](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/semantic_test_run.json).
+[main_test_run.json](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/main_test_run.json).
+The separately measured reference footprint is
+[main_footprint.json](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/main_footprint.json):
+
+```bash
+python benchmarks/retrieval/measure_footprint.py --output footprint-main.json
+```
 See RESULTS.md for the full query-kind tables, query counts, rejected ideas
 and footprint methodology. Additional checks and offline examples:
 
