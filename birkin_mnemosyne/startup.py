@@ -246,7 +246,7 @@ class StartupReader:
             raise StartupError("complete memory INDEX exceeds the startup byte budget")
         if task is not None:
             receipt = {
-                "version": 1, "matcher": "lexical-v1",
+                "version": 1, "matcher": "lexical-v2",
                 "task_sha256": digest(task.encode("utf-8")),
                 "index_sha256": index.index_sha256,
                 "matches": [(entry.trigger, entry.document) for entry in matches],

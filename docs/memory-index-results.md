@@ -138,6 +138,61 @@ and journal/captured-source recovery.
 
 ## Unreleased task reads and two-level indexes
 
+### Task matching on the replacement snapshot (2026-10-11)
+
+This comparison uses a new private snapshot, not the private corpus in the
+historical table below. The old snapshot was deleted and could not be restored.
+Baseline is current main `2dbecaeb1021fd0cd490c9b578d72841b508a6a5`; both sides
+use identical replacement source bytes and frozen task inputs.
+The matching code measured at
+`10fb76631449913d3573cf9dee67492d0451f9e1` has production tree
+`324c990f79f98daca34d8a569d24cf07cfd49722` and Python source SHA-256
+`07d496fb4ce5b4d3a5f8e52d96941cc1faed7a4573b088a9ada08081902b2e78`.
+
+| Corpus | Startup before | Startup after | Full-run before | Full-run after |
+|---|---:|---:|---:|---:|
+| Replacement private snapshot, 26 tasks | 2,193 | 2,193 | 211,935 | 177,359 |
+
+Units are `o200k_base` tokens. Startup is one complete no-task
+`memory_startup_read` inner context with the explicit resident source. Full-run
+is the sum of all 26 complete task inner contexts through real MCP read/verify,
+including the resident source, index, selected topic maps, receipt and bodies.
+The 34,576-token reduction is 16.3%; startup does not change. Tool result JSON,
+initialization instructions and JSON-RPC framing are separate scopes.
+
+| Replacement delivery check | Before | After |
+|---|---:|---:|
+| All frozen tasks | 25/26 | 26/26 |
+| Positive tasks | 22/23 | 23/23 |
+| Negative tasks correctly empty | 3/3 | 3/3 |
+| Distinct required documents delivered in full | 19/19 | 19/19 |
+| Extra document deliveries | 30 | 12 |
+
+The unchanged baseline misses one newly authored synonym-only paraphrase; the
+candidate repairs it rather than changing the task or expected documents.
+Required-body integrity and fresh verification pass for every candidate task.
+All 20 original route pairs remain expandable across 11 conditions; no route,
+index, selected topic map or required body is removed. The existing public
+16-case full-body fixture also passes unchanged.
+
+The source manifest SHA-256 is
+`af3bc123e01773a82f8ccdee9299b0d69fd2d85da8f26e4317e75bfe6a2a0dd9`;
+the replacement task fixture SHA-256 is
+`5fa2fc8c5e76cc14031e19617cde251bb29c62074455caa7de017ca8d325d385`.
+The original 24 task wordings map by condition text to current required
+documents; two additional tasks cover the new condition. Source and detailed
+responses remain private and are deleted at completion. This is mechanical
+full-body delivery, not model obedience or arbitrary semantic understanding.
+
+`lexical-v2` excludes repeated generic-action terms only when a trigger retains
+other content, and uses bounded task-side technical equivalents through the
+existing search expansion tokenizer. See the
+[exact matching policy](memory-trigger-design.md#task-matching).
+Invisible session dedupe and header-only confirmation were rejected because
+each task requires an independently complete full-body response.
+
+### Historical two-level-index comparison
+
 These later measurements compare the already-managed 0.6.0 INDEX with the
 unreleased implementation, not with the original 45,128-token full-note
 baseline. The measured production tree is
