@@ -47,6 +47,7 @@ class Coverage:
     lines: int
     bytes: int
     errors: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
 
 def digest(data: bytes) -> str:

@@ -78,6 +78,7 @@ def test_check_reports_orphan_and_dangling_and_exits_one(tmp_path):
     assert payload["ok"] is False
     assert payload["orphan_documents"] == ["orphan.md"]
     assert payload["dangling_entries"] == [{"trigger": "main task", "document": "memory.md"}]
+    assert len(payload["warnings"]) == 2
     assert tree(tmp_path) == before
 
 

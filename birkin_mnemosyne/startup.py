@@ -6,7 +6,7 @@ import json
 import re
 import threading
 from collections.abc import Callable, Generator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TypeAlias
@@ -293,6 +293,8 @@ class StartupReader:
 
     def read(self, paths: Sequence[str], *, task: str | None = None) -> StartupBundle:
         """Return all material or raise; verify final context against fresh source bytes."""
+        from .memory_index_integrity import consistency_warnings
+
         with self._lock:
             sources, matches = self._sources(paths, task)
             key = tuple((path, digest(data)) for path, data in sources.items())
@@ -308,7 +310,10 @@ class StartupReader:
                 }
                 self._context = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
                 self._key = key
-            coverage = verify_context(self._context, sources)
+            coverage = replace(
+                verify_context(self._context, sources),
+                warnings=consistency_warnings(self.memory_index),
+            )
             if not coverage.complete:
                 raise StartupError("returned startup context failed byte/line coverage")
             return StartupBundle(self._context, coverage, hit, estimated_tokens(self._context), matches)
@@ -317,13 +322,18 @@ class StartupReader:
         self, context: str, paths: Sequence[str], *, task: str | None = None,
     ) -> Coverage:
         """Independently read the requested closure; reject altered/missing/foreign blocks."""
+        from .memory_index_integrity import consistency_warnings
+
         with self._lock:
             sources, _ = self._sources(paths, task)
-            coverage = verify_context(context, sources)
+            coverage = replace(
+                verify_context(context, sources),
+                warnings=consistency_warnings(self.memory_index),
+            )
             if not coverage.complete:
                 return coverage
             expected = self.read(paths, task=task).context
             if _json(context) != _json(expected):
                 return Coverage(False, coverage.files, coverage.lines, coverage.bytes,
-                                ("derived-index-or-order",))
+                                ("derived-index-or-order",), coverage.warnings)
             return coverage
