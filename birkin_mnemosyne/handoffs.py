@@ -72,7 +72,7 @@ def _parse_timestamp(value: str) -> _dt.datetime:
         ) from exc
 
 
-def _coerce_now(now: _dt.datetime | str | None) -> str:
+def _coerce_now(now: object) -> str:
     if now is None:
         return _format_timestamp(_dt.datetime.now(_dt.timezone.utc))
     if isinstance(now, str):
@@ -183,7 +183,7 @@ class HandoffStore:
                     ) != (scope, fields, event, session_id, source):
                         raise HandoffError(
                             f"capture_id {capture_id!r} already holds different "
-                            "content for this scope")
+                            + "content for this scope")
                     return self._existing_receipt(note, batch)
             greatest = _greatest_capture_stamp(batch)
             if greatest is not None and request_time <= greatest:
@@ -201,7 +201,7 @@ class HandoffStore:
             note = HandoffNote(
                 record=record,
                 path=f"{HANDOFFS_DIRECTORY}/{scope_directory(scope)}/"
-                f"{record_filename(record, raw)}",
+                + record_filename(record, raw),
                 raw=raw, sha256=hashlib.sha256(raw).hexdigest(),
             )
             self._publish(scope, note)

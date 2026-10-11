@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from typing import TypeAlias
@@ -10,7 +13,7 @@ import pytest
 
 from birkin_mnemosyne.handoff_records import (
     HandoffError, HandoffFields, HandoffNote, HandoffReceipt, HandoffRecord,
-    HandoffScope, encode_record,
+    HandoffScope, encode_record, scope_directory,
 )
 
 Replacement: TypeAlias = (
@@ -40,6 +43,57 @@ def _record(**overrides: Replacement) -> HandoffRecord:
         _scope(), _fields(), "capture", "checkpoint-1",
         "2026-10-11T12:34:56.123456Z", "explicit",
     ), **overrides)
+
+
+def test_non_ascii_keys_get_deterministic_readable_label_fallbacks() -> None:
+    directory = scope_directory(_scope("한국어-프로젝트", "タスク"))
+    assert directory.startswith("proj--task--")
+
+
+def test_scope_directories_distinguish_case_and_null_task() -> None:
+    assert scope_directory(HandoffScope("Foo")) != scope_directory(HandoffScope("foo"))
+    assert scope_directory(HandoffScope("mn-070", None)) != \
+        scope_directory(HandoffScope("mn-070", "release"))
+    assert scope_directory(HandoffScope("Foo", None)) != \
+        scope_directory(HandoffScope("foo", None))
+
+
+def test_scope_directory_uses_full_lower_unpadded_base32_of_canonical_json() -> None:
+    directory = scope_directory(HandoffScope("mn-070", "release"))
+    label, sep, suffix = directory.rpartition("--")
+    assert sep == "--"
+    assert label == "mn-070--releas"
+    assert len(suffix) == 52
+    assert suffix == suffix.lower() and "=" not in suffix
+    canonical = json.dumps(["mn-070", "release"], ensure_ascii=False,
+                           separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).digest()
+    assert suffix == base64.b32encode(digest).decode("ascii").rstrip("=").lower()
+
+
+def test_scope_labels_are_at_most_six_characters() -> None:
+    for directory in (
+        scope_directory(_scope("very-long-project-name", "extra-long-task-name")),
+        scope_directory(_scope("한국어", "タスク")),
+    ):
+        pieces = directory.split("--")
+        assert all(len(piece) <= 6 for piece in pieces[:-1])
+        assert len(pieces[-1]) == 52
+
+
+def test_scope_directory_is_deterministic() -> None:
+    first = scope_directory(_scope("프로젝트", None))
+    second = scope_directory(_scope("프로젝트", None))
+    assert first == second
+
+
+def test_null_task_is_distinct_from_every_task_spelling() -> None:
+    directory = scope_directory(HandoffScope("mn-070", None))
+    for task in ("", " ", "release", "Release", "release/1.0"):
+        if task.strip():
+            assert scope_directory(HandoffScope("mn-070", task)) != directory
+    with pytest.raises(HandoffError):
+        _ = HandoffScope("mn-070", "")
 
 
 @pytest.mark.parametrize("bad", ["", "   ", "\n", "a\x00b", "tab\there"])

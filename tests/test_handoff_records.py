@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import replace
 from typing import TypeAlias
 
@@ -25,6 +26,7 @@ Replacement: TypeAlias = (
     str | int | None | HandoffScope | HandoffFields | list[str]
     | tuple[str | int, ...] | tuple[tuple[str, ...], ...]
 )
+_json_object: Callable[[str], dict[str, object]] = json.loads
 
 
 def _scope(project: str = "mn-070", task: str | None = "handoff") -> HandoffScope:
@@ -90,57 +92,6 @@ def test_unicode_keys_round_trip_with_original_spelling() -> None:
     assert note.record.scope == _scope("한국어-프로젝트", "タスク")
 
 
-def test_non_ascii_keys_get_deterministic_readable_label_fallbacks() -> None:
-    directory = scope_directory(_scope("한국어-프로젝트", "タスク"))
-    assert directory.startswith("proj--task--")
-
-
-def test_scope_directories_distinguish_case_and_null_task() -> None:
-    assert scope_directory(HandoffScope("Foo")) != scope_directory(HandoffScope("foo"))
-    assert scope_directory(HandoffScope("mn-070", None)) != \
-        scope_directory(HandoffScope("mn-070", "release"))
-    assert scope_directory(HandoffScope("Foo", None)) != \
-        scope_directory(HandoffScope("foo", None))
-
-
-def test_scope_directory_uses_full_lower_unpadded_base32_of_canonical_json() -> None:
-    directory = scope_directory(HandoffScope("mn-070", "release"))
-    label, sep, suffix = directory.rpartition("--")
-    assert sep == "--"
-    assert label == "mn-070--releas"
-    assert len(suffix) == 52
-    assert suffix == suffix.lower() and "=" not in suffix
-    canonical = json.dumps(["mn-070", "release"], ensure_ascii=False,
-                           separators=(",", ":"))
-    digest = hashlib.sha256(canonical.encode("utf-8")).digest()
-    assert suffix == base64.b32encode(digest).decode("ascii").rstrip("=").lower()
-
-
-def test_scope_labels_are_at_most_six_characters() -> None:
-    for directory in (
-        scope_directory(_scope("very-long-project-name", "extra-long-task-name")),
-        scope_directory(_scope("한국어", "タスク")),
-    ):
-        pieces = directory.split("--")
-        assert all(len(piece) <= 6 for piece in pieces[:-1])
-        assert len(pieces[-1]) == 52
-
-
-def test_scope_directory_is_deterministic() -> None:
-    first = scope_directory(_scope("프로젝트", None))
-    second = scope_directory(_scope("프로젝트", None))
-    assert first == second
-
-
-def test_null_task_is_distinct_from_every_task_spelling() -> None:
-    directory = scope_directory(HandoffScope("mn-070", None))
-    for task in ("", " ", "release", "Release", "release/1.0"):
-        if task.strip():
-            assert scope_directory(HandoffScope("mn-070", task)) != directory
-    with pytest.raises(HandoffError):
-        _ = HandoffScope("mn-070", "")
-
-
 def test_encoding_has_minimal_canonical_frontmatter() -> None:
     lines = encode_record(_record()).splitlines()
     assert lines[:6] == [
@@ -158,17 +109,18 @@ def test_body_is_pretty_json_with_version_one_and_every_field() -> None:
     text = encode_record(_record())
     assert "\n```json\n" in text
     body = text.split("```json\n", 1)[1].rsplit("\n```", 1)[0]
-    payload = json.loads(body)
+    payload = _json_object(body)
     assert payload["version"] == 1
     assert set(payload) == {
         "version", "scope", "fields", "kind", "capture_id", "recorded_at",
         "event", "session_id", "source", "provenance",
     }
     assert payload["scope"] == {"project_key": "mn-070", "task_key": "handoff"}
-    assert set(payload["fields"]) == {
+    fields = _json_object(json.dumps(payload["fields"]))
+    assert set(fields) == {
         "work", "next_step", "decisions", "open_items", "open_questions", "links",
     }
-    assert payload["fields"]["decisions"] == ["freeze the interface"]
+    assert fields["decisions"] == ["freeze the interface"]
 
 
 def test_fence_grows_beyond_longest_backtick_run_in_payload() -> None:

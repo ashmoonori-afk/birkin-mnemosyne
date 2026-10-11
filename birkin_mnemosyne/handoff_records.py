@@ -12,7 +12,7 @@ from typing import Final, TypeAlias
 
 from .handoff_models import (
     HandoffConfig, HandoffError, HandoffFields, HandoffNote, HandoffReceipt,
-    HandoffRecord, HandoffScope,
+    HandoffRecord, HandoffScope, require_type,
 )
 
 __all__ = [
@@ -133,8 +133,7 @@ def record_filename(record: HandoffRecord, raw: bytes) -> str:
 
 def decode_record(raw: bytes, filename: str) -> HandoffNote:
     """Reject unknown, altered or noncanonical images before returning a note."""
-    if not isinstance(raw, bytes):
-        raise HandoffError("raw must be bytes")
+    _ = require_type(raw, bytes, "raw")
     try:
         text = raw.decode("utf-8")
     except UnicodeError as exc:
