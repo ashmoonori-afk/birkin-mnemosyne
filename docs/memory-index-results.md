@@ -144,6 +144,10 @@ This comparison uses a new private snapshot, not the private corpus in the
 historical table below. The old snapshot was deleted and could not be restored.
 Baseline is current main `2dbecaeb1021fd0cd490c9b578d72841b508a6a5`; both sides
 use identical replacement source bytes and frozen task inputs.
+The matching code measured at
+`10fb76631449913d3573cf9dee67492d0451f9e1` has production tree
+`324c990f79f98daca34d8a569d24cf07cfd49722` and Python source SHA-256
+`07d496fb4ce5b4d3a5f8e52d96941cc1faed7a4573b088a9ada08081902b2e78`.
 
 | Corpus | Startup before | Startup after | Full-run before | Full-run after |
 |---|---:|---:|---:|---:|
