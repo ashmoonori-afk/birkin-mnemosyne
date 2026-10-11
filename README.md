@@ -585,6 +585,9 @@ also called both tools inside Herdr. These checks do **not** claim an actual
 launch in every IDE. See the [client matrix, exact configuration variants and
 official sources](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/ide-compatibility.md)
 for Cursor, JetBrains, Zed, Windsurf, Antigravity, Orca and CLI agents.
+Here, Orca means the [Orca IDE](https://www.onorca.dev/docs): configure the
+MCP-capable agent it launches in the active worktree, not an invented
+Orca-specific MCP file.
 
 ### Tools
 

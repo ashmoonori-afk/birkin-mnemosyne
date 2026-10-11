@@ -573,6 +573,8 @@ PyPI 0.6.0과 `876ad40` 시점의 main은 macOS와 Windows에서 공식 MCP SDK�
 도구를 호출했습니다. 이것이 모든 IDE에서 직접 실행했다는 뜻은 아닙니다.
 Cursor, JetBrains, Zed, Windsurf, Antigravity, Orca와 CLI 에이전트의
 [호환성 표·정확한 설정 형식·공식 출처](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/ide-compatibility.md)를 참고하세요.
+여기서 Orca는 [Orca IDE](https://www.onorca.dev/docs)를 뜻합니다. 별도 Orca 전용
+MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에이전트의 MCP 설정을 사용합니다.
 
 ### 도구
 
