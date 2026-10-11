@@ -57,6 +57,8 @@ def test_existing_header_fields_comments_and_body_are_preserved() -> None:
     b"---\ntitle: First\ntitle: Second\n---\nRule",
     b"---\ntitle: First\ntitle : Second\n---\nRule",
     b'---\n"title": Owner title\n---\nRule',
+    b"---\n  title: Owner title\n  type: topic\n  tags: []\n---\nOwner body.",
+    b"---\ntype: topic\n  title: Owner title\n---\nOwner body.",
     b"---\nmetadata: &shared\n  value: x\n---\nRule",
     b"---\n<<: *shared\n---\nRule",
     b"---\ntitle: Missing closing delimiter",
@@ -96,6 +98,20 @@ def test_equivalent_header_keys_preserve_owner_metadata(separator: bytes) -> Non
     assert frontmatter.parse(after.decode())[0]["title"] == "Owner title"
     assert additions == ("type", "tags") and warning is None
     assert b"title: " not in after and after.endswith(b"Owner body.")
+
+
+def test_nested_metadata_keys_do_not_replace_missing_root_fields() -> None:
+    # Given valid nested fields distinct from the missing root title.
+    raw = b"---\nmetadata:\n  title: Nested title\n  tags: [nested]\n---\nOwner body."
+
+    # When the missing root fields are completed.
+    after, additions, warning = complete_header(SourceBytes("policy.md", raw))
+
+    # Then nested metadata survives and the actual root fields are completed.
+    meta, _ = frontmatter.parse(after.decode())
+    assert meta["title"] == "policy" and meta["tags"] == []
+    assert meta["metadata"] == {"title": "Nested title", "tags": ["nested"]}
+    assert additions == ("title", "type", "tags") and warning is None
 
 
 def test_catalogue_is_stable_across_normalization_and_body_edits() -> None:

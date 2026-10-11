@@ -102,6 +102,10 @@ def complete_header(source: SourceBytes) -> tuple[bytes, tuple[str, ...], str | 
             and not HEADER_KEY.match(line)
             for line in lines[1:close]
         )
+        parsed, _ = frontmatter.parse(raw.decode("utf-8"))
+        unsupported = unsupported or any(
+            key in parsed and key not in keys for key in ("title", "type", "tags")
+        )
         if unsupported or len(keys) != len(set(keys)) or AMBIGUOUS_YAML.search(header):
             return source.raw, (), "ambiguous frontmatter retained"
     else:

@@ -134,10 +134,17 @@ def test_import_preview_preserves_both_complete_input_trees(tmp_path: Path) -> N
                         for path in tmp_path.rglob("*") if path.is_dir())) == before_directories
 
 
-def test_spaced_header_key_rerun_preserves_catalogue_and_bytes(tmp_path: Path) -> None:
+@pytest.mark.parametrize("raw", [
+    b"---\ntitle : Owner title\n---\nOwner body.",
+    b"---\n  title: Owner title\n  type: topic\n  tags: []\n---\nOwner body.",
+    b"---\ntype: topic\n  title: Owner title\n---\nOwner body.",
+])
+def test_equivalent_header_key_rerun_preserves_catalogue_and_bytes(
+    tmp_path: Path, raw: bytes,
+) -> None:
     # Given a vault initialized from an equivalent plain-key form.
     source = tmp_path / "policy.md"
-    _ = source.write_bytes(b"---\ntitle : Owner title\n---\nOwner body.")
+    _ = source.write_bytes(raw)
     first = run_init(plan_init(tmp_path), apply=True)
     before = tree(tmp_path)
 
