@@ -18,7 +18,7 @@ from .startup_coverage import digest
 CATALOGUE_MARKER: Final = b"<!-- mnemosyne-init-catalogue:v1 -->\n"
 CATALOGUE_NAME: Final = re.compile(r"init-([a-f0-9]{64})\.md")
 IMPORT_NAMESPACE: Final = re.compile(r"init-[a-f0-9]{64}")
-HEADER_KEY: Final = re.compile(rb"^([A-Za-z_][A-Za-z0-9_-]*):")
+HEADER_KEY: Final = re.compile(rb"^([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:")
 AMBIGUOUS_YAML: Final = re.compile(rb"^\s*(?:<<:|[^#:\r\n]+:\s*[&*!])", re.MULTILINE)
 
 
@@ -97,7 +97,12 @@ def complete_header(source: SourceBytes) -> tuple[bytes, tuple[str, ...], str | 
         header = b"".join(lines[1:close])
         keys = [match[1].decode("ascii") for line in lines[1:close]
                 if (match := HEADER_KEY.match(line))]
-        if len(keys) != len(set(keys)) or AMBIGUOUS_YAML.search(header):
+        unsupported = any(
+            line.strip() and not line.startswith((b" ", b"\t", b"#"))
+            and not HEADER_KEY.match(line)
+            for line in lines[1:close]
+        )
+        if unsupported or len(keys) != len(set(keys)) or AMBIGUOUS_YAML.search(header):
             return source.raw, (), "ambiguous frontmatter retained"
     else:
         keys = []

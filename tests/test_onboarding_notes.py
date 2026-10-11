@@ -55,6 +55,8 @@ def test_existing_header_fields_comments_and_body_are_preserved() -> None:
 
 @pytest.mark.parametrize("raw", [
     b"---\ntitle: First\ntitle: Second\n---\nRule",
+    b"---\ntitle: First\ntitle : Second\n---\nRule",
+    b'---\n"title": Owner title\n---\nRule',
     b"---\nmetadata: &shared\n  value: x\n---\nRule",
     b"---\n<<: *shared\n---\nRule",
     b"---\ntitle: Missing closing delimiter",
@@ -80,6 +82,20 @@ def test_receipt_protected_source_is_never_normalized() -> None:
     # Then its exact bytes are retained and the exclusion is reported.
     assert note.normalized == source.raw and note.additions == ()
     assert note.warning is not None
+
+
+@pytest.mark.parametrize("separator", [b" :", b"\t:"])
+def test_equivalent_header_keys_preserve_owner_metadata(separator: bytes) -> None:
+    # Given an existing plain key with whitespace before its colon.
+    raw = b"---\ntitle" + separator + b" Owner title\n---\nOwner body."
+
+    # When absent metadata is completed.
+    after, additions, warning = complete_header(SourceBytes("policy.md", raw))
+
+    # Then the existing title is not duplicated or overridden.
+    assert frontmatter.parse(after.decode())[0]["title"] == "Owner title"
+    assert additions == ("type", "tags") and warning is None
+    assert b"title: " not in after and after.endswith(b"Owner body.")
 
 
 def test_catalogue_is_stable_across_normalization_and_body_edits() -> None:

@@ -86,6 +86,8 @@ def test_init_without_vault_uses_current_directory_read_only(tmp_path: Path) -> 
     ("--vault", ".", "init", "--vault", "."),
     ("init", "--vault", ".", "--vault", "."),
     ("init", "--vault=.", "--vault=."),
+    ("init", "--va", ".", "--va", "."),
+    ("--va", ".", "init", "--va", "."),
     ("init", "--max-tokens", "0"),
     ("init", "--import", "."),
 ])

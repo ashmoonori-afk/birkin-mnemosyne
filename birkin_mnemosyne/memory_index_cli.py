@@ -48,16 +48,23 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mnemosyne",
         description="Initialize a vault, check its INDEX, or split one note into routed topics.",
+        allow_abbrev=False,
     )
     _ = parser.add_argument("--vault", type=str, help="vault root directory")
     commands = parser.add_subparsers(dest="command", required=True)
-    init = commands.add_parser("init", help="preview or apply deterministic first-run onboarding")
+    init = commands.add_parser(
+        "init", help="preview or apply deterministic first-run onboarding", allow_abbrev=False,
+    )
     _ = init.add_argument("--vault", dest="init_vault", help="vault root; defaults to current directory")
     _ = init.add_argument("--import", dest="import_dir", help="external plain-Markdown directory")
     _ = init.add_argument("--apply", action="store_true", help="authorize additive and journaled writes")
     _ = init.add_argument("--max-tokens", type=int, default=None, help="INDEX estimated-token budget")
-    _ = commands.add_parser("check", help="report orphans, dangling routes, and lost coverage")
-    split = commands.add_parser("split", help="preview or apply a lossless note split")
+    _ = commands.add_parser(
+        "check", help="report orphans, dangling routes, and lost coverage", allow_abbrev=False,
+    )
+    split = commands.add_parser(
+        "split", help="preview or apply a lossless note split", allow_abbrev=False,
+    )
     _ = split.add_argument("note", help="vault-relative path of the .md note to split")
     _ = split.add_argument("--apply", action="store_true", help="write the split; default is preview")
     _ = split.add_argument(

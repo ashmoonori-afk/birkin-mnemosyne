@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
 class CandidateScore:
     first: int
     second: int
-    reason: str
+    reason: Literal["duplicate", "overlap-or-conflict"]
     similarity: float
 
 

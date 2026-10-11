@@ -134,6 +134,22 @@ def test_import_preview_preserves_both_complete_input_trees(tmp_path: Path) -> N
                         for path in tmp_path.rglob("*") if path.is_dir())) == before_directories
 
 
+def test_spaced_header_key_rerun_preserves_catalogue_and_bytes(tmp_path: Path) -> None:
+    # Given a vault initialized from an equivalent plain-key form.
+    source = tmp_path / "policy.md"
+    _ = source.write_bytes(b"---\ntitle : Owner title\n---\nOwner body.")
+    first = run_init(plan_init(tmp_path), apply=True)
+    before = tree(tmp_path)
+
+    # When the unchanged vault is initialized again.
+    second = run_init(plan_init(tmp_path), apply=True)
+
+    # Then no new catalogue, route or source mutation appears.
+    assert second.ok and second.mutations == 0 and second.journal is None
+    assert second.topic_documents == first.topic_documents
+    assert tree(tmp_path) == before
+
+
 def test_import_apply_then_rerun_without_import_is_idempotent(tmp_path: Path) -> None:
     # Given imported notes that have already been initialized.
     external, root = tmp_path / "external", tmp_path / "vault"
