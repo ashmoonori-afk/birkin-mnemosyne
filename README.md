@@ -589,6 +589,40 @@ args = ["--from", "birkin-mnemosyne[mcp]",
 Point several clients at the same `--vault` to share one memory; writes are
 serialized across server processes with a lock file.
 
+### Use from IDEs
+
+IDE agents that support local **stdio MCP** can use the same vault. Install
+`birkin-mnemosyne[mcp]` in a dedicated virtual environment first, then point the
+IDE at that environment's Python. For example, VS Code's `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "mnemosyne": {
+      "type": "stdio",
+      "command": "/absolute/path/to/mnemosyne-venv/bin/python",
+      "args": ["-m", "birkin_mnemosyne.mcp_server"],
+      "env": {"MNEMOSYNE_VAULT": "/absolute/path/to/memory-vault"}
+    }
+  }
+}
+```
+
+Replace both paths. On Windows, use the venv's `Scripts/python.exe`; forward
+slashes work in JSON paths. Keep a path containing spaces as one JSON value,
+without adding shell quotes inside it. Enable the server and approve its tools
+in your IDE.
+
+PyPI 0.6.0 and main at `876ad40` passed official MCP SDK stdio checks on macOS
+and Windows, including search and complete startup reads. A real omo agent
+also called both tools inside Herdr. These checks do **not** claim an actual
+launch in every IDE. See the [client matrix, exact configuration variants and
+official sources](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/ide-compatibility.md)
+for Cursor, JetBrains, Zed, Windsurf, Antigravity, Orca and CLI agents.
+Here, Orca means the [Orca IDE](https://www.onorca.dev/docs): configure the
+MCP-capable agent it launches in the active worktree, not an invented
+Orca-specific MCP file.
+
 ### Tools
 
 | tool | what it does | safe default |

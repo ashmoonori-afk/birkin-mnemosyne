@@ -578,6 +578,38 @@ args = ["--from", "birkin-mnemosyne[mcp]",
 여러 클라이언트가 같은 `--vault`를 가리키면 메모리를 공유합니다. 쓰기는 잠금
 파일로 서버 프로세스 사이에서 직렬화됩니다.
 
+### IDE에서 사용하기
+
+로컬 **stdio MCP**를 지원하는 IDE 에이전트는 같은 저장소를 사용할 수 있습니다.
+먼저 별도 가상환경에 `birkin-mnemosyne[mcp]`를 설치하고, IDE가 그 환경의
+Python을 실행하도록 설정합니다. VS Code의 `.vscode/mcp.json` 예시:
+
+```json
+{
+  "servers": {
+    "mnemosyne": {
+      "type": "stdio",
+      "command": "/absolute/path/to/mnemosyne-venv/bin/python",
+      "args": ["-m", "birkin_mnemosyne.mcp_server"],
+      "env": {"MNEMOSYNE_VAULT": "/absolute/path/to/memory-vault"}
+    }
+  }
+}
+```
+
+두 경로를 실제 경로로 바꾸세요. Windows에서는 가상환경의
+`Scripts/python.exe`를 사용하며 JSON 경로에 `/`를 써도 됩니다.
+공백이 있는 경로도 하나의 JSON 값으로 넣고, 값 안에 셸 따옴표를 추가하지 마세요.
+IDE에서 서버를 켜고 도구 사용을 승인해야 합니다.
+
+PyPI 0.6.0과 `876ad40` 시점의 main은 macOS와 Windows에서 공식 MCP SDK로
+검색과 완전한 시작 읽기를 확인했습니다. Herdr 안의 실제 omo 에이전트도 두
+도구를 호출했습니다. 이것이 모든 IDE에서 직접 실행했다는 뜻은 아닙니다.
+Cursor, JetBrains, Zed, Windsurf, Antigravity, Orca와 CLI 에이전트의
+[호환성 표·정확한 설정 형식·공식 출처](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/ide-compatibility.md)를 참고하세요.
+여기서 Orca는 [Orca IDE](https://www.onorca.dev/docs)를 뜻합니다. 별도 Orca 전용
+MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에이전트의 MCP 설정을 사용합니다.
+
 ### 도구
 
 | 도구 | 하는 일 | 안전한 기본값 |
