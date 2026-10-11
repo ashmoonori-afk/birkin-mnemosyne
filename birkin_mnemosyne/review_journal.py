@@ -21,6 +21,12 @@ from .atomic import (
     atomic_write_bytes,
     sync_directory,
 )
+from .journal_moves import (
+    find_source_capture,
+    find_target_capture,
+    publish_move,
+    restore_move,
+)
 from .mnemosyne import Mnemosyne
 
 State = Literal["prepared", "committed", "rolled-back", "recovery-required", "undone"]
@@ -199,11 +205,7 @@ def _restore(vault: Path, changes: tuple[Change, ...], captures: Path) -> None:
             if source.read_bytes() != change.before:
                 _replace_captured(captures, source, change.after, change.before)
         else:
-            atomic_write_bytes(source, change.before)
-        if target != source and target.exists():
-            if target.read_bytes() != change.after:
-                raise ReviewError(f"archive changed during recovery: {change.target}")
-            target.unlink()
+            restore_move(captures, source, target, change.before, change.after)
     _refresh(vault)
 
 
@@ -239,8 +241,12 @@ def commit(
             source, target = _safe(vault, change.source), _safe(vault, change.target)
             if source != target:
                 target.parent.mkdir(parents=True, exist_ok=True)
-                _ = source.rename(target)
+                # Mark the move attempted before its first publication so a
+                # failure after exclusive creation still rolls back.
                 attempted.append(change)
+                publish_move(
+                    captures, source, target, change.before, change.after,
+                )
             elif change.before != change.after:
                 # Publication can succeed before a later I/O error. Restoration
                 # checks the current image and skips an already-restored source.
@@ -288,6 +294,7 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
     if raw.get("state") not in {"committed", "prepared", "recovery-required"}:
         raise ReviewError("transaction is already restored")
     recovering = raw["state"] != "committed"
+    captures = path.with_suffix(".sources")
     changes: list[Change] = []
     for record in raw["changes"]:
         try:
@@ -310,13 +317,26 @@ def undo_receipt(vault: Path, transaction_id: str) -> Receipt:
         )
         if not post_image and not (recovering and before_image):
             raise ReviewError(f"post-image changed; refusing undo: {change.target}")
+        if source != target:
+            source_capture = find_source_capture(captures, source)
+            if source_capture is not None and \
+                    (source_capture.is_symlink() or source_capture.read_bytes() != before):
+                raise ReviewError(
+                    f"captured source changed; refusing undo: {change.source}",
+                )
+            target_capture = find_target_capture(captures, target)
+            if target_capture is not None and \
+                    (target_capture.is_symlink() or target_capture.read_bytes() != after):
+                raise ReviewError(
+                    f"captured archive changed; refusing undo: {change.target}",
+                )
         changes.append(change)
     # Persist recovery intent before the first restoration write. If either
     # restoration or the terminal save fails, this phase remains retryable.
     raw["state"] = "recovery-required"
     _save(path, raw)
     try:
-        _restore(vault, tuple(changes), path.with_suffix(".sources"))
+        _restore(vault, tuple(changes), captures)
         raw["state"] = "undone"
         _save(path, raw)
     except (OSError, ValueError) as exc:
