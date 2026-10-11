@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -63,7 +63,7 @@ def _state(root: Path) -> tuple[dict[str, bytes], dict[str, int]]:
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
-        rel = str(path.relative_to(root))
+        rel = path.relative_to(root).as_posix()
         stat = path.stat()
         data[rel] = path.read_bytes()
         mtimes[rel] = stat.st_mtime_ns
@@ -81,6 +81,25 @@ def _scope_dir(vault: Path, scope: HandoffScope) -> Path:
 def _no_reviews(vault: Path) -> bool:
     reviews = vault / ".mnemosyne-reviews"
     return not reviews.exists() or not any(reviews.glob("*.json"))
+
+
+def test_snapshot_uses_receipt_paths_with_windows_relative_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vault = tmp_path / "vault"
+    receipt = _capture(HandoffStore(vault), _scope(), "work", "one", _stamp(1))
+    relative_to = Path.relative_to
+
+    def windows_relative(path: Path, other: Path) -> PureWindowsPath:
+        return PureWindowsPath(*relative_to(path, other).parts)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(type(tmp_path), "relative_to", windows_relative)
+        images, mtimes = _state(vault)
+
+    note = vault / receipt.path
+    assert images[receipt.path] == note.read_bytes()
+    assert mtimes[receipt.path] == note.stat().st_mtime_ns
 
 
 # ---------------- preview: read-only and deterministic ----------------------
