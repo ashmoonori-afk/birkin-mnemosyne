@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .atomic import atomic_create_bytes
+from .handoffs import HandoffStore
 from .memory_index import MemoryIndex
 from .memory_index_integrity import check_index
 from .memory_triggers import IndexEntry
@@ -58,6 +59,8 @@ class InitReport:
     undo_transaction: str | None
     verification: Literal["planned", "passed", "failed"]
     verification_scope: Literal["resident-index"]
+    enable_handoff: bool
+    handoff_enabled: bool
 
 
 def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
@@ -78,6 +81,7 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
         sum(copy.existing is None for copy in plan.imports) + len(missing_catalogues)
         + sum(route not in previous_routes for route in plan.routes) + len(changes)
         + int(not plan.state.view.enabled or plan.state.view.max_tokens != view.max_tokens)
+        + int(plan.enable_handoff and not plan.handoff_config.enabled)
     )
     if apply:
         with VaultLock(plan.root).hold():
@@ -85,6 +89,9 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
                 raise ReviewError("onboarding inputs changed; preview a fresh plan")
             if plan.state.recovery:
                 raise ReviewError("checked recovery required: " + ", ".join(plan.state.recovery))
+            if plan.enable_handoff and \
+                    HandoffStore(plan.root).settings() != plan.handoff_config:
+                raise ReviewError("handoff settings changed; preview a fresh plan")
             for copy in plan.imports:
                 if copy.source.resolve() != copy.source or \
                         copy.source.read_bytes() != copy.destination.raw:
@@ -94,6 +101,8 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
                 if current != copy.existing:
                     raise ReviewError(f"import destination changed: {copy.destination.path}")
             _ = index.enable(max_tokens=view.max_tokens)
+            if plan.enable_handoff:
+                _ = HandoffStore(plan.root).enable()
             for copy in plan.imports:
                 if copy.existing is None:
                     atomic_create_bytes(index.document_path(copy.destination.path),
@@ -119,6 +128,9 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
             view = index.read()
             warnings.extend((*view.warnings, *coverage.warnings, *checked.warnings))
     unique_warnings = tuple(dict.fromkeys(warnings))
+    enabled_state = plan.handoff_config.enabled
+    if apply and plan.enable_handoff:
+        enabled_state = HandoffStore(plan.root).settings().enabled
     return InitReport(
         "applied" if apply else "preview", ok, len(plan.notes), len(plan.imports),
         len(plan.catalogues), view.estimated_tokens, view.mode, len(unique_warnings),
@@ -130,4 +142,5 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
         tuple(ReviewItem(question.id, question.first.path, question.second.path,
                          question.reason, question.similarity) for question in plan.questions),
         20, plan.questions_truncated, journal, undo_transaction, verification, "resident-index",
+        plan.enable_handoff, enabled_state,
     )

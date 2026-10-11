@@ -51,6 +51,7 @@ class _Arguments(HandoffArguments):
     note: str | None = None
     apply: bool = False
     max_tokens: int | None = None
+    enable_handoff: bool = False
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -68,6 +69,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = init.add_argument("--import", dest="import_dir", help="external plain-Markdown directory")
     _ = init.add_argument("--apply", action="store_true", help="authorize additive and journaled writes")
     _ = init.add_argument("--max-tokens", type=int, default=None, help="INDEX estimated-token budget")
+    _ = init.add_argument("--enable-handoff", action="store_true",
+                          help="enable managed scoped handoff memory on explicit apply")
+
     _ = commands.add_parser(
         "check", help="report orphans, dangling routes, and lost coverage", allow_abbrev=False,
     )
@@ -101,7 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "init":
             report = run_init(plan_init(args.vault, import_dir=args.import_dir,
-                                        max_tokens=args.max_tokens), apply=args.apply)
+                                        max_tokens=args.max_tokens,
+                                        enable_handoff=args.enable_handoff), apply=args.apply)
             print(json.dumps(asdict(report), ensure_ascii=False))
             return 0 if not args.apply or report.ok else 1
         if args.command == "check":
