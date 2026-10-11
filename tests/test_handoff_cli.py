@@ -148,6 +148,7 @@ def test_json_stdin_capture_maps_fields_and_rejects_bad_payloads(
     assert stored["session_id"] == "session-1"
     assert stored["source"] == "test"
 
+    image = tree(vault)
     conflicts = [
         ({"project_key": "mn-070", "capture_id": "b1", "work": "x", "bogus": 1},
          "unknown --json-stdin field"),
@@ -163,6 +164,7 @@ def test_json_stdin_capture_maps_fields_and_rejects_bad_payloads(
                          stdin=json.dumps(bad).encode("utf-8"))
         assert result.returncode == 2, (bad, result.stdout)
         assert message in result.stderr.decode("utf-8"), result.stderr
+        assert tree(vault) == image
 
     incompatible = run_cli(
         "--vault", str(vault), "handoff", "capture", "--json-stdin", "--work", "x",
@@ -170,7 +172,7 @@ def test_json_stdin_capture_maps_fields_and_rejects_bad_payloads(
     )
     assert incompatible.returncode == 2
     assert b"--json-stdin cannot be combined with --work" in incompatible.stderr
-    assert tree(vault) == tree(vault)
+    assert tree(vault) == image
 
 
 def test_repeated_id_is_idempotent_and_conflict_creates_nothing_new(
