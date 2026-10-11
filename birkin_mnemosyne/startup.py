@@ -89,6 +89,15 @@ class StartupReader:
     ) -> tuple[dict[str, bytes], tuple[IndexEntry, ...], HandoffNote | None]:
         if isinstance(paths, str):
             raise StartupError("supply a nonempty list of startup paths")
+        handoff: HandoffNote | None = None
+        if scope is not None:
+            store = self._handoff_store()
+            try:
+                handoff = store.latest(scope)
+                if handoff is not None or store.settings().enabled:
+                    self.memory_index.required = True
+            except HandoffError as exc:
+                raise StartupError(str(exc)) from exc
         index = self.memory_index.read()
         if not paths and not index.enabled:
             raise StartupError("supply a nonempty list of startup paths")
@@ -103,18 +112,11 @@ class StartupReader:
         )
         if sum(len(data) for data in sources.values()) > 1_048_576:
             raise StartupError("complete memory INDEX exceeds the startup byte budget")
-        handoff: HandoffNote | None = None
         if scope is not None:
-            store = self._handoff_store()
-            try:
-                note = store.latest(scope)
-            except HandoffError as exc:
-                raise StartupError(str(exc)) from exc
-            handoff = note
-            if note is not None:
-                _include_source(sources, note.path, note.raw)
+            if handoff is not None:
+                _include_source(sources, handoff.path, handoff.raw)
             _include_source(sources, HANDOFF_SCOPE_SOURCE,
-                            handoff_receipt(scope, note))
+                            handoff_receipt(scope, handoff))
         if task is not None:
             receipt = {
                 "version": 1, "matcher": "lexical-v2",
