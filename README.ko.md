@@ -33,7 +33,7 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 
 ## 첫 실행 (First run)
 
-0.7.0 출시 전 main의 `mnemosyne init`은 파일을 바꾸지 않고 첫 정리 계획을
+v0.7.0부터 `mnemosyne init`은 파일을 바꾸지 않고 첫 정리 계획을
 보여줍니다. 표준 라이브러리만 쓰는 코어로 동작하며 모델이나 API 키가
 필요하지 않습니다:
 
@@ -125,8 +125,7 @@ mem.search(
 언제 읽어야 하는지(읽을 시점)에서 어떤 문서인지로 이어지는 **완전한 지도**를 시작
 컨텍스트에 항상 담아 두고, 세부 내용은 필요할 때만 여는 기능입니다. INDEX는
 v0.6.0부터 사용할 수 있습니다. 아래 설명하는 태스크 결합 읽기와 2단계 주제 맵은
-main에 반영되어 있습니다. 아직 이들을 덮는 태그가 없어서 이 문서에서는 버전
-표기를 붙이지 않습니다.
+v0.7.0부터 사용할 수 있습니다.
 
 ```python
 from birkin_mnemosyne import MemoryIndex
@@ -146,14 +145,14 @@ opened = index.open("Ingress DNS")     # 정확한 트리거; 완전한 문서
 압축 후에는 완전한 INDEX를 다시 읽어야 합니다. 정확한 트리거는 믿을 수 있지만,
 어휘 매칭과 BM25 폴백은 의미적 보장이 아닙니다.
 
-main에서는 태스크 결합 읽기를 쓸 수 있습니다. 호스트가 행동하기 전에
+v0.7.0부터 태스크 결합 읽기를 쓸 수 있습니다. 호스트가 행동하기 전에
 `StartupReader("my_vault").read([], task="Check Ingress DNS")`를 호출하면,
 어휘 매칭된 문서를 선택적 조회의 top-k 상한이나 검색 폴백 없이 전체 내용으로
 돌려줍니다. 같은 `task`를 MCP의 `memory_startup_read` / `memory_startup_verify`에
 넘기세요. 인덱스된 Hermes `prefetch`는 이 경로를 자동으로 사용합니다. 어휘
 한계와 완전 읽기 실패 동작은 아래 사용 가이드를 참고하세요.
 
-main은 또한 단일 구조(flat) INDEX와 더 작은 2단계 주제 맵 중 하나를 선택합니다.
+v0.7.0부터 렌더러는 단일 구조(flat) INDEX와 더 작은 2단계 주제 맵 중 하나를 선택합니다.
 주제는 완전한 부모 디렉터리 경로를 따르고, 모든 경로는 자신의 완전한 주제
 뷰에 남아 있습니다. `index.read(topic="dir:devops")`와 MCP의
 `memory_index_read(topic="dir:devops")`가 그 주제를 확장합니다. 태스크 결합

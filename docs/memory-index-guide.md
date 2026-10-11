@@ -1,8 +1,8 @@
 # Always-loaded memory INDEX: usage guide
 
 The base INDEX APIs are available from v0.6.0
-(`pip install "birkin-mnemosyne>=0.6.0"`). Task-bound reads and topic views below are
-unreleased source changes; no new package release is implied.
+(`pip install "birkin-mnemosyne>=0.6.0"`). Task-bound reads and topic views below
+are available from v0.7.0 (`pip install "birkin-mnemosyne>=0.7.0"`).
 
 The memory INDEX is durable trigger-to-document routing, separate from the
 rebuildable BM25 cache. It keeps a compact map of **when to read -> which
@@ -12,7 +12,7 @@ ordinary local Markdown files that are opened only on demand.
 Two invariants drive the whole feature:
 
 - Every registered route remains reachable from every complete resident map.
-  Flat maps contain every entry; unreleased grouped maps contain every topic
+  Flat maps contain every entry; grouped maps from v0.7.0 contain every topic
   and expand to every original entry. No top-k, TTL, note limit, token budget,
   summarization or compaction discards a route or topic.
   There is no remove, clear, replace, or automatic-retirement
@@ -104,7 +104,7 @@ Integrators **must use these surfaces again after their own context
 compaction**; the library can enforce its own storage and context surfaces but
 cannot stop a host from ignoring its system-prompt contract.
 
-## Read matching documents before a task (unreleased)
+## Read matching documents before a task (v0.7.0)
 
 Pass the complete current task at the host's task boundary:
 
@@ -148,7 +148,7 @@ The Hermes provider's existing `prefetch(query)` boundary automatically uses
 this complete path when an INDEX is enabled; its system prompt independently
 retains the INDEX. Unindexed providers keep legacy snippet prefetch.
 
-## Complete two-level views (unreleased)
+## Complete two-level views (v0.7.0)
 
 Version-1 `index.json` remains the sole authority. Grouping is a read-only
 representation, not a migration or another cache. A topic is the document's
@@ -278,7 +278,7 @@ print(check.warnings)             # human-readable warnings, also in CLI/MCP JSO
 
 The check never repairs or removes anything.
 
-The unreleased `IndexCheck.warnings` reports each missing or unreadable route
+From v0.7.0, `IndexCheck.warnings` reports each missing or unreadable route
 in registration order (including every alias), then each unindexed document
 in sorted path order, then integrity errors. Renaming a document leaves its old
 routes intact: the old target warns and the new document is unindexed unless
@@ -419,7 +419,7 @@ opt-in; no tool deletes or clears INDEX entries):
 | tool | what it does | kind |
 |---|---|---|
 | `memory_index_register(trigger, document, max_tokens=None)` | add one mapping; idempotent; returns the complete updated INDEX | mutating (destructive=false, idempotent=true) |
-| `memory_index_read(topic=None)` | read every INDEX entry, or one complete topic on unreleased main | read-only |
+| `memory_index_read(topic=None)` | read every INDEX entry, or one complete topic from v0.7.0 | read-only |
 | `memory_open_trigger(query, limit=3)` | open the matched documents; `matched_by` distinguishes exact/trigger/search/none | read-only |
 | `memory_index_check()` | orphan / dangling / coverage audit without writing | read-only |
 | `memory_index_split(document, apply=false, max_tokens=None)` | preview or apply a lossless note split | mutate only when `apply=true` |
