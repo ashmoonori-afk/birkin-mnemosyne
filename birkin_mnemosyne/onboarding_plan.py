@@ -11,7 +11,7 @@ from pathlib import Path
 
 from . import frontmatter
 from .consolidation import NoteSnapshot, Question, questions_from_snapshots
-from .handoff_models import HandoffConfig
+from .handoff_models import HandoffConfig, HandoffError, require_type
 from .handoffs import HandoffStore
 from .memory_index import (
     NOTICE_PREFIX,
@@ -63,8 +63,10 @@ def plan_init(
     max_tokens: int | None = None, enable_handoff: bool = False,
 ) -> InitPlan:
     """Capture an offline plan without creating a vault, lock, cache or journal."""
-    if type(enable_handoff) is not bool:
-        raise MemoryIndexError("enable_handoff must be a boolean")
+    try:
+        _ = require_type(enable_handoff, bool, "enable_handoff")
+    except HandoffError as exc:
+        raise MemoryIndexError("enable_handoff must be a boolean") from exc
     index = MemoryIndex(root)
     originals = inventory(index.root)
     handoff_config = HandoffStore(index.root).settings()

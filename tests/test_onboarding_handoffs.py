@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from birkin_mnemosyne import HandoffError, HandoffFields, HandoffScope, HandoffStore, MemoryIndex
 from birkin_mnemosyne.memory_index import MemoryIndexError
 from birkin_mnemosyne.onboarding import run_init
-from birkin_mnemosyne.onboarding_plan import plan_init
+from birkin_mnemosyne.onboarding_plan import InitPlan, plan_init
 from birkin_mnemosyne.review_journal import ReviewError
 
 NOTE = b"---\ntitle: Policy\ntype: topic\ntags: []\n---\nPolicy body."
@@ -196,14 +196,15 @@ def test_symlinked_handoff_config_is_refused_without_mutation(
 
 @pytest.mark.parametrize("value", [1, "yes", None])
 def test_non_boolean_enable_handoff_is_refused(
-    tmp_path: Path, value: Any,
+    tmp_path: Path, value: int | str | None,
 ) -> None:
     # Given a vault and a non-boolean enablement request.
     _ = (tmp_path / "policy.md").write_bytes(b"Approval required.")
 
     # When plan_init receives the invalid flag.
+    dynamic_plan: Callable[..., InitPlan] = plan_init
     with pytest.raises(MemoryIndexError):
-        _ = plan_init(tmp_path, enable_handoff=value)
+        _ = dynamic_plan(tmp_path, enable_handoff=value)
 
     # Then no plan or file change is produced.
     assert not (tmp_path / ".mnemosyne-handoffs").exists()
