@@ -55,6 +55,10 @@ def add_notes_parsers(
         help=f"maximum notes, 1-{LIST_LIMIT_MAX} (default {LIST_LIMIT})")
     _ = listed.add_argument(
         "--offset", type=int, default=0, help="skip this many notes")
+    for parser in (search, listed):
+        _ = parser.add_argument(
+            "--label", dest="labels", action="append", default=None,
+            help="require this namespace:value label; repeat for AND filtering")
     show = commands.add_parser(
         "show", help="print one note in full as JSON", allow_abbrev=False,
     )
@@ -117,7 +121,7 @@ def _search(dex: Mnemosyne, args: argparse.Namespace,
     zone = _zone(args.zone, parser)
     terms = tokenize(args.query)
     results: list[dict[str, Any]] = []
-    for hit in dex.search(args.query, limit=limit, zone=zone):
+    for hit in dex.search(args.query, limit=limit, zone=zone, labels=args.labels):
         try:
             _, body = _read(dex, hit)
         except OSError:
@@ -140,6 +144,7 @@ def _list(dex: Mnemosyne, args: argparse.Namespace,
     if offset < 0:
         parser.error("--offset must be 0 or more")
     zone = _zone(args.zone, parser)
+    wanted = frozenset(normalize_labels(args.labels or ()))
     notes: list[dict[str, Any]] = []
     label_counts: dict[str, int] = {}
     for key, entry in dex.entries().items():
@@ -153,6 +158,8 @@ def _list(dex: Mnemosyne, args: argparse.Namespace,
             normalized = normalize_labels(entry.get("labels") or ())
         except LabelError:
             normalized = ()
+        if not wanted.issubset(normalized):
+            continue
         notes.append({"slug": key, "title": entry["title"],
                       "type": entry["type"], "zone": entry["zone"] or "inbox",
                       "polarity": entry["polarity"],

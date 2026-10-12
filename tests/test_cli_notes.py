@@ -178,3 +178,34 @@ def test_list_offset_past_any_page_size_is_accepted(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["offset"] == 501 and payload["notes"] == [] and payload["total"] == 1
+
+
+@pytest.mark.parametrize("command", [("search", "deployment"), ("list", "--limit", "1")])
+def test_label_filters_are_anded_before_results_and_counts(
+    tmp_path: Path, command: tuple[str, ...],
+) -> None:
+    # Given two matching notes and a newer-sorting note carrying only one label.
+    vault = tmp_path / "vault"
+    memory = VaultMemory({"vault_path": str(vault)})
+    for title in ("Match alpha", "Match beta"):
+        memory.write_note(title, "deployment checklist", zone="inbox",
+                          labels=["project:alpha", "stage:ready"])
+    memory.write_note("Z nonmatching", "deployment checklist", zone="inbox",
+                      labels=["project:alpha", "stage:draft"])
+    memory.dex.flush()
+    before = digests(vault)
+
+    # When the terminal applies both label constraints.
+    result = run_cli(*command, "--label", "project:alpha", "--label", "stage:ready",
+                     "--vault", str(vault), cwd=tmp_path)
+
+    # Then filtering precedes pagination and does not change notes or usage.
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    if command[0] == "list":
+        assert payload["total"] == 2 and len(payload["notes"]) == 1
+        assert payload["label_counts"] == {"project:alpha": 2, "stage:ready": 2}
+        assert payload["notes"][0]["slug"] in {"match-alpha", "match-beta"}
+    else:
+        assert {hit["slug"] for hit in payload["results"]} == {"match-alpha", "match-beta"}
+    assert digests(vault) == before
