@@ -36,10 +36,11 @@ from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
 from .memory_index import JsonValue, MemoryIndex, MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import split_note
-from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug, tokenize
+from .mnemosyne import ARCHIVE_ZONE, expansion_weights, normalize_zone, slug, tokenize
 from .review_journal import ReviewError
 from .startup import StartupError, StartupReader
 from .vault_lock import LOCK_FILE, VaultLock
+from .vault_paths import archived_zone
 
 __all__ = ["LOCK_FILE", "VaultLock", "create_server"]
 
@@ -139,18 +140,21 @@ def _title_slug(title: str) -> str:
     return s
 
 
-def _zone_name(zone: str | None) -> str | None:
+def _zone_name(zone: str | None, *, allow_archive: bool = True) -> str | None:
+    """Canonical MCP zone argument under the shared nested-path contract.
+
+    ``""``/``"inbox"`` mean the vault root; nested and human-named parents
+    keep their spelling (``"projects/2024"``, ``"Deep Work"``); unsafe
+    names (absolute/backslash/dot-path/hidden/cache/control/Windows-invalid
+    components) raise a ToolError. The archive (root or any component) is
+    refused for write targets (``allow_archive=False``) but accepted for
+    read/filter arguments, where it scopes the whole archive."""
     if zone is None:
         return None
-    z = zone.strip().lower()
-    if z in ("", "inbox"):
-        return ""
-    if z == ARCHIVE_ZONE:
-        return ARCHIVE_ZONE
-    if not ZONE_RE.fullmatch(z):
-        raise ToolError(f"invalid zone {zone!r} (want lowercase letters, "
-                        "digits and hyphens, max 32, or 'inbox')")
-    return z
+    try:
+        return normalize_zone(zone, allow_archive=allow_archive)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
 
 
 def _startup_os_error(exc: OSError, paths: list[str], *, task_read: bool = False) -> str:
@@ -378,9 +382,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         for s, e in dex.entries().items():
             if _is_expired(e):
                 continue
-            if z is None and e["zone"] == ARCHIVE_ZONE:
-                continue
-            if z is not None and e["zone"] != z:
+            if z == ARCHIVE_ZONE:
+                if not archived_zone(e["zone"]):
+                    continue
+            elif z is not None:
+                if e["zone"] != z:
+                    continue
+            elif archived_zone(e["zone"]):
                 continue
             try:
                 normalized = normalize_labels(e.get("labels") or ())
@@ -450,9 +458,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                        for t in links or []]
         clean_source = (_clean(source, "source", max_len=500, forbid='"')
                         if source is not None else None)
-        new_zone = _zone_name(zone)
-        if new_zone == ARCHIVE_ZONE:
-            raise ToolError("cannot write into _archive; use memory_forget")
+        new_zone = _zone_name(zone, allow_archive=False)
         with lock.hold():
             existing = dex.note_meta(title)
             if existing is not None:
@@ -542,10 +548,16 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         notes) and the per-call archive cap are enforced. Dry run unless
         confirm=true."""
         s = dex.key_for(note) or slug(note)
+        meta = dex.note_meta(s)
+        if meta is not None and archived_zone(meta["zone"]):
+            raise ToolError(f"note {s!r} is already forgotten "
+                            f"(zone {meta['zone'] or 'inbox'!r})")
         plan = {"plan_version": PLAN_VERSION, "summary": reason,
                 "ops": [{"op": "archive", "slug": s, "reason": reason}]}
         with lock.hold():
             out = evaluate_plan(vault, plan, apply=confirm)
+            if confirm:
+                dex.refresh()
         allowed = any(o.get("op") == "archive" for o in out.accepted)
         archived = any(o.get("op") == "archive" and "error" not in o
                        for o in out.effected)
@@ -558,13 +570,15 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         note: Annotated[str, Field(min_length=1, max_length=200)],
         zone: Annotated[str, Field(description="target zone")] = "inbox",
     ) -> dict[str, Any]:
-        """Move a forgotten note out of _archive into a zone (default inbox)."""
-        target = _zone_name(zone)
-        if target == ARCHIVE_ZONE:
+        """Move a forgotten note out of _archive into a zone (default inbox).
+        The default goes to the vault root; an explicit nested zone restores
+        to that complete parent."""
+        if zone.strip().casefold() == ARCHIVE_ZONE:
             raise ToolError("restore target cannot be _archive")
+        target = _zone_name(zone, allow_archive=False)
         with lock.hold():
             key, meta = _require_note(note)
-            if meta["zone"] != ARCHIVE_ZONE:
+            if not archived_zone(meta["zone"]):
                 raise ToolError(f"note {key!r} is not archived "
                                 f"(zone {meta['zone'] or 'inbox'!r})")
             try:
@@ -602,6 +616,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         ever deleted. apply=true re-validates against the current vault."""
         with lock.hold():
             out = evaluate_plan(vault, plan.model_dump(), apply=apply)
+            if apply:
+                dex.refresh()
         return _outcome(out)
 
     @server.tool(annotations=_READ)

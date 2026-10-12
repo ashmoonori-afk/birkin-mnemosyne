@@ -12,7 +12,8 @@ from .handoff_records import (
 )
 from .handoffs import note_order
 from .memory_index import JsonValue
-from .mnemosyne import ARCHIVE_ZONE, WIKILINK_RE, Mnemosyne, _note_entry
+from .mnemosyne import WIKILINK_RE, Mnemosyne, _note_entry
+from .vault_paths import archived_zone
 
 _HANDOFF_ZONE = "_handoff"
 _ARCHIVE_DIRECTORY = "archive"
@@ -25,7 +26,7 @@ def snapshot(vault: Path, dex: Mnemosyne,
     snap: dict[str, dict[str, JsonValue]] = {}
     for _slug, (rel, _mtime, _size) in dex._scan().items():
         entry: dict[str, JsonValue] | None = _note_entry(vault / rel, rel)
-        if entry is None or (entry["zone"] or "") == ARCHIVE_ZONE:
+        if entry is None or archived_zone(str(entry["zone"] or "")):
             continue
         snap[_slug] = {key: entry[key]
                        for key in ("zone", "type", "polarity", "links")}

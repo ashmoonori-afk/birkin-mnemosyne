@@ -113,7 +113,8 @@ class MemoryIndex:
         parts = relative.split("/")
         if not relative or Path(relative).is_absolute() or \
                 PureWindowsPath(document).drive or \
-                any(not part or part.startswith(".") or part == "_archive" for part in parts):
+                any(not part or part.startswith(".") or part.casefold() == "_archive"
+                    for part in parts):
             raise MemoryIndexError(f"unsafe document path: {document!r}")
         path = self.root / relative
         if not path.resolve().is_relative_to(self.root) or \

@@ -239,6 +239,34 @@ def test_import_replan_with_existing_labels_stays_idempotent(tmp_path: Path) -> 
     assert destination.read_bytes() == b"Imported rule body."
 
 
+def test_nested_import_carries_the_full_parent_zone_label(tmp_path: Path) -> None:
+    # Given a raw import nested below the import namespace.
+    external, root = tmp_path / "external", tmp_path / "vault"
+    external.mkdir()
+    _ = (external / "notes").mkdir()
+    _ = (external / "notes" / "deep.txt").write_bytes(b"nested\n")
+
+    # When the import is applied.
+    report = run_init(plan_init(root, import_dir=external), apply=True)
+    assert report.ok and report.imports == 1
+    document = report.import_documents[0]
+    parent = "/".join(document.split("/")[:-1])
+    meta, _ = frontmatter.parse((root / document).read_bytes().decode("utf-8-sig"))
+
+    # Then the zone label names the complete relative parent and counts once.
+    zones = [label for label in meta["labels"]
+             if isinstance(label, str) and label.startswith("zone:")]
+    assert zones == [f"zone:{parent}"]
+    assert zones[0].startswith("zone:imports/init-") and zones[0].endswith("/notes")
+    assert dict(report.label_counts)[zones[0]] == 1
+
+    # And a rerun stays byte-stable with the full-parent zone retained.
+    image = tree(root)
+    rerun = run_init(plan_init(root, import_dir=external), apply=True)
+    assert rerun.ok and rerun.mutations == 0
+    assert tree(root) == image
+
+
 def test_labels_never_become_ranking_terms(tmp_path: Path) -> None:
     # Given a tagged note without labels.
     _ = (tmp_path / "policy.md").write_bytes(b"---\ntitle: Policy\ntype: topic\n"

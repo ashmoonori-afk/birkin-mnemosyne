@@ -5,7 +5,7 @@ frontmatter and ``[[wikilinks]]`` — rather than an opaque vector store. This
 keeps knowledge transparent and editable in a text editor.
 
 Notes are slug-named files (so ``[[Title]]`` resolves by basename in
-Obsidian) organized into one-level **zone** directories — memory-palace
+Obsidian) organized into nested **zone** directories — memory-palace
 rooms; the vault root is the *inbox* and ``_archive`` is the soft-forget
 zone. The ``type`` lives in frontmatter:
 ``person | project | preference | fact | topic | session``.
@@ -20,17 +20,20 @@ mechanical :class:`~mnemosyne.mnemosyne.Mnemosyne` engine.
 
 from __future__ import annotations
 
+import os
 import re
+import stat
 import threading
 from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, MAX_ZONES, TYPE_ZONE,
+from .mnemosyne import (IDENTITY_ZONE, MAX_ZONES, TYPE_ZONE,
                         WIKILINK_RE, Mnemosyne, expansion_weights,
                         normalize_zone)
 from .atomic import atomic_write_bytes
+from .vault_paths import archived_zone, hidden_or_cache
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import STEM_MIN as _STEM_MIN
@@ -81,27 +84,39 @@ def _vault_dir(cfg):
 
 
 def _iter_note_files(vault: Path) -> Iterator[Path]:
-    """Yield every .md at the vault root and one zone level down, skipping
-    dot-entries -- the same set :meth:`Mnemosyne._scan` indexes, so the
-    fallbacks never reach ``.trash/``, ``.obsidian/`` or nested folders."""
-    try:
-        top = sorted(vault.iterdir())
-    except OSError:
-        return
-    for e in top:
-        if e.name.startswith("."):
+    """Yield every .md under the vault (recursively), the same set
+    :meth:`Mnemosyne._scan` indexes -- nested zone folders included, while
+    hidden and dependency-cache entries (``.trash/``, ``.obsidian/``,
+    ``node_modules/``) are skipped at every depth and symlinks/reparse points
+    are never followed, so the cold fallbacks agree with the indexed vault."""
+    stack = [str(vault)]
+    while stack:
+        dirpath = stack.pop()
+        try:
+            entries = sorted(os.scandir(dirpath), key=lambda e: e.name)
+        except OSError:
             continue
-        if e.is_file():
-            if e.suffix == ".md":
-                yield e
-        elif e.is_dir():
+        for e in entries:
+            if hidden_or_cache(e.name):
+                continue
             try:
-                sub = sorted(e.iterdir())
+                if os.name == "nt" and (
+                    e.stat(follow_symlinks=False).st_file_attributes
+                    & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                ):
+                    continue
+                is_dir = e.is_dir(follow_symlinks=False)
             except OSError:
                 continue
-            for f in sub:
-                if f.suffix == ".md" and f.is_file():
-                    yield f
+            if is_dir:
+                stack.append(e.path)
+            else:
+                try:
+                    is_file = e.is_file(follow_symlinks=False)
+                except OSError:
+                    continue
+                if is_file and e.name.endswith(".md"):
+                    yield Path(e.path)
 
 
 class VaultMemory:
@@ -131,7 +146,7 @@ class VaultMemory:
         if zone is not None:
             z = normalize_zone(zone)
             existing = {e["zone"] for e in self.dex.entries().values()
-                        if e["zone"] and e["zone"] != ARCHIVE_ZONE}
+                        if e["zone"] and not archived_zone(e["zone"])}
             if z and z not in existing and len(existing) >= MAX_ZONES:
                 raise ValueError(f"zone cap reached ({MAX_ZONES}); "
                                  "re-use an existing zone")
@@ -142,10 +157,11 @@ class VaultMemory:
     def _find_note(self, title: str) -> Path | None:
         s = _slug(title)
         rel = self.dex.resolve_rel(title)
-        if rel and (self.vault / rel).is_file():
+        if rel and (self.vault / rel).is_file() \
+                and not (self.vault / rel).is_symlink():
             return self.vault / rel
         p = self.vault / f"{s}.md"
-        if p.is_file():
+        if p.is_file() and not p.is_symlink():
             return p
         for f in _iter_note_files(self.vault):   # index cold/missing fallback
             if _slug(f.stem) == s:
@@ -166,7 +182,7 @@ class VaultMemory:
     def list_notes(self) -> list[dict[str, Any]]:
         notes: list[dict[str, Any]] = []
         for entry in self.dex.entries().values():
-            if entry["zone"] == ARCHIVE_ZONE:
+            if archived_zone(entry["zone"]):
                 continue   # soft-forgotten; reachable via zone="_archive"
             if _is_expired(entry):
                 continue   # TTL: drop expired notes from the index/router
@@ -494,7 +510,7 @@ class VaultMemory:
         now = datetime.now(timezone.utc)
         by_zone: dict[str, list[tuple[float, dict[str, Any]]]] = {}
         for s, e in dex.entries().items():
-            if e["zone"] == ARCHIVE_ZONE or _is_expired(e):
+            if archived_zone(e["zone"]) or _is_expired(e):
                 continue
             by_zone.setdefault(e["zone"], []).append(
                 (dex.effective_of(s, now), e))

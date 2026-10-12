@@ -53,9 +53,28 @@ def test_write_note_inbox_zone_lands_at_vault_root():
     assert p2.parent == _vault()
 
 
-@pytest.mark.parametrize("bad", ["\u65e5\u672c\u8a9e", "Ops Notes", "a_b",
-                                 "-lead", "x" * 33])
-def test_write_note_rejects_zone_names_rezone_would_reject(bad):
+@pytest.mark.parametrize(("zone", "folder"), [
+    ("\u65e5\u672c\u8a9e", "\u65e5\u672c\u8a9e"), ("Ops Notes", "Ops Notes"),
+    ("a_b", "a_b"), ("-lead", "-lead"), ("x" * 33, "x" * 33),
+    ("projects/2024", "projects/2024"),
+    ("Deep Work/team", "Deep Work/team"),
+])
+def test_write_note_accepts_nested_and_human_zone_names(zone, folder):
+    """Expanded zone contract: nested parents and human-named folders keep
+    their spelling; legacy valid one-component names still lowercase."""
+    m = _mem()
+    p = m.write_note("Odd zone", "x", zone=zone)
+    assert p.relative_to(_vault()).as_posix() == f"{folder}/odd-zone.md"
+    assert m.get_note("Odd zone") is not None
+
+
+@pytest.mark.parametrize("bad", [
+    "../escape", "a/../../x", "/absolute", ".hidden", ".obsidian",
+    "node_modules", "a/node_modules/x", "__pycache__", "a:b", 'a"b',
+    "a<b", "a>b", "a|b", "a?b", "a*b", "a\\b", "C:\\x",
+    "a.", "\x00bad", "_archive", "_ARCHIVE/sub", "work/_ArChIvE",
+])
+def test_write_note_rejects_unsafe_zone_names(bad):
     m = _mem()
     with pytest.raises(ValueError, match="zone"):
         m.write_note("Odd zone", "x", zone=bad)
@@ -117,7 +136,14 @@ def test_rezone_accepts_trimmed_lowercased_names_but_not_bad_ones():
     assert m.rezone("Mover", "  DevOps ").parent.name == "devops"
     assert m.rezone("Mover", " Inbox ").parent == _vault()
     assert m.rezone("Mover", " _ARCHIVE ").parent.name == mnemosyne.ARCHIVE_ZONE
-    for bad in ("Ops Notes", "\u65e5\u672c\u8a9e", "a_b", "../escape"):
+    m.rezone("Mover", "Inbox")
+    assert m.rezone("Mover", "Ops Notes").parent.name == "Ops Notes"
+    assert m.rezone("Mover", "inbox").parent == _vault()
+    assert m.rezone("Mover", "work/_ArChIvE").parent.relative_to(_vault()).as_posix() \
+        == "work/_ArChIvE"
+    m.rezone("Mover", "inbox")
+    for bad in ("../escape", "/absolute", "a\\b", "a:b", ".hidden",
+                "node_modules", "..", "a/.."):
         with pytest.raises(ValueError, match="zone"):
             m.rezone("Mover", bad)
 

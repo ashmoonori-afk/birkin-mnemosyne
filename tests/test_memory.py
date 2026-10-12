@@ -259,26 +259,30 @@ def _plant_hidden_and_nested(vault):
     return planted
 
 
-def test_get_note_fallback_skips_hidden_and_nested_folders(tmp_path):
+def test_get_note_fallback_reaches_nested_notes_but_skips_hidden_folders(tmp_path):
     vault = tmp_path / "v"
     vault.mkdir()
     _plant_hidden_and_nested(vault)
     m = VaultMemory({"vault_path": str(vault)})
-    assert m.get_note("foo") is None
-    assert m.get_note("x") is None
-    assert m.get_note("deep") is None
+    assert m.get_note("foo") is None       # hidden .trash still excluded
+    assert m.get_note("x") is None          # hidden .obsidian still excluded
+    assert m.get_note("deep") is not None   # recursive fallback reaches nested
+    assert "stale body" in m.get_note("deep")
 
 
-def test_purge_expired_leaves_hidden_and_nested_folders_alone(tmp_path):
+def test_purge_expired_reaches_nested_notes_but_skips_hidden_folders(tmp_path):
     vault = tmp_path / "v"
     (vault / "knowledge").mkdir(parents=True)
     planted = _plant_hidden_and_nested(vault)
     zoned = vault / "knowledge" / "old.md"
     zoned.write_text(_EXPIRED, encoding="utf-8")
     m = VaultMemory({"vault_path": str(vault)})
-    assert m.purge_expired() == 1
+    assert m.purge_expired() == 2          # zoned note + nested a/b/deep.md
     assert not zoned.exists()
-    assert all(p.exists() for p in planted)
+    assert not (vault / "a" / "b" / "deep.md").exists()
+    assert {p.relative_to(vault).as_posix() for p in planted if p.exists()} == {
+        ".trash/foo.md", ".obsidian/x.md",
+    }
 
 
 # -- frontmatter quoting (M1-9 / M1-11) ----------------------------------------

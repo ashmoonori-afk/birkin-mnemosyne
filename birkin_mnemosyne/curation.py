@@ -17,15 +17,16 @@ from .curation_prompt import (
     extract_plan,
     mechanical_catalog,
 )
-from .mnemosyne import ARCHIVE_ZONE, Mnemosyne
+from .mnemosyne import Mnemosyne
 from .vault_lock import VaultLock
+from .vault_paths import archived_zone
 
 
 def _snapshot(dex: Mnemosyne) -> dict[str, dict[str, Any]]:
     return {s: {"zone": e["zone"], "type": e["type"],
                 "polarity": e["polarity"], "links": e["links"]}
             for s, e in dex.entries().items()
-            if e["zone"] != ARCHIVE_ZONE}
+            if not archived_zone(e["zone"])}
 
 
 def evaluate_plan(vault: Path, plan: dict[str, Any], *, apply: bool = False,

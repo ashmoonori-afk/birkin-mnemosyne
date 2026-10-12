@@ -184,6 +184,53 @@ def test_import_source_and_format_labels() -> None:
         "format:json", "source:export.json", "zone:imports")
 
 
+def test_nested_path_zone_is_the_complete_relative_parent() -> None:
+    raw = b"# Policy\n"
+    assert suggest_labels(raw, LabelContext("knowledge/nested/policy.md")) == (
+        "zone:knowledge/nested",)
+    assert suggest_labels(
+        raw, LabelContext("knowledge/nested/deeper/policy.md")) == (
+        "zone:knowledge/nested/deeper",)
+
+
+def test_nested_path_zone_keeps_expanded_spelling_and_case() -> None:
+    labels = suggest_labels(b"body", LabelContext("Projects/Deep/plan.md"))
+    assert "zone:Projects/Deep" in labels
+
+
+def test_nested_import_zone_uses_the_complete_import_parent() -> None:
+    raw = b"nested lines\n"
+    ctx = LabelContext(
+        "imports/init-8f2b3b0c/notes/deep.txt.md",
+        source="notes/deep.txt", format="txt")
+    assert suggest_labels(raw, ctx) == (
+        "format:txt", "source:notes/deep.txt",
+        "zone:imports/init-8f2b3b0c/notes")
+
+
+def test_explicit_zone_still_wins_over_nested_paths() -> None:
+    labels = suggest_labels(b"---\nzone: vault\n---\nbody",
+                            LabelContext("knowledge/nested/policy.md"))
+    assert "zone:vault" in labels
+    assert not any(label.startswith("zone:knowledge") for label in labels)
+
+
+def test_nested_zone_labels_round_trip_through_annotation(tmp_path: Path) -> None:
+    # Given a nested note without a header.
+    path = tmp_path / "knowledge" / "nested" / "policy.md"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"# Policy\n")
+
+    # When the checked edit is applied and re-read.
+    edit = annotate_labels(path.read_bytes(),
+                           LabelContext("knowledge/nested/policy.md"))
+    _ = path.write_bytes(edit.raw)
+
+    # Then the slash zone survives as a machine-consumed owned label.
+    assert "zone:knowledge/nested" in edit.labels
+    assert read_labels(path.read_bytes()) == edit.labels
+
+
 
 # -- languages ----
 

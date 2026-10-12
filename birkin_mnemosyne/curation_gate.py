@@ -15,6 +15,7 @@ from .curation_contract import (
     GateResult,
 )
 from .mnemosyne import Mnemosyne
+from .vault_paths import archived_zone
 
 
 def _is_protected(dex: Mnemosyne, s: str, snap: dict[str, dict]) -> bool:
@@ -26,7 +27,7 @@ def _is_protected(dex: Mnemosyne, s: str, snap: dict[str, dict]) -> bool:
     if e.get("type") in PROTECT_TYPES:
         return True
     zone = e.get("zone") or ""
-    if zone and zone != mnemosyne.ARCHIVE_ZONE and e.get("links"):
+    if zone and not archived_zone(zone) and e.get("links"):
         return True
     return False
 
@@ -38,7 +39,7 @@ def validate_clamp(plan: dict[str, Any], dex: Mnemosyne,
     res = GateResult()
     known = set(snap)
     active = [s for s, e in snap.items()
-              if (e.get("zone") or "") != mnemosyne.ARCHIVE_ZONE]
+              if not archived_zone(str(e.get("zone") or ""))]
     raw_archive_cap = (
         max(ARCHIVE_CAP_MIN,
             math.ceil(ARCHIVE_CAP_FRACTION * max(1, len(active))))
@@ -60,17 +61,27 @@ def validate_clamp(plan: dict[str, Any], dex: Mnemosyne,
             res.drop({"op": str(op)[:40]}, f"unknown op {op!r}"[:60])
             continue
         if op == "rezone":
-            s, zone = _str_field(raw, "slug"), str(raw.get("zone", ""))
+            s, zone = _str_field(raw, "slug"), raw.get("zone")
             if s is None or s not in known:
                 res.drop(raw, "unknown slug")
-            elif zone in ("", "inbox"):
-                res.drop(raw, "rezone needs a real zone")
+            elif not isinstance(zone, str):
+                res.drop(raw, "invalid zone name")
             elif zone.strip().lower().replace(" ", "") == mnemosyne.ARCHIVE_ZONE:
                 res.drop(raw, "rezone_to_archive_rejected")
-            elif not mnemosyne.ZONE_RE.fullmatch(zone):
-                res.drop(raw, "invalid zone name")
             else:
-                res.accepted.append(raw)
+                try:
+                    # the same shared normalization contract actual rezone
+                    # applies: nested full parents and human-named folders
+                    # are accepted, archive components are refused, and the
+                    # accepted op carries the exact canonical zone string.
+                    canonical = mnemosyne.normalize_zone(zone)
+                except ValueError:
+                    res.drop(raw, "invalid zone name")
+                else:
+                    if not canonical:
+                        res.drop(raw, "rezone needs a real zone")
+                    else:
+                        res.accepted.append({**raw, "zone": canonical})
         elif op == "link":
             a, b = _str_field(raw, "a"), _str_field(raw, "b")
             if a is None or b is None or a not in known or b not in known:
@@ -91,7 +102,7 @@ def validate_clamp(plan: dict[str, Any], dex: Mnemosyne,
             s = _str_field(raw, "slug")
             if s is None or s not in known:
                 res.drop(raw, "unknown slug")
-            elif (snap[s].get("zone") or "") == mnemosyne.ARCHIVE_ZONE:
+            elif archived_zone(str(snap[s].get("zone") or "")):
                 res.drop(raw, "already archived")
             elif _is_protected(dex, s, snap):
                 res.drop(raw, "protected note")
@@ -135,7 +146,7 @@ def _dense_zone_links(accepted: list[dict[str, Any]],
         e = snap.get(s)
         return (
             e is not None
-            and str(e.get("zone") or "") != mnemosyne.ARCHIVE_ZONE
+            and not archived_zone(str(e.get("zone") or ""))
             and e.get("polarity") != "negative"
             and e.get("type") not in PROTECT_TYPES
             and s not in excluded
@@ -166,7 +177,7 @@ def _dense_zone_links(accepted: list[dict[str, Any]],
     expanded = list(accepted)
     added_total = 0
     for zone in sorted(touched_zones):
-        if zone == mnemosyne.ARCHIVE_ZONE:
+        if archived_zone(zone):
             continue
         slugs = sorted(s for s, z in final_zone.items() if z == zone)
         movers = [s for s in slugs if s in moved]

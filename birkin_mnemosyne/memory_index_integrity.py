@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from .memory_index import (
     decode_index_json,
 )
 from .startup_coverage import digest
+from .vault_paths import hidden_or_cache
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +111,11 @@ def check_index(root: str | Path) -> IndexCheck:
     pending = [index.root]
     while pending:
         for node in sorted(pending.pop().iterdir()):
-            if node.name.startswith(".") or node.name == "_archive" or node.is_symlink():
+            if hidden_or_cache(node.name) or node.name.casefold() == "_archive" or node.is_symlink():
+                continue
+            if getattr(node.lstat(), "st_file_attributes", 0) & getattr(
+                stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0,
+            ):
                 continue
             if node.is_dir():
                 pending.append(node)

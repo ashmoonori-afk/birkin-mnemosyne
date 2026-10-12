@@ -393,6 +393,7 @@ from the preview report** use the `notes/alpha.md` fixture above and three
 export files: `x.md` with title `Infra` and type `project`, `notes.txt` with
 plain text, and `data.json` containing `{"project": "Infra"}`. The full CLI
 report also includes source hashes, routes, mutations and verification fields:
+`<digest>` below abbreviates the import's actual 64-character digest.
 
 ```json
 {"mode": "preview", "ok": true, "notes": 4, "imports": 3, "topics": 3,
@@ -400,7 +401,7 @@ report also includes source hashes, routes, mutations and verification fields:
  "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
    ["project:Infra", 1], ["source:data.json", 1], ["source:notes.txt", 1],
    ["source:x.md", 1], ["type:project", 1], ["type:topic", 3],
-   ["zone:imports", 3], ["zone:notes", 1]],
+   ["zone:imports/init-<digest>", 3], ["zone:notes", 1]],
  "undo_transaction": null}
 ```
 
@@ -471,10 +472,11 @@ alongside the full eligible count, so labels alone can browse the vault:
 }
 ```
 
-Ordinary search still indexes root plus one zone level only; the nested
-copies `init --import` places under `imports/init-<digest>/...` do **not**
-silently widen the search corpus. They are reachable through their path-keyed
-INDEX routes (exact triggers) and grouped catalogues.
+Ordinary search recursively indexes visible Markdown at every depth, including
+the copies `init --import` places under `imports/init-<digest>/...`. INDEX
+routes still retain each exact relative path and grouped catalogues. Newly
+inferred `zone:` labels use the complete parent path; existing manual labels
+are retained.
 
 ### Hermes
 
@@ -1208,7 +1210,7 @@ Key `Mnemosyne` methods: `refresh()`,
 ## Vault layout and configuration
 
 Notes are slug-named Markdown files with YAML frontmatter and `[[wikilinks]]`.
-Zones are one-level directories; the vault root is the inbox.
+Zones are complete relative directory paths; the vault root is the inbox.
 
 ```text
 my_vault/
@@ -1217,11 +1219,14 @@ my_vault/
     ingress-dns.md
   people/
   projects/
+    Active Work/
+      roadmap.md
   identity/
   knowledge/
   journal/
   system/                       # role files owned by ProfileMemory
   _archive/                     # soft-forgotten notes
+    projects/Active Work/       # archive moves retain the original parent
   .mnemosyne-memory-index/       # opt-in; index.json routing and the resident context map
   .mnemosyne-handoffs/           # immutable scoped captures, summaries, archives and opt-in settings
   .mnemosyne-index.json.z        # rebuildable compressed index cache
@@ -1230,6 +1235,26 @@ my_vault/
   .mnemosyne-reviews/            # review undo journal (<transaction-id>.json)
   .mnemosyne-mcp.lock            # cross-process writer lock
 ```
+
+Discovery is recursive by default. Hidden files and directories (including
+`.git` and `.obsidian`), `node_modules`, `__pycache__`, symlinks and Windows
+reparse points are not followed. Filename stems remain note keys: if several
+files share a stem, the newest modification time wins and a warning names
+the collision. Equal timestamps select the lexicographically smallest POSIX
+relative path. INDEX routes remain exact paths rather than stem keys.
+
+For example, `zone="projects/Active Work"` selects that complete parent for
+writes and zone-filtered search. Nested and human-named folders retain their
+spelling; legacy simple names still normalize (`"Projects"` to `"projects"`).
+Absolute, drive/UNC, traversal, backslash and hidden/cache paths are refused,
+as are Windows-invalid filename characters and trailing dots/spaces.
+
+Archiving `projects/Active Work/roadmap.md` moves it to
+`_archive/projects/Active Work/roadmap.md`. Archive components at any depth,
+case-insensitively, are excluded from active views; `zone="_archive"` searches
+the archive tree. MCP `memory_restore` still defaults to the inbox; pass
+`zone="projects/Active Work"` to choose the nested parent. Journal undo
+restores the original path and bytes and refuses changed post-images.
 
 The index cache, the vectors file and the lock file are safe to delete only
 while no Mnemosyne process is using the vault. The caches are rebuilt

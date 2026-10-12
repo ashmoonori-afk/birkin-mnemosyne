@@ -65,11 +65,12 @@ def test_explicit_retirement_is_exactly_reversible(tmp_path, choice, survivor, r
     receipt = service.apply(question, Answer(question.id, choice))
     assert receipt.state == "committed"
     assert len(service.dex.search("release")) == 1
-    archived = list((tmp_path / "_archive").glob("*.md"))
+    archived = list((tmp_path / "_archive").rglob("*.md"))
     survivor_note, retired_note = getattr(question, survivor), getattr(question, retired)
     assert (tmp_path / survivor_note.path).read_bytes() == before[survivor_note.path]
     assert not (tmp_path / retired_note.path).exists()
-    assert archived == [tmp_path / "_archive" / Path(retired_note.path).name]
+    # the whole source relative subpath is preserved under _archive
+    assert archived == [tmp_path / "_archive" / Path(retired_note.path)]
     assert archived[0].read_bytes() == before[retired_note.path]
     assert {note["path"] for note in VaultMemory({"vault_path": str(tmp_path)}).list_notes()} \
         == {tmp_path / survivor_note.path}
@@ -99,7 +100,7 @@ def test_merge_preserves_survivor_metadata_and_both_sources(tmp_path, survivor):
             '"chat:second", "chat:first"') in text
     assert ('tags: ["guard"]' in text) == (survivor == "first")
     assert not (tmp_path / retired_note.path).exists()
-    assert (tmp_path / "_archive" / Path(retired_note.path).name).read_bytes() \
+    assert (tmp_path / "_archive" / Path(retired_note.path)).read_bytes() \
         == before[retired_note.path]
     service.undo(receipt.transaction_id)
     assert images(tmp_path) == before
@@ -139,8 +140,8 @@ def test_forged_question_body_cannot_misrepresent_snapshot(tmp_path):
 
 def test_archive_collision_preserves_unrelated_file(tmp_path):
     _, service, question = seed(tmp_path)
-    archive = tmp_path / "_archive" / Path(question.second.path).name
-    archive.parent.mkdir()
+    archive = tmp_path / "_archive" / Path(question.second.path)
+    archive.parent.mkdir(parents=True)
     archive.write_bytes(b"Unrelated archived original")
     before = images(tmp_path)
     with pytest.raises(ReviewError):
@@ -151,7 +152,7 @@ def test_archive_collision_preserves_unrelated_file(tmp_path):
 def test_undo_refuses_user_edit_without_partial_restore(tmp_path):
     _, service, question = seed(tmp_path)
     receipt = service.apply(question, Answer(question.id, "keep-first"))
-    archive = next((tmp_path / "_archive").glob("*.md"))
+    archive = next((tmp_path / "_archive").rglob("*.md"))
     archive.write_bytes(b"User edited the archive")
     before = images(tmp_path)
     with pytest.raises(ReviewError, match="post-image"):
@@ -168,7 +169,7 @@ def test_undo_retries_exact_restoration_after_io_failure(tmp_path, monkeypatch, 
     ))
     journal = tmp_path / receipt.journal_path
     post_images = images(tmp_path)
-    archive = tmp_path / "_archive" / Path(question.second.path).name
+    archive = tmp_path / "_archive" / Path(question.second.path)
     rename, save = os.rename, review_journal._save
 
     def failing_detach(source, destination, *args, **kwargs):
@@ -210,7 +211,7 @@ def test_undo_retries_exact_restoration_after_io_failure(tmp_path, monkeypatch, 
 def test_recovery_refuses_unrelated_edit_before_any_restoration(tmp_path, monkeypatch, edited):
     _, service, question = seed(tmp_path)
     receipt = service.apply(question, Answer(question.id, "merge", "Merged fact."))
-    archive = tmp_path / "_archive" / Path(question.second.path).name
+    archive = tmp_path / "_archive" / Path(question.second.path)
     rename = os.rename
 
     def failing_detach(source, destination, *args, **kwargs):
@@ -765,7 +766,7 @@ def test_retire_answer_archives_through_journal_and_undo_restores(tmp_path):
     receipt = service.apply_retire(question, "retire")
     assert receipt.state == "committed"
     assert not (tmp_path / "home/old-address.md").exists()
-    assert (tmp_path / "_archive/old-address.md").read_bytes() == \
+    assert (tmp_path / "_archive/home/old-address.md").read_bytes() == \
         before["home/old-address.md"]
     manifest = json.loads((tmp_path / receipt.journal_path).read_text("utf-8"))
     assert (manifest["question_id"], manifest["choice"]) == (question.id, "retire")

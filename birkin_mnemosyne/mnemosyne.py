@@ -6,8 +6,8 @@ the Mnemosyne memory palace:
 - **Index** — a stat-fingerprinted inverted index over the Obsidian vault, so
   ``search``/``render``/``list_notes`` never re-read the whole vault (closes
   the second half of review finding M4). Only changed files are re-parsed.
-- **Zones** — notes live in one-level subdirectories of the vault
-  (``vault/<zone>/note.md``, mempalace wing/room analog); the vault root is
+- **Zones** — notes live in nested subdirectories of the vault
+  (``vault/<zone/path>/note.md``, mempalace wing/room analog); the vault root is
   the *inbox*. ``_archive`` is the soft-forget zone (hermes curator's
   "archive, never delete").
 - **BM25** — Okapi ranking over the index (k1/b as in mempalace's searcher),
@@ -42,6 +42,7 @@ import logging
 import math
 import os
 import re
+import stat
 import threading
 import time
 import unicodedata
@@ -58,6 +59,7 @@ from .label_values import LabelError, normalize_labels
 from .label_frontmatter import scoring_text
 from .atomic import atomic_write, atomic_write_bytes
 from .vault_lock import VaultLock
+from .vault_paths import archived_zone, hidden_or_cache
 
 if TYPE_CHECKING:
     from .semantic import SemanticIndex
@@ -127,27 +129,55 @@ def slug(title: str) -> str:
     return s or "note"
 
 
+_WINDOWS_INVALID_CHARS = frozenset('<>:"|?*')
+
+
 def normalize_zone(zone: str, *, allow_archive: bool = False) -> str:
     """Canonical zone name for ``write_note``, ``rezone`` and ``search``.
 
-    ``""``/``"inbox"`` mean the vault root and come back as ``""``; anything
-    else is lower-cased and must match :data:`ZONE_RE` (the same rule
-    :meth:`Mnemosyne.rezone` enforces). Names are never slugged: a Unicode or
-    spaced name is refused instead of silently becoming another zone. The
-    archive is refused unless ``allow_archive`` (``rezone`` and ``search``
-    may name it; ``write_note`` may not: use forget/rezone)."""
-    z = zone.strip().lower()
-    if z in ("", "inbox"):
+    ``""``/``"inbox"`` mean the vault root and come back as ``""``. A zone is
+    the complete POSIX relative parent of its notes, so nested folders
+    (``"projects/2024"``) and human-named folders with spaces or mixed case
+    (``"Deep Work"``) are accepted with their spelling preserved; legacy
+    valid one-component names keep the old canonical form (``"Projects"`` ->
+    ``"projects"``). Rejected: absolute/drive/UNC/backslash paths, empty, dot
+    and dot-dot components, hidden/cache components (``.obsidian``,
+    ``node_modules``...), controls and Windows-invalid filename characters.
+    Names are never slugged: anything unacceptable is refused instead of
+    silently becoming another zone. The archive is refused unless
+    ``allow_archive`` (``rezone`` and ``search`` may name it; ``write_note``
+    may not: use forget/rezone)."""
+    z = zone.strip()
+    if z.casefold() in ("", "inbox"):
         return ""
-    if z == ARCHIVE_ZONE:
+    parts = z.split("/")
+    if any(not p or p in (".", "..") for p in parts):
+        raise ValueError(f"invalid zone name {zone!r} "
+                         "(want a relative folder path or 'inbox')")
+    if len(parts) == 1 and parts[0].casefold() == ARCHIVE_ZONE:
         if allow_archive:
             return ARCHIVE_ZONE
         raise ValueError("cannot write a new note into the archive zone "
                          f"{ARCHIVE_ZONE!r}; use forget or rezone")
-    if not ZONE_RE.fullmatch(z):
-        raise ValueError(f"invalid zone name {zone!r} "
-                         "(want ^[a-z0-9][a-z0-9-]{0,31}$ or 'inbox')")
-    return z
+    out: list[str] = []
+    for p in parts:
+        if ("\\" in p
+                or any(ord(c) < 32 or ord(c) == 127 for c in p)
+                or any(c in _WINDOWS_INVALID_CHARS for c in p)
+                or p.endswith((" ", "."))):
+            raise ValueError(f"invalid zone name {zone!r} "
+                             "(want a relative folder path or 'inbox')")
+        if hidden_or_cache(p):
+            raise ValueError(f"invalid zone name {zone!r} "
+                             "(want a relative folder path or 'inbox')")
+        if p.casefold() == ARCHIVE_ZONE and not allow_archive:
+            raise ValueError("cannot write a new note into the archive zone "
+                             f"{ARCHIVE_ZONE!r}; use forget or rezone")
+        out.append(p)
+    if len(out) == 1:
+        lowered = out[0].casefold()
+        return lowered if ZONE_RE.fullmatch(lowered) else out[0]
+    return "/".join(out)
 
 
 # -- pure functions -----------------------------------------------------------
@@ -737,41 +767,64 @@ class Mnemosyne:
     # -- scanning / refreshing ------------------------------------------------
 
     def _scan(self) -> dict[str, tuple[str, float, int]]:
-        """slug -> (rel, mtime, size) for every .md at root + one zone level.
+        """slug -> (rel, mtime, size) for every .md under the vault.
 
-        Duplicate slugs across zones keep the newest file (shouldn't happen
-        through the library's own write path, but a user can hand-copy files)."""
+        Walks nested zone folders recursively, pruning hidden and
+        dependency-cache entries (``hidden_or_cache``) at every depth and
+        never following symlinks/reparse points. ``rel`` is the full POSIX
+        path relative to the vault (``projects/active/note.md``). Duplicate
+        stems keep the newest file, ties breaking on the lexicographically
+        smallest relative path, with a warning naming both files and the
+        chosen winner. Archives stay discoverable here; query-time filters
+        decide visibility."""
         out: dict[str, tuple[str, float, int]] = {}
-
-        def add(name: str, full: str, rel: str) -> None:
-            if not name.endswith(".md"):
-                return
+        stack = [("", str(self.vault))]
+        while stack:
+            prefix, dirpath = stack.pop()
             try:
-                st = os.stat(full)
+                entries = list(os.scandir(dirpath))
             except OSError:
-                return
-            s = name[:-3]
-            cur = out.get(s)
-            if cur is None or st.st_mtime > cur[1]:
-                out[s] = (rel, st.st_mtime, st.st_size)
-
-        try:
-            top = list(os.scandir(self.vault))
-        except OSError:
-            return out
-        for e in top:
-            if e.name.startswith("."):
                 continue
-            if e.is_file():
-                add(e.name, e.path, e.name)
-            elif e.is_dir():
+            for e in entries:
+                if hidden_or_cache(e.name):
+                    continue
                 try:
-                    sub = list(os.scandir(e.path))
+                    if os.name == "nt" and (
+                        e.stat(follow_symlinks=False).st_file_attributes
+                        & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                    ):
+                        continue
+                    is_dir = e.is_dir(follow_symlinks=False)
+                    is_file = e.is_file(follow_symlinks=False)
                 except OSError:
                     continue
-                for f in sub:
-                    if f.is_file():
-                        add(f.name, f.path, f"{e.name}/{f.name}")
+                if is_dir:
+                    stack.append((f"{prefix}/{e.name}" if prefix else e.name,
+                                  e.path))
+                    continue
+                if not is_file or not e.name.endswith(".md"):
+                    continue
+                rel = f"{prefix}/{e.name}" if prefix else e.name
+                try:
+                    st = e.stat(follow_symlinks=False)
+                except OSError:
+                    continue
+                s = e.name[:-3]
+                cur = out.get(s)
+                newer = False
+                tie = False
+                if cur is not None:
+                    # same-stem duplicate: newest mtime wins, ties break on
+                    # the lexicographically smallest relative path
+                    newer = st.st_mtime > cur[1]
+                    tie = st.st_mtime == cur[1] and rel < cur[0]
+                    log.warning(
+                        "duplicate slug %r: %r and %r collide; "
+                        "keeping winner %r (newest mtime, ties by sorted "
+                        "relative path)", s, cur[0], rel,
+                        rel if newer or tie else cur[0])
+                if cur is None or newer or tie:
+                    out[s] = (rel, st.st_mtime, st.st_size)
         return out
 
     def refresh(self) -> None:
@@ -839,10 +892,17 @@ class Mnemosyne:
                 return
             s = path.stem
             old = self._notes.get(s)
-            if s in self._notes:
-                self._drop_postings(s)
+            if old is not None and old["rel"] != rel:
+                # a hand-copied same-stem file: the index keeps the scan
+                # winner, so a write to a losing path must not steal it
+                newer = entry["mtime"] > old["mtime"]
+                tie = entry["mtime"] == old["mtime"] and rel < old["rel"]
+                if not (newer or tie):
+                    return
+            self._drop_postings(s)
             self._adjust_doclen(
-                old.get("doclen", 0) if old else 0, entry["doclen"], int(old is None))
+                old.get("doclen", 0) if old else 0, entry["doclen"],
+                int(old is None))
             self._notes[s] = entry
             self._aliases = None
             self._add_postings(s, entry["terms"])
@@ -1107,21 +1167,29 @@ class Mnemosyne:
 
             # inbox is stored as ""; a hand-made mixed-case folder keeps its
             # literal name, so match the normalised name or the name as given
-            # (a filter never raises).
+            # (a filter never raises). The archive root scopes the search to
+            # every archived descendant.
             want_zones = {zone}
+            archive_scope = False
             if zone is not None:
                 try:
-                    want_zones.add(normalize_zone(zone, allow_archive=True))
+                    nz = normalize_zone(zone, allow_archive=True)
                 except ValueError:
-                    pass
+                    nz = None
+                if nz == ARCHIVE_ZONE:
+                    archive_scope = True
+                elif nz is not None:
+                    want_zones.add(nz)
 
             def visible(s: str) -> bool:
                 e = notes[s]
                 if _entry_expired(e, expiry_today):
                     return False
+                if archive_scope:
+                    return archived_zone(e["zone"])
                 if zone is not None:
                     return e["zone"] in want_zones
-                return e["zone"] != ARCHIVE_ZONE or include_archive
+                return not archived_zone(e["zone"]) or include_archive
 
             def fuse(lexical: dict[str, float]) -> tuple[
                     dict[str, float], dict[str, int], list[str]]:
@@ -1222,7 +1290,7 @@ class Mnemosyne:
         today = now.date()
         out: list[dict[str, Any]] = []
         for s, e in self.entries().items():
-            if e["zone"] in (ARCHIVE_ZONE, IDENTITY_ZONE):
+            if e["zone"] == IDENTITY_ZONE or archived_zone(e["zone"]):
                 continue
             if _entry_expired(e, today):
                 continue
@@ -1244,10 +1312,13 @@ class Mnemosyne:
     def rezone(self, s: str, zone: str) -> Path:
         """Move a note into another zone directory and update the index.
 
-        ``zone`` may be a normal zone name, ``"_archive"``, or ``""``/
-        ``"inbox"`` for the vault root. Raises ValueError on unknown notes,
-        invalid names, the zone cap, or a destination file that already
-        exists (it is never overwritten)."""
+        ``zone`` may be a normal zone (nested or human-named folder paths
+        included), ``"_archive"``, or ``""``/``"inbox"`` for the vault root.
+        Rezoning to ``"_archive"`` keeps the note's complete original
+        relative subpath (``knowledge/note.md`` -> ``_archive/knowledge/
+        note.md``); any other zone is the complete new parent. Raises
+        ValueError on unknown notes, invalid names, the zone cap, or a
+        destination file that already exists (it is never overwritten)."""
         z = normalize_zone(str(zone), allow_archive=True)
         with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
@@ -1256,16 +1327,27 @@ class Mnemosyne:
             e = self._notes.get(s)
             if e is None:
                 raise ValueError(f"no note with slug {s!r}")
+            if z == ARCHIVE_ZONE:
+                # archive root: keep the note's whole relative subpath; an
+                # already-archived note stays where it is
+                if archived_zone(e["zone"]):
+                    new_zone = e["zone"]
+                elif e["zone"]:
+                    new_zone = f"{ARCHIVE_ZONE}/{e['zone']}"
+                else:
+                    new_zone = ARCHIVE_ZONE
+            else:
+                new_zone = z
             existing = {en["zone"] for en in self._notes.values()
-                        if en["zone"] and en["zone"] != ARCHIVE_ZONE}
-            if (z and z != ARCHIVE_ZONE and z not in existing
+                        if en["zone"] and not archived_zone(en["zone"])}
+            if (new_zone and not archived_zone(new_zone)
+                    and new_zone not in existing
                     and len(existing) >= MAX_ZONES):
                 raise ValueError(f"zone cap reached ({MAX_ZONES}); "
                                  "re-use an existing zone")
             old = self.vault / e["rel"]
-            new_dir = (self.vault / z) if z else self.vault
-            new = new_dir / f"{s}.md"
-            rel = f"{z}/{s}.md" if z else f"{s}.md"
+            rel = f"{new_zone}/{s}.md" if new_zone else f"{s}.md"
+            new = self.vault / rel
             if old != new:
                 # _scan tolerates same-stem files in several zones (newest
                 # wins), so the destination may hold a note the index cannot
@@ -1275,14 +1357,14 @@ class Mnemosyne:
                     raise ValueError(
                         f"cannot move {e['rel']} to {rel}: destination "
                         "already exists; merge or rename one of them first")
-                new_dir.mkdir(parents=True, exist_ok=True)
+                new.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(old, new)
             try:
                 st = new.stat()
                 mtime, size = st.st_mtime, st.st_size
             except OSError:
                 mtime, size = e["mtime"], e["size"]
-            self._notes[s] = {**e, "rel": rel, "zone": z,
+            self._notes[s] = {**e, "rel": rel, "zone": new_zone,
                               "mtime": mtime, "size": size}
             self._aliases = None
             self._index_changed()

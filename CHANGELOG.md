@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Recursive vault discovery by default, including nested imports and folders
+  with spaces or Unicode names. Hidden files/directories, dependency caches,
+  symlinks and Windows reparse points are excluded. Duplicate filename stems
+  select the newest file, with a warning; equal timestamps select the
+  lexicographically smallest POSIX relative path.
+- Complete relative zone paths across labels, INDEX routing, startup reads,
+  curation and MCP. Archive moves preserve the original relative subpath;
+  journal undo restores exact paths and bytes. MCP restore keeps its inbox
+  default and accepts an explicit nested destination.
+
+### Fixed
+
+- Archived descendants, including case-variant archive components, stay out
+  of active search, rendering, catalogs and curation limits. Nested rezone
+  targets cannot bypass archive protection or caps.
+- Path-bound consolidation answers validate the offered document rather
+  than an unrelated duplicate-stem winner.
+
 ## 0.7.0 - 2026-10-11
 
 ### Fixed

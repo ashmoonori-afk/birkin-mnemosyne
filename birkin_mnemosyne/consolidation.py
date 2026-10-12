@@ -11,13 +11,14 @@ from __future__ import annotations
 import hashlib
 import heapq
 import json
+import stat
 import threading
 from bisect import bisect_left
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Literal
 
 from . import frontmatter
@@ -27,6 +28,7 @@ from .memory import _one_line, _yaml_str
 from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, tokenize
 from .review_journal import Change, Receipt, ReviewError, commit, undo_receipt
 from .vault_lock import VaultLock
+from .vault_paths import archived_zone, hidden_or_cache
 
 Choice = Literal[
     "keep-both", "keep-first", "keep-second", "current-first", "current-second",
@@ -211,6 +213,34 @@ def _remember(vault: Path, questions: tuple[Question, ...]) -> None:
             cache.popitem(last=False)
 
 
+def _active_snapshot_path(dex: Mnemosyne, note: NoteSnapshot) -> Path:
+    """Validate that a question snapshot names one exact active note.
+
+    Stem winner selection does not change a path-bound answer. The caller
+    checks the offered bytes; this boundary refuses hidden/cache/archive
+    components, traversal and linked replacements before those bytes are read.
+    """
+    parts = note.path.split("/")
+    if (PureWindowsPath(note.path).drive or "\\" in note.path
+            or not note.path.endswith(".md")
+            or any(part in ("", ".", "..") or hidden_or_cache(part) for part in parts)):
+        raise ReviewError("unsafe note path")
+    if archived_zone("/".join(parts[:-1])):
+        raise ReviewError("note is not active at the offered path")
+    path = dex.vault / note.path
+    if not path.resolve().is_relative_to(dex.vault):
+        raise ReviewError("unsafe note path")
+    for component in (path, *path.parents):
+        if component == dex.vault:
+            break
+        if component.is_symlink() or (component.exists() and (
+            getattr(component.lstat(), "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+        )):
+            raise ReviewError("unsafe note path")
+    return path
+
+
 class Consolidation:
     """Discover read-only candidate pairs; apply only an explicit bound answer."""
 
@@ -230,7 +260,7 @@ class Consolidation:
             notes: list[NoteSnapshot] = []
             skipped: list[str] = []
             for entry in self.dex.entries().values():
-                if entry["zone"] == ARCHIVE_ZONE:
+                if archived_zone(entry["zone"]):
                     continue
                 fields: dict[str, str | int | float | bool | None | list[str]] = entry
                 relative = str(fields["rel"])
@@ -277,7 +307,7 @@ class Consolidation:
             if question is None:
                 return None
             for note in (question.first, question.second):
-                path = self.vault / note.path
+                path = _active_snapshot_path(self.dex, note)
                 if not path.is_file() or _hash(path.read_bytes()) != note.sha256:
                     raise ReviewError("question is stale or unknown; ask again")
             return question
@@ -291,6 +321,8 @@ class Consolidation:
             result: list[RetireQuestion] = []
             for row in retire_candidates(self.dex, budget, limit):
                 relative = str(row["rel"])
+                if archived_zone(relative.rpartition("/")[0]):
+                    continue   # already forgotten: never a retire candidate
                 raw = (self.vault / relative).read_bytes()
                 try:
                     parsed, body = frontmatter.parse(raw.decode("utf-8"))
@@ -321,12 +353,7 @@ class Consolidation:
             raise ReviewError("answer does not bind to this question")
         with VaultLock(self.vault).hold():
             self.dex.refresh()
-            path = (self.vault / note.path).resolve()
-            if not path.is_relative_to(self.vault) or path.is_symlink():
-                raise ReviewError("unsafe note path")
-            if self.dex.resolve_rel(path.stem) != note.path or \
-                    note.path.startswith(("_archive/", ".")):
-                raise ReviewError("note is not active at the offered path")
+            path = _active_snapshot_path(self.dex, note)
             if not path.is_file():
                 raise ReviewError("stale question; ask again")
             raw = path.read_bytes()
@@ -334,7 +361,7 @@ class Consolidation:
                 raise ReviewError("stale question; ask again")
             target = note.path
             if choice == "retire":
-                target = f"{ARCHIVE_ZONE}/{Path(note.path).name}"
+                target = f"{ARCHIVE_ZONE}/{note.path}"
                 if (self.vault / target).exists():
                     raise ReviewError("archive destination already exists")
             receipt = commit(self.vault, question.id, choice, "", "first",
@@ -361,12 +388,7 @@ class Consolidation:
             self.dex.refresh()
             originals: list[bytes] = []
             for note in (question.first, question.second):
-                path = (self.vault / note.path).resolve()
-                if not path.is_relative_to(self.vault) or path.is_symlink():
-                    raise ReviewError("unsafe note path")
-                if self.dex.resolve_rel(path.stem) != note.path or \
-                        note.path.startswith(("_archive/", ".")):
-                    raise ReviewError("note is not active at the offered path")
+                path = _active_snapshot_path(self.dex, note)
                 if not path.is_file():
                     raise ReviewError("stale question; ask again")
                 raw = path.read_bytes()
@@ -393,7 +415,7 @@ class Consolidation:
                 target = note.path
                 data = originals[i]
                 if i == retire:
-                    target = f"_archive/{Path(note.path).name}"
+                    target = f"{ARCHIVE_ZONE}/{note.path}"
                     if (self.vault / target).exists():
                         raise ReviewError("archive destination already exists")
                 elif answer.choice == "merge" and i == survivor:
