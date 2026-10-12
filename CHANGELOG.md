@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Read-only `mnemosyne search`, `list` and `show` print the same JSON fields as
+  the MCP `memory_search`, `memory_list` and `memory_get_note` tools without
+  recording a use or changing usage ranking.
+- `mnemosyne undo --transaction ID` undoes an `init --apply`, fold or review
+  transaction through the existing checked journal (`handoff undo` remains).
+- `mnemosyne --version`, matching `mnemosyne-mcp --version`.
+- `init` JSON output names the resolved absolute `vault`.
+
+### Fixed
+
+- `memory_startup_read` and `memory_startup_verify` no longer require `paths`,
+  so the documented resume call with only project/task keys (or only `task`)
+  works. Reads with nothing to read still fail with the existing message.
+- Every `mnemosyne` command resolves its vault as `--vault`, then
+  `$MNEMOSYNE_VAULT`, then the `mnemosyne-mcp` default
+  `~/.birkin-mnemosyne/vault` (`init` keeps the current directory as its
+  fallback). `check`, `split` and `handoff` no longer fail without `--vault`.
+- `~` is expanded in `--vault`, `$MNEMOSYNE_VAULT` and `init --import`, so a
+  quoted `~/mnemosyne` no longer creates a literal `~` directory.
+
 ## 0.7.0 - 2026-10-11
 
 ### Fixed

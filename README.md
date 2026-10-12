@@ -31,6 +31,35 @@ pip install -e ".[semantic]"     # optional meaning-based retrieval
 The extras are optional. `[bench]` reproduces embedding baselines; it does
 not enable semantic retrieval. See below for explicit semantic preparation.
 
+## Quick start for agent users
+
+Give your coding agent a memory, then check from a terminal what it stored:
+
+```bash
+pip install "birkin-mnemosyne[mcp]"
+claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
+
+mnemosyne --version
+mnemosyne --vault ~/mnemosyne search "release checklist"
+mnemosyne --vault ~/mnemosyne list
+mnemosyne --vault ~/mnemosyne show release-checklist
+```
+
+Other clients (Claude Desktop, Cursor, Codex CLI, IDEs) are in the
+[MCP server section](#mcp-server-claude-code-claude-desktop-codex-cli-cursor).
+`search`, `list` and `show` print JSON with the same fields as the MCP tools
+`memory_search`, `memory_list` and `memory_get_note`. They are read-only:
+they never count as a use, so they do not change usage ranking. `show` exits 1
+when the note does not exist; a vault directory that does not exist exits 2 and
+is not created.
+
+Every `mnemosyne` command finds its vault the same way: `--vault` (before or
+after the command name), else `$MNEMOSYNE_VAULT`, else
+`~/.birkin-mnemosyne/vault`, the same default as `mnemosyne-mcp`. Only `init`
+falls back to the current directory instead. `~` is expanded even when the
+shell leaves it quoted. Set `MNEMOSYNE_VAULT` once and the terminal and the
+MCP server use the same vault without repeating `--vault`.
+
 ## First run
 
 From v0.7.0, `mnemosyne init` previews first-run organization
@@ -46,7 +75,9 @@ mnemosyne init --vault my_vault --import ./markdown_export
 mnemosyne init --vault my_vault --import ./markdown_export --apply
 ```
 
-Without `--vault`, `init` uses the current directory. The existing
+Without `--vault`, `init` uses `$MNEMOSYNE_VAULT` when it is set, otherwise
+the current directory; the JSON output's `vault` key names the absolute
+directory it acted on. The existing
 `mnemosyne-index --vault my_vault init` command uses the same dispatcher.
 The JSON output lists the plan and reports notes, topics, INDEX token
 estimates, warnings, and verification status. A preview says `planned`;
@@ -58,9 +89,11 @@ but never chooses a winner, merges, archives, or deletes notes. It completes
 missing `title`, `type`, and `tags` through the existing byte-exact review
 journal, preserving existing fields and body bytes; ambiguous headers and
 bytes bound by split receipts are retained with warnings. If the output has
-an `undo_transaction`, use it with `Consolidation(vault).undo(transaction_id)`
-or the existing `memory_review_undo` tool to restore the original source
-images. Added imports, topic catalogues, and INDEX routes remain after undo.
+an `undo_transaction`, run
+`mnemosyne --vault my_vault undo --transaction <undo_transaction>` (or call
+`Consolidation(vault).undo(transaction_id)` or the `memory_review_undo` tool)
+to restore the original source images. The same command undoes an applied
+handoff fold or review answer. Added imports, topic catalogues, and INDEX routes remain after undo.
 
 Topic documents are deterministic source-link catalogues, grouped by tag,
 source directory, or note type. Every source stays routed alongside its
@@ -288,7 +321,8 @@ API, CLI or MCP calls below.
 
 In omo, Claude Code and other MCP clients, call `memory_handoff_capture` at the
 chosen session or pre-compaction checkpoint, then `memory_startup_read` with the
-same project/task keys when resuming. This lifecycle is caller-managed. For
+same project/task keys when resuming; `paths` may be omitted when the INDEX and
+the handoff provide the startup material. This lifecycle is caller-managed. For
 example, the parameters to `tools/call` are:
 
 ```json

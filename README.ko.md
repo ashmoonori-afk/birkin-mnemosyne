@@ -31,6 +31,33 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 엑스트라는 모두 선택 사항입니다. `[bench]`는 임베딩 베이스라인을 재현할 뿐
 의미 검색을 켜지 않습니다. 명시적인 의미 모드 준비는 아래를 참고하세요.
 
+## 에이전트 사용자를 위한 빠른 시작
+
+코딩 에이전트에 기억을 연결하고, 무엇을 저장했는지 터미널에서 확인하세요:
+
+```bash
+pip install "birkin-mnemosyne[mcp]"
+claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
+
+mnemosyne --version
+mnemosyne --vault ~/mnemosyne search "릴리스 체크리스트"
+mnemosyne --vault ~/mnemosyne list
+mnemosyne --vault ~/mnemosyne show release-checklist
+```
+
+다른 클라이언트(Claude Desktop, Cursor, Codex CLI, IDE)는
+[MCP 서버 섹션](#mcp-서버claude-code-claude-desktop-codex-cli-cursor)을 보세요.
+`search`, `list`, `show`는 MCP 도구 `memory_search`, `memory_list`,
+`memory_get_note`와 같은 필드의 JSON을 출력합니다. 읽기 전용이라 사용 기록으로
+세지 않으므로 사용 빈도 순위를 바꾸지 않습니다. 없는 메모를 `show`하면 종료 코드
+1, 존재하지 않는 볼트 폴더는 종료 코드 2이며 폴더를 만들지 않습니다.
+
+모든 `mnemosyne` 명령은 같은 순서로 볼트를 찾습니다: `--vault`(명령 이름 앞이나
+뒤), 없으면 `$MNEMOSYNE_VAULT`, 없으면 `mnemosyne-mcp`와 같은 기본값
+`~/.birkin-mnemosyne/vault`. `init`만 마지막 단계에서 현재 폴더를 씁니다. 셸이
+`~`를 따옴표 안에 남겨도 홈 폴더로 확장합니다. `MNEMOSYNE_VAULT`를 한 번
+설정하면 터미널과 MCP 서버가 `--vault`를 반복하지 않아도 같은 볼트를 씁니다.
+
 ## 첫 실행 (First run)
 
 v0.7.0부터 `mnemosyne init`은 파일을 바꾸지 않고 첫 정리 계획을
@@ -46,7 +73,8 @@ mnemosyne init --vault my_vault --import ./markdown_export
 mnemosyne init --vault my_vault --import ./markdown_export --apply
 ```
 
-`--vault`를 생략하면 현재 폴더를 사용합니다. 기존
+`--vault`를 생략하면 `$MNEMOSYNE_VAULT`가 있을 때 그 폴더를, 없으면 현재 폴더를
+사용합니다. JSON 출력의 `vault` 키에 실제로 작업한 절대 경로가 나옵니다. 기존
 `mnemosyne-index --vault my_vault init`도 같은 진입점을 사용합니다.
 JSON 출력에는 계획과 메모·주제 수, INDEX 토큰 추정치, 경고, 검증 상태가
 나옵니다. 미리보기는 `planned`이며, 적용 후에는 상주 INDEX를 독립적으로
@@ -58,8 +86,10 @@ JSON 출력에는 계획과 메모·주제 수, INDEX 토큰 추정치, 경고, 
 바이트 단위 검토 저널을 통해 보완하며 기존 필드와 본문 바이트를 보존합니다.
 해석이 불분명한 헤더와 분할 영수증에 묶인 바이트는 경고와 함께 유지합니다.
 출력에 `undo_transaction`이 있으면
-`Consolidation(vault).undo(transaction_id)` 또는 기존
-`memory_review_undo` 도구로 원래 메모 바이트를 복구할 수 있습니다.
+`mnemosyne --vault my_vault undo --transaction <undo_transaction>`
+(또는 `Consolidation(vault).undo(transaction_id)`, `memory_review_undo` 도구)로
+원래 메모 바이트를 복구할 수 있습니다. 같은 명령으로 적용된 handoff fold나
+검토 답변도 되돌릴 수 있습니다.
 추가된 가져오기 파일·주제 목차·INDEX 경로는 되돌린 뒤에도 남습니다.
 
 주제 문서는 태그, 원래 폴더, 메모 유형으로 묶은 결정적인 원문 링크 목차입니다.
@@ -280,7 +310,8 @@ print(receipt.path, bundle.estimated_tokens)
 
 omo, Claude Code 등 MCP 클라이언트에서는 세션 종료 또는 압축 전의 선택한
 시점에 `memory_handoff_capture`를 호출하고, 재개할 때 같은 키로
-`memory_startup_read`를 호출하세요. 이 호출 시점은 클라이언트가 관리합니다.
+`memory_startup_read`를 호출하세요. INDEX와 handoff가 시작 자료를 제공하면
+`paths`는 생략해도 됩니다. 이 호출 시점은 클라이언트가 관리합니다.
 다음은 `tools/call`에 넘기는 매개변수 예입니다.
 
 ```json
