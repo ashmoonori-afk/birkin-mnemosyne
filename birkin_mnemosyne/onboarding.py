@@ -7,7 +7,8 @@ from typing import Literal
 
 from .atomic import atomic_create_bytes
 from .handoffs import HandoffStore
-from .memory_index import MemoryIndex
+from .import_candidates import scan_import
+from .memory_index import MemoryIndex, MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_triggers import IndexEntry
 from .onboarding_notes import inventory
@@ -61,6 +62,7 @@ class InitReport:
     verification_scope: Literal["resident-index"]
     enable_handoff: bool
     handoff_enabled: bool
+    label_counts: tuple[tuple[str, int], ...]
 
 
 def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
@@ -92,10 +94,16 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
             if plan.enable_handoff and \
                     HandoffStore(plan.root).settings() != plan.handoff_config:
                 raise ReviewError("handoff settings changed; preview a fresh plan")
+            if plan.import_root is not None:
+                try:
+                    live = scan_import(plan.import_root)
+                except MemoryIndexError as exc:
+                    raise ReviewError("import source selection changed; preview a fresh plan") from exc
+                expected = sorted((copy.source_label, copy.preimage) for copy in plan.imports)
+                actual = sorted((item.relative, item.preimage) for item in live)
+                if expected != actual:
+                    raise ReviewError("import source selection changed; preview a fresh plan")
             for copy in plan.imports:
-                if copy.source.resolve() != copy.source or \
-                        copy.source.read_bytes() != copy.destination.raw:
-                    raise ReviewError("import source changed; preview a fresh plan")
                 target = index.document_path(copy.destination.path)
                 current = target.read_bytes() if target.exists() else None
                 if current != copy.existing:
@@ -142,5 +150,5 @@ def run_init(plan: InitPlan, *, apply: bool = False) -> InitReport:
         tuple(ReviewItem(question.id, question.first.path, question.second.path,
                          question.reason, question.similarity) for question in plan.questions),
         20, plan.questions_truncated, journal, undo_transaction, verification, "resident-index",
-        plan.enable_handoff, enabled_state,
+        plan.enable_handoff, enabled_state, plan.label_counts,
     )

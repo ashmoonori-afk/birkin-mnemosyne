@@ -13,6 +13,10 @@ and ``~/.birkin-mnemosyne/vault`` for the rest.
 * ``search``, ``list`` and ``show`` print the notes the agent sees as the
   matching MCP tool's JSON, recording no access (see :mod:`.cli_notes`).
 * ``undo`` restores one journaled transaction, exactly as ``handoff undo``.
+* ``label`` previews deterministic label annotation by default, or applies it
+  with ``--apply`` through the checked journal, printing the JSON
+  ``LabelReport``; repeated ``--path`` restricts selection and repeated
+  ``--label`` (or ``--clear-labels``) supplies an explicit replacement.
 
 The ``handoff`` family adds immutable scoped session memory: ``capture``
 publishes a record from flags or JSON stdin, ``latest`` prints the newest
@@ -46,6 +50,8 @@ from .handoff_cli import (
     run_undo,
 )
 from .handoff_records import HandoffError
+from .label_values import LabelError
+from .labeling import plan_labels, run_labeling
 from .memory_index import MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import format_coverage, split_note
@@ -73,6 +79,10 @@ class _Arguments(HandoffArguments):
     zone: str | None = None
     limit: int = 0
     offset: int = 0
+    paths: list[str] | None = None
+    labels: list[str] | None = None
+    clear_labels: bool = False
+    group_by_label: str | None = None
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -90,7 +100,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "init", help="preview or apply deterministic first-run onboarding", allow_abbrev=False,
     )
     _ = init.add_argument("--vault", dest="init_vault", help="vault root; defaults to current directory")
-    _ = init.add_argument("--import", dest="import_dir", help="external plain-Markdown directory")
+    _ = init.add_argument(
+        "--import", dest="import_dir",
+        help="external Markdown/text/JSON file or directory",
+    )
+    _ = init.add_argument(
+        "--group-by-label", dest="group_by_label", default=None,
+        help="opt-in catalogue grouping by one label namespace",
+    )
     _ = init.add_argument("--apply", action="store_true", help="authorize additive and journaled writes")
     _ = init.add_argument("--max-tokens", type=int, default=None, help="INDEX estimated-token budget")
     _ = init.add_argument("--enable-handoff", action="store_true",
@@ -110,6 +127,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     add_notes_parsers(commands)
     add_undo_parser(commands)
+    label = commands.add_parser(
+        "label", help="preview or apply label annotation", allow_abbrev=False,
+    )
+    add_vault_option(label)
+    _ = label.add_argument(
+        "--apply", action="store_true", help="write the label journal; default is preview",
+    )
+    _ = label.add_argument(
+        "--path", dest="paths", action="append", default=None,
+        help="vault-relative note path; repeat to restrict selection",
+    )
+    _ = label.add_argument(
+        "--label", dest="labels", action="append", default=None,
+        help="explicit replacement label; repeat to supply more",
+    )
+    _ = label.add_argument(
+        "--clear-labels", action="store_true",
+        help="explicitly clear the labels field; incompatible with --label",
+    )
     add_handoff_parser(commands)
     return parser
 
@@ -137,7 +173,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.vault,
                 import_dir=str(Path(import_dir).expanduser()) if import_dir else None,
                 max_tokens=args.max_tokens,
-                enable_handoff=args.enable_handoff), apply=args.apply)
+                enable_handoff=args.enable_handoff,
+                group_by_label=args.group_by_label), apply=args.apply)
             payload = asdict(report)
             payload["vault"] = args.vault
             print(json.dumps(payload, ensure_ascii=False))
@@ -146,6 +183,16 @@ def main(argv: list[str] | None = None) -> int:
             return run_notes(args.command, vault, args, parser)
         if args.command == "undo":
             return run_undo(args.vault, args, arguments, parser)
+        if args.command == "label":
+            if args.clear_labels and args.labels is not None:
+                parser.error("--label and --clear-labels are mutually exclusive")
+            paths = None if args.paths is None else tuple(args.paths)
+            labels = () if args.clear_labels else (
+                None if args.labels is None else tuple(args.labels))
+            plan = plan_labels(args.vault, paths=paths, labels=labels)
+            report = run_labeling(plan, apply=args.apply)
+            print(json.dumps(asdict(report), ensure_ascii=False))
+            return 0
         if args.command == "check":
             checked = check_index(args.vault)
             payload = asdict(checked)
@@ -167,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"receipt: {report.coverage_receipt}")
             print(f"journal: {report.backup_journal}")
         return 0
-    except (HandoffError, MemoryIndexError, ReviewError, StartupError,
+    except (HandoffError, LabelError, MemoryIndexError, ReviewError, StartupError,
             OSError, UnicodeError) as exc:
         print(f"{parser.prog}: {exc}", file=sys.stderr)
         return INVALID_EXIT

@@ -16,6 +16,7 @@ from birkin_mnemosyne.handoff_session import HandoffSession
 from birkin_mnemosyne.handoff_transcript import JsonValue as Json
 from birkin_mnemosyne.handoffs import HandoffStore
 from birkin_mnemosyne.hermes_schema import tool_schemas
+from birkin_mnemosyne.label_values import LabelError, normalize_labels
 from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
 from birkin_mnemosyne.startup import StartupReader
@@ -54,6 +55,33 @@ def _text(value: Json, field: str, maximum: int | None, *, single_line: bool = F
     if single_line and any(ord(char) < 32 or ord(char) == 127 for char in text):
         raise InvalidArgument(field, "must not contain control characters")
     return text
+
+
+def _labels(value: Json) -> tuple[str, ...] | None:
+    """Resolve an optional search labels filter; ``None``/``[]`` stay unfiltered.
+
+    Each entry must be a label string - numbers, dicts and other scalars are
+    rejected, never coerced or filtered out.  Entries then go through the same
+    core :func:`normalize_labels` stored labels use, so malformed values raise
+    :class:`InvalidArgument` (wrapping :class:`LabelError`) before any lookup
+    and never silently broaden into an unfiltered search.  The value spelling
+    stays distinct while the namespace normalizes exactly like stored labels.
+    """
+    if value is None:
+        return None
+    match value:
+        case list() as requested:
+            strings: list[str] = []
+            for item in requested:
+                if not isinstance(item, str):
+                    raise InvalidArgument("labels", "must be an array of strings or null")
+                strings.append(item)
+            try:
+                return normalize_labels(strings)
+            except LabelError as exc:
+                raise InvalidArgument("labels", str(exc)) from exc
+        case _:
+            raise InvalidArgument("labels", "must be an array of strings or null")
 
 
 _PROMPT: Final = (
@@ -195,15 +223,16 @@ class VaultProvider:
         return {"success": True, "title": path.stem, "path": path.relative_to(memory.vault).as_posix()}
 
     def _search(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
-        if set(args) - {"query", "limit"}:
+        if set(args) - {"query", "limit", "labels"}:
             raise InvalidArgument("arguments", "unknown search field")
         query = _text(args.get("query"), "query", 500)
+        labels = _labels(args.get("labels"))
         limit = args.get("limit", 8)
         match limit:
             case bool():
                 raise InvalidArgument("limit", "must be an integer from 1 to 20")
             case int() as count if 1 <= count <= 20:
-                return {"success": True, "results": memory.search(query, limit=count)}
+                return {"success": True, "results": memory.search(query, limit=count, labels=labels)}
             case _:
                 raise InvalidArgument("limit", "must be an integer from 1 to 20")
 

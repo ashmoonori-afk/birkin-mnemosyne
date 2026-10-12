@@ -10,7 +10,9 @@ from pathlib import Path, PurePosixPath
 from typing import Final
 from urllib.parse import quote
 
-from . import frontmatter
+from . import frontmatter, label_frontmatter
+from .label_values import normalize_labels
+from .labels import LabelContext, annotate_labels, read_labels
 from .memory import _one_line, _yaml_str
 from .memory_index import JsonValue, MemoryIndex, MemoryIndexError
 from .startup_coverage import digest
@@ -37,6 +39,7 @@ class Note:
     topic: str
     additions: tuple[str, ...]
     warning: str | None
+    labels: tuple[str, ...] = ()
 
 
 def inventory(root: Path) -> tuple[SourceBytes, ...]:
@@ -126,11 +129,51 @@ def complete_header(source: SourceBytes) -> tuple[bytes, tuple[str, ...], str | 
     return normalized, missing, None
 
 
-def describe_note(source: SourceBytes, *, protected: bool = False) -> Note:
-    """Derive a stable topic from source metadata without changing its body."""
-    text = source.raw.decode("utf-8-sig")
-    meta: dict[str, JsonValue]
-    meta, _ = frontmatter.parse(text)
+def _merge_warning(first: str | None, second: str | None) -> str | None:
+    if first is None:
+        return second
+    return first if second is None or second == first else f"{first}; {second}"
+
+
+def _grouped_topic(
+    topic: str, labels: tuple[str, ...], namespace: str | None,
+) -> str:
+    """Pick the lexicographically first matching label value, case retained.
+
+    Values match on their normalized namespace; without a matching label the
+    existing topic is the fallback, so default grouping is unchanged.
+    """
+    if namespace is None:
+        return topic
+    values: list[str] = []
+    for label in normalize_labels(labels):
+        raw_namespace, separator, raw_value = label.partition(":")
+        if not separator:
+            continue
+        if unicodedata.normalize("NFC", raw_namespace).strip().casefold() == namespace:
+            value = raw_value.strip()
+            if value:
+                values.append(value)
+    return min(values) if values else topic
+
+
+def describe_note(
+    source: SourceBytes, *, protected: bool = False,
+    index_topics: tuple[str, ...] = (), group_by_label: str | None = None,
+    label_source: str | None = None, label_format: str | None = None,
+) -> Note:
+    """Derive a stable topic and label edit from source bytes without writing.
+
+    ``label_source`` and ``label_format`` override the LabelContext source and
+    format for imported candidates so source labels keep the original relative
+    filename and the format namespace of the raw file.
+    """
+    context = LabelContext(source.path, index_topics, source=label_source,
+                           format=label_format)
+    initial = annotate_labels(source.raw, context)
+    meta: dict[str, JsonValue] = {}
+    if initial.warning is None and label_frontmatter.inspect(source.raw).present:
+        meta, _ = frontmatter.parse(source.raw.decode("utf-8-sig"))
     title = _one_line(meta.get("title") or PurePosixPath(source.path).stem)
     tags: list[str] = []
     match meta.get("tags"):
@@ -157,9 +200,19 @@ def describe_note(source: SourceBytes, *, protected: bool = False) -> Note:
     topic = unicodedata.normalize("NFKC", _one_line(topic)).casefold()
     if protected:
         normalized, additions, warning = source.raw, (), "split receipt bytes retained"
+        labels = (read_labels(source.raw) or ()) if initial.warning is None else ()
+    elif initial.warning is not None:
+        normalized, additions, warning, labels = source.raw, (), initial.warning, ()
     else:
         normalized, additions, warning = complete_header(source)
-    return Note(source.path, source.raw, normalized, title, topic, additions, warning)
+        edit = annotate_labels(normalized, context)
+        warning = _merge_warning(warning, edit.warning)
+        if edit.raw != normalized:
+            additions = (*additions, "labels")
+        normalized, labels = edit.raw, edit.labels
+    return Note(source.path, source.raw, normalized, title,
+                _grouped_topic(topic, labels, group_by_label),
+                additions, warning, labels)
 
 
 def catalogue(topic: str, members: tuple[Note, ...]) -> SourceBytes:

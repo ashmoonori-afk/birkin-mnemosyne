@@ -46,7 +46,8 @@ def test_index_file_is_compressed_json(tmp_path):
     dex.rebuild()
     blob = (vault / mnemosyne.INDEX_FILE).read_bytes()
     assert mnemosyne._decode_index(blob) == dex.entries()
-    plain = json.dumps({"version": 3, "notes": dex.entries()}, separators=(",", ":"))
+    plain = json.dumps({"version": mnemosyne.INDEX_VERSION,
+                        "notes": dex.entries()}, separators=(",", ":"))
     assert len(blob) < 0.3 * len(plain.encode())
 
 

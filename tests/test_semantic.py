@@ -12,6 +12,7 @@ import json
 import logging
 import sys
 import types
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -104,6 +105,68 @@ def test_stale_sidecar_from_other_model_is_rebuilt(tmp_path, concept_model):
     idx.sync(mnemosyne.Mnemosyne(vault, semantic=False).entries())
     assert concept_model.calls == calls + 1          # re-embedded, not reused
     assert idx.search("vehicle", 1)[0][0] == "car"
+
+
+def test_note_vector_upgrade_reuses_the_existing_prepared_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path))
+    prepared = tmp_path / "minishlab--potion-multilingual-128M-v2"
+    prepared.mkdir()
+    _ = (prepared / "meta.json").write_text(
+        json.dumps({"revision": semantic.MODEL_REVISION}), encoding="utf-8",
+    )
+    assert semantic.model_dir() == prepared
+    assert semantic.prepared()
+    assert semantic.prepared_revision() == semantic.MODEL_REVISION
+
+
+def test_label_filters_retain_vectors_without_reembedding(
+    tmp_path: Path, concept_model: ConceptEncoder,
+) -> None:
+    vault = _vault(tmp_path)
+    for name in ("car", "dog", "tax"):
+        path = vault / f"{name}.md"
+        raw = path.read_text("utf-8")
+        label = "project:local" if name == "car" else "project:foreign"
+        _ = path.write_text(
+            raw.replace("\n---\n", f'\nlabels: ["{label}"]\n---\n', 1),
+            encoding="utf-8",
+        )
+    dex = mnemosyne.Mnemosyne(vault, semantic=True)
+    now = datetime(2026, 10, 11, tzinfo=timezone.utc)
+    baseline = dex.search("vehicle", now=now)
+    vectors = vault / semantic.VECTORS_FILE
+    before = vectors.read_bytes(), vectors.stat().st_mtime_ns
+    calls = concept_model.calls
+    assert [hit["slug"] for hit in dex.search("vehicle", labels=["project:local"], now=now)] == ["car"]
+    assert (vectors.read_bytes(), vectors.stat().st_mtime_ns) == before
+    assert concept_model.calls == calls + 1
+    assert dex.search("vehicle", now=now) == baseline
+    assert concept_model.calls == calls + 2
+    assert dex.search("vehicle", labels=[], now=now) == baseline
+    assert concept_model.calls == calls + 3
+
+
+def test_bom_label_metadata_never_reaches_semantic_chunks(
+    tmp_path: Path, concept_model: ConceptEncoder, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from birkin_mnemosyne.labels import LabelContext, annotate_labels
+
+    raw = b"\xef\xbb\xbf---\ntitle: Garage\n---\nthe car needs new brake pads\n"
+    edited = annotate_labels(raw, LabelContext("car.md"), labels=("custom:evil-label",))
+    _ = (tmp_path / "car.md").write_bytes(edited.raw)
+    bodies: list[str] = []
+    original = semantic.chunk_text
+
+    def captured(title: str, body: str, max_chars: int | None = None) -> list[str]:
+        bodies.append(body)
+        return original(title, body, max_chars)
+
+    monkeypatch.setattr(semantic, "chunk_text", captured)
+    hits = mnemosyne.Mnemosyne(tmp_path, semantic=True).search("vehicle")
+    assert hits[0]["slug"] == "car" and concept_model.calls > 0
+    assert bodies == ["the car needs new brake pads"]
 
 
 def test_unprepared_model_falls_back_to_bm25(tmp_path, monkeypatch, caplog):

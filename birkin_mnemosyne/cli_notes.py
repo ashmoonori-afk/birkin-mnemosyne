@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from . import frontmatter
+from .label_values import LabelError, normalize_labels
 from .memory import _is_expired, _snippet
 from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, Mnemosyne, slug, tokenize
 
@@ -125,6 +126,7 @@ def _search(dex: Mnemosyne, args: argparse.Namespace,
             "slug": hit["slug"], "title": hit["title"],
             "zone": hit["zone"] or "inbox", "type": hit["type"],
             "polarity": hit["polarity"], "updated": hit["updated"],
+            "labels": hit.get("labels", []),
             "snippet": _snippet(body, terms),
             "related": [slug(title) for title in hit["links"][:3]],
         })
@@ -139,6 +141,7 @@ def _list(dex: Mnemosyne, args: argparse.Namespace,
         parser.error("--offset must be 0 or more")
     zone = _zone(args.zone, parser)
     notes: list[dict[str, Any]] = []
+    label_counts: dict[str, int] = {}
     for key, entry in dex.entries().items():
         if _is_expired(entry):
             continue
@@ -146,12 +149,20 @@ def _list(dex: Mnemosyne, args: argparse.Namespace,
             continue
         if zone is not None and entry["zone"] != zone:
             continue
+        try:
+            normalized = normalize_labels(entry.get("labels") or ())
+        except LabelError:
+            normalized = ()
         notes.append({"slug": key, "title": entry["title"],
                       "type": entry["type"], "zone": entry["zone"] or "inbox",
                       "polarity": entry["polarity"],
+                      "labels": entry.get("labels", []),
                       "updated": entry["updated"]})
+        for label in normalized:
+            label_counts[label] = label_counts.get(label, 0) + 1
     notes.sort(key=lambda note: (note["updated"], note["slug"]), reverse=True)
     return _print({"total": len(notes), "offset": offset,
+                   "label_counts": label_counts,
                    "notes": notes[offset:offset + limit]})
 
 
@@ -173,6 +184,7 @@ def _show(dex: Mnemosyne, args: argparse.Namespace,
                    "zone": meta["zone"] or "inbox", "type": meta["type"],
                    "polarity": meta["polarity"], "version": version,
                    "tags": meta["tags"], "links": meta["links"],
+                   "labels": meta.get("labels", []),
                    "sources": fields.get("sources") or [],
                    "updated": meta["updated"],
                    "expires_at": meta.get("expires_at"),

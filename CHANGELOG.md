@@ -28,6 +28,9 @@
 
 ### Fixed
 
+- Label annotation preserves receipt-bound split sources and topic documents,
+  including explicitly requested paths and sources restored by undo. Apply
+  revalidates coverage authority under the vault lock before changing notes.
 - Pure journal moves and undo preserve late-arriving files and retain checked
   private snapshots instead of replacing or unlinking an unverified image.
 - Scoped startup requires the INDEX even when a fresh reader has never seen
@@ -47,6 +50,39 @@
 
 - Immutable project/task handoff captures through Python, CLI and MCP, with
   stable checkpoint IDs, complete verified startup delivery and size warnings.
+- Deterministic provider-free `namespace:value` note labels: readable,
+  normalized labels inferred offline from metadata, typed wikilinks, real ISO
+  dates, bounded script evidence and INDEX/path context — no model, clock or
+  API credentials. Values keep their case while namespaces lower; manual
+  labels and explicit `[]` stay user-owned, `None` keeps or infers only when
+  absent, and explicit replacement/clearing are checked operations. Unknown
+  Latin text is never assumed English.
+- `mnemosyne label` previews or — with `--apply` — journals deterministic
+  label annotation through the existing review journal: repeated `--path`
+  restricts selection, repeated `--label` supplies an explicit replacement
+  and `--clear-labels` clears. The JSON report exposes notes/changed counts
+  and `label_counts`; the returned `undo_transaction` restores exact bytes
+  through the shared `handoff undo --transaction`, refusing edited
+  post-images. Generated catalogues, split receipts and managed handoffs are
+  excluded; no-op applies write nothing.
+- `init --import` accepts one external Markdown/text/JSON file or directory:
+  Markdown keeps its original bytes, text/JSON become lossless fenced
+  candidates, invalid JSON is retained with a warning, and invalid UTF-8,
+  linked or ambiguous sources are refused before any plan. `--group-by-label
+  <namespace>` optionally groups topic catalogues by a deterministic label
+  value; reports carry a per-note `label_counts` histogram, manual labels are
+  never overwritten and source files are never modified. Imported copies,
+  catalogues and INDEX routes remain after undo (additive; only journaled
+  byte edits revert).
+- Label-aware recall and browsing: `Mnemosyne.search`, `Memory.search`, MCP
+  `memory_search`/`memory_list` and Hermes
+  `birkin_memory_search` accept `labels` with AND eligibility before any
+  candidate cut or pagination; omitted/`[]` filters leave scores and ordering
+  unchanged, returned hits expose stored labels, `memory_list` reports
+  `label_counts` for the full eligible set, and malformed filters raise
+  before lookup instead of broadening the search. Labels never become query
+  words or ranking boosts; ordinary search keeps indexing root plus one zone
+  level. MCP `memory_remember` accepts explicit labels on writes.
 - Deterministic dated handoff folds through the existing curation gate, with
   archived originals, preview-bound apply, exact journal undo and checked replay.
 - Opt-in Hermes session-end/pre-compression capture with stable project/task
@@ -74,6 +110,13 @@
 - English and Korean handoff usage, client-managed checkpoint conventions,
   init enablement, Hermes callbacks, archive recovery and a complete-context
   startup-cost estimate.
+- English and Korean labeling usage: CLI preview/apply/replace/undo,
+  label normalization and deterministic suggestions, external init imports
+  with grouping, search/MCP AND filters and Hermes parameter examples,
+  plus the measured label context cost (4,207 -> 4,303 UTF-8 bytes,
+  1,052 -> 1,076 estimated tokens, `ceil(bytes/4)`) and the frozen
+  candidate regression at `8b7ab156` (12 runs x 1,440 queries: every rank,
+  metric and fixture hash unchanged on the labeled write path).
 - English and Korean retrieval, expansion, INDEX, task-read and footprint
   results now share fresh 2026-10-11 measurements with explicit source
   revisions and separate-corpus caveats.

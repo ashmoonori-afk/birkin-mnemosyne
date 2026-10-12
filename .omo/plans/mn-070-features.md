@@ -7,6 +7,13 @@ The unchanged baseline is `/Volumes/toshiba/work/mn-070-features/repo`.
 After plan approval, export an identical reviewed copy into the feature PR's
 `.omo/plans/` directory; this task-root file remains the canonical plan.
 
+Execution checkpoint: Item A merged as PR #79 at
+`4b258d8a8bce95ec115d7a2537f5a24bbe07b98a`, after exact-head Sol approval and
+all 21 CI jobs passed. Item B references now resolve against
+`/Volumes/toshiba/work/mn-070-features/labeling` on branch `mn-070-labels`.
+The baseline checkout remains unchanged. Routine label interfaces are specified
+in the task evidence file `evidence/labeling-contract.md`.
+
 ## TL;DR (For humans)
 <!-- Fill this LAST, after the detailed plan below is written, so it summarizes the REAL plan. -->
 <!-- Plain English for a non-engineer: NO file paths, NO todo numbers, NO wave/agent/tool names. -->
@@ -480,7 +487,7 @@ required but opt-in; default routing remains compatible.
   QA: examples succeed without API keys; wrong-scope/oversized/conflicting cases are honestly documented; no false automatic MCP lifecycle claim. Prose is reviewed, not pinned by new tests.
   Evidence: evidence/handoff/docs-qa.md. Commit: Y | docs: explain scoped handoffs for 0.7.0.
 
-- [ ] 12. Freeze handoff head and obtain independent approval and CI
+- [x] 12. Freeze handoff head and obtain independent approval and CI
   Recommended task executor category: quick - lead git/CI orchestration; reviewer uses the explicit Sol model.
   What to do / Must NOT do: full suite and diagnostics, freeze/push head, create one A PR, launch separate non-author GPT-6.1 Sol reviewer and monitor all 21 checks; no release workflow.
   Closes: GAP-9. Parallelization: independent review and CI together.
@@ -489,7 +496,7 @@ required but opt-in; default routing remains compatible.
   QA: re-fetch head after review/checks; any changed tree invalidates affected evidence and any changed head requires exact-head approval. Save full head/tree and reviewer provider/model.
   Evidence: evidence/handoff/{tests,ci,review,head}. Commit: only verified fixes, each rechecked; final footer names this plan.
 
-- [ ] 13. Merge the reviewed handoff PR by exact head
+- [x] 13. Merge the reviewed handoff PR by exact head
   Recommended task executor category: quick - authorized protected merge.
   What to do / Must NOT do: lead runs `gh pr merge <A-PR> --squash --match-head-commit <reviewed-head>` after fresh gate checks; no tag/publish.
   Closes: GAP-9. Parallelization: after 12 only.
@@ -497,7 +504,7 @@ required but opt-in; default routing remains compatible.
   QA: a stale head must not be substituted; record the resulting merge commit separately from PR head. Refresh main for B.
   Evidence: evidence/handoff/merge.json. Commit: GitHub merge only.
 
-- [ ] 14. Implement pure deterministic labels and safe field edits
+- [x] 14. Implement pure deterministic labels and safe field edits
   Recommended task executor category: quick - pure inference and byte-span edits.
   What to do / Must NOT do: add labels.py and tests/test_labels.py; dedicated namespaces, existing-fields/path/INDEX/lexical inference, manual ownership and safe byte-preserving labels field; no tags/ranking changes.
   Closes: GAP-5. Parallelization: B foundation after 13.
@@ -506,7 +513,7 @@ required but opt-in; default routing remains compatible.
   QA: all requested families and mixed-language inputs; identical input gives identical suggestions; manual empty labels retained; BOM/CRLF/comments/body preserved; malformed/ambiguous headers unchanged with warnings.
   Evidence: evidence/labeling/unit-14-tests.log. Commit: Y | feat: infer editable memory label suggestions.
 
-- [ ] 15. Filter indexed search by labels without changing ranking
+- [x] 15. Filter indexed search by labels without changing ranking
   Recommended task executor category: quick - add metadata and pre-cut eligibility to current search.
   What to do / Must NOT do: edit mnemosyne.py and add tests/test_label_search.py; cache schema upgrade, AND filters before candidate cut, no score/term/doclen/tie changes.
   Closes: GAP-7, GAP-8. Parallelization: B foundation with 17.
@@ -515,7 +522,7 @@ required but opt-in; default routing remains compatible.
   QA: matching note outside unfiltered top 32 is returned; unfiltered score/rank sequences remain equal; old cache rebuilds; malformed filters refuse rather than silently broaden.
   Evidence: evidence/labeling/unit-15-tests.log and frozen comparison in 23. Commit: Y | feat: filter memory search by labels.
 
-- [ ] 16. Attach and preserve labels on normal note writes
+- [x] 16. Attach and preserve labels on normal note writes
   Recommended task executor category: quick - integrate pure inference at the existing write seam.
   What to do / Must NOT do: edit memory.py and tests/test_note_labels.py; absent labels infer, existing labels preserve, explicit labels replace; forward search labels and expose read/list metadata.
   Closes: GAP-5. Parallelization: B integration with 18.
@@ -524,7 +531,7 @@ required but opt-in; default routing remains compatible.
   QA: create/append/replace retain tags and editable labels; explicit [] stays empty; note version/evidence/source/TTL contracts remain unchanged; no provider/network call.
   Evidence: evidence/labeling/unit-16-tests.log. Commit: Y | feat: preserve label suggestions on note writes.
 
-- [ ] 17. Journal label annotation and explicit replacement
+- [x] 17. Journal label annotation and explicit replacement
   Recommended task executor category: quick - existing Change before/after transaction pattern.
   What to do / Must NOT do: add labeling.py and tests/test_label_journal.py; preview no-write, apply/replace checked images and label counts; no body or other-header rewrites.
   Closes: GAP-5. Parallelization: B foundation with 15.
@@ -533,7 +540,7 @@ required but opt-in; default routing remains compatible.
   QA: label -> undo restores exact bytes; changed post-image refuses without partial restore; user-owned labels untouched unless explicit replacement; preview leaves bytes/mtimes/cache state unchanged.
   Evidence: evidence/labeling/unit-17-tests.log and write-import-init.json. Commit: Y | feat: journal reversible label annotation.
 
-- [ ] 18. Integrate init label counts grouping and label CLI
+- [x] 18. Integrate init label counts grouping and label CLI
   Recommended task executor category: quick - extend current onboarding and argparse patterns.
   What to do / Must NOT do: edit onboarding_notes.py, onboarding_plan.py, onboarding.py, memory_index_cli.py and tests/test_onboarding_labels.py; infer on touched notes, journal with existing normalization, report counts, add label preview/apply and --group-by-label.
   Closes: GAP-5, GAP-7. Parallelization: with 16; do not edit memory.py or mnemosyne.py.
@@ -542,7 +549,7 @@ required but opt-in; default routing remains compatible.
   QA: default grouping unchanged; explicit label grouping picks matching values/fallback; init rerun changes no bytes; generated catalogues and immutable handoffs are not rewritten; counts match actual labels.
   Evidence: evidence/labeling/unit-18-tests.log. Commit: Y | feat: label and group notes during onboarding.
 
-- [ ] 19. Convert raw file imports into labeled preview candidates
+- [x] 19. Convert raw file imports into labeled preview candidates
   Recommended task executor category: quick - deterministic lossless conversion and existing import publication.
   What to do / Must NOT do: add import_candidates.py if needed, edit onboarding_plan.py/onboarding.py/CLI and tests/test_raw_imports.py; files/directories, MD/text/JSON, separate source digest, safe original suffixes and source labels.
   Closes: GAP-6. Parallelization: after 18, no overlapping onboarding writer.
@@ -551,7 +558,7 @@ required but opt-in; default routing remains compatible.
   QA: three formats preview without files/mtime changes; apply retains source bytes and is idempotent; JSON backticks cannot escape its fence; invalid JSON warns/preserves text; changed source/unsafe path/invalid encoding refuses safely.
   Evidence: evidence/labeling/unit-19-tests.log and write-import-init.json. Commit: Y | feat: preview labeled text and JSON imports.
 
-- [ ] 20. Expose labels through actual MCP tools
+- [x] 20. Expose labels through actual MCP tools
   Recommended task executor category: quick - schema and argument propagation following current tools.
   What to do / Must NOT do: edit _mcp_app.py and tests/test_mcp_labels.py, update stale existing tool assertions only as needed; labels on remember/search/list/get and a read-only label-count surface.
   Closes: GAP-7. Parallelization: B adapters with 21.
@@ -560,7 +567,7 @@ required but opt-in; default routing remains compatible.
   QA: tools/list types/limits, tools/call create/read/filter, AND semantics, malformed filters cannot broaden results, explicit manual labels survive updates.
   Evidence: evidence/labeling/unit-20-tests.log and mcp-transcript.json. Commit: Y | feat: expose memory labels over MCP.
 
-- [ ] 21. Forward label filters through Hermes search
+- [x] 21. Forward label filters through Hermes search
   Recommended task executor category: quick - one adapter argument/schema change.
   What to do / Must NOT do: edit integrations/hermes/provider.py and tests/test_host_labels.py; preserve handoff callback/prefetch behavior.
   Closes: GAP-7. Parallelization: B adapters with 20.

@@ -37,8 +37,10 @@ The 0.7.0 provider source exposes four memory-provider tools:
 
 - `birkin_memory_remember`: create a durable note with `title` and `body`. An existing
   title cannot be overwritten.
-- `birkin_memory_search`: retrieve ranked snippets with `query` and an optional
-  `limit` from 1 to 20.
+- `birkin_memory_search`: retrieve ranked snippets with `query`, an optional
+  `limit` from 1 to 20, and an optional `labels` array. `labels` is an AND
+  filter: every `namespace:value` entry must be carried by the note; `null`
+  or `[]` leaves recall unfiltered.
 - `birkin_memory_get_note`: read the full body of a selected `title`.
 - `birkin_memory_index`: read the resident INDEX or expand a complete `topic`
   copied from its topic map.
@@ -56,6 +58,49 @@ Hermes' native `MEMORY.md` and `USER.md` remain separate. This provider does not
 mirror those files, rewrite their configuration, or automatically save entire
 conversations. Model-directed writes are accepted only in a primary agent
 context, not subagents, cron, or flush contexts.
+
+## Labels
+
+Notes may carry readable `namespace:value` labels in their frontmatter, and
+`birkin_memory_search` can filter recall by them. The schema follows the
+provider's actual tool contract: `labels` is an array of strings or `null`;
+entries must be strings (numbers and other scalars are rejected), they are
+normalized exactly like stored labels, and the label filter is AND — every
+requested label must be present. `null`/`[]` means no filter, so scores and
+ordering are unchanged. Malformed filters raise before any lookup and never
+broaden into an unfiltered search. Labels are not query words and never
+become ranking boosts.
+
+```json
+{
+  "name": "birkin_memory_search",
+  "arguments": {"query": "ingress dns", "limit": 8, "labels": ["zone:devops"]}
+}
+```
+
+`birkin_memory_remember` keeps its `title` + `body` schema; its writes go
+through the same core as the library examples below, so a new note without a
+labels field gains deterministic label suggestions (including its zone from
+the note's directory and its created date) and can be recalled by them.
+
+The provider stores notes with `VaultMemory`; the same calls are available to
+Python code against the same vault:
+
+```python
+from birkin_mnemosyne import VaultMemory
+
+memory = VaultMemory({"vault_path": "path/to/hermes-home/birkin-mnemosyne/vault"})
+# Title and body, as the provider schema allows.
+memory.write_note(
+    "Ingress DNS",
+    "nginx ingress resolves service DNS; allow HTTPS through the firewall.",
+    zone="devops", labels=["project:Infra", "lang:en"],
+)
+# Optional AND label filter, as birkin_memory_search forwards it.
+for hit in memory.search("ingress dns", limit=8, labels=["project:Infra"]):
+    print(hit["title"], hit["labels"])
+# ingress-dns ['lang:en', 'project:Infra']
+```
 
 ## Session handoffs
 

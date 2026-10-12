@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from birkin_mnemosyne import HandoffError, HandoffFields, HandoffScope, HandoffStore, MemoryIndex
+from birkin_mnemosyne.labels import read_labels
 from birkin_mnemosyne.memory_index import MemoryIndexError
 from birkin_mnemosyne.onboarding import run_init
 from birkin_mnemosyne.onboarding_plan import InitPlan, plan_init
@@ -91,7 +92,10 @@ def test_explicit_apply_enables_store_and_preserves_notes_and_routes(
     assert report.ok and report.verification == "passed"
     assert report.enable_handoff and report.handoff_enabled
     assert HandoffStore(tmp_path).settings().enabled
-    assert note.read_bytes() == original
+    labeled = note.read_bytes()
+    assert read_labels(labeled) == ("topic:original route", "type:topic")
+    assert b"".join(line for line in labeled.splitlines(keepends=True)
+                    if not line.startswith(b"labels:")) == original
     assert all(entry in index.read().entries for entry in original_entries)
 
 
@@ -262,7 +266,10 @@ def test_cli_enable_handoff_preview_is_read_only_and_apply_enables(
     payload = json.loads(applied.stdout.decode("utf-8"))
     assert payload["ok"] is True and payload["handoff_enabled"] is True
     assert HandoffStore(vault).settings().enabled
-    assert note.read_bytes() == original
+    labeled = note.read_bytes()
+    assert read_labels(labeled) == ("topic:original route", "type:topic")
+    assert b"".join(line for line in labeled.splitlines(keepends=True)
+                    if not line.startswith(b"labels:")) == original
     assert all(entry in index.read().entries for entry in original_entries)
     committed = tree(vault)
 
