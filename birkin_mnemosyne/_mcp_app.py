@@ -833,7 +833,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_startup_read(
-        paths: Annotated[list[str], Field(max_length=64)],
+        paths: Annotated[list[str], Field(default_factory=list, max_length=64)],
         task: str | None = None,
         project_key: str | None = None,
         task_key: str | None = None,
@@ -870,7 +870,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_startup_verify(
-        paths: Annotated[list[str], Field(max_length=64)], context: str,
+        context: str,
+        paths: Annotated[list[str], Field(default_factory=list, max_length=64)],
         task: str | None = None,
         project_key: str | None = None,
         task_key: str | None = None,
