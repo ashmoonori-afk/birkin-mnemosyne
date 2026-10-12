@@ -558,7 +558,7 @@ required but opt-in; default routing remains compatible.
   QA: three formats preview without files/mtime changes; apply retains source bytes and is idempotent; JSON backticks cannot escape its fence; invalid JSON warns/preserves text; changed source/unsafe path/invalid encoding refuses safely.
   Evidence: evidence/labeling/unit-19-tests.log and write-import-init.json. Commit: Y | feat: preview labeled text and JSON imports.
 
-- [ ] 20. Expose labels through actual MCP tools
+- [x] 20. Expose labels through actual MCP tools
   Recommended task executor category: quick - schema and argument propagation following current tools.
   What to do / Must NOT do: edit _mcp_app.py and tests/test_mcp_labels.py, update stale existing tool assertions only as needed; labels on remember/search/list/get and a read-only label-count surface.
   Closes: GAP-7. Parallelization: B adapters with 21.
@@ -567,7 +567,7 @@ required but opt-in; default routing remains compatible.
   QA: tools/list types/limits, tools/call create/read/filter, AND semantics, malformed filters cannot broaden results, explicit manual labels survive updates.
   Evidence: evidence/labeling/unit-20-tests.log and mcp-transcript.json. Commit: Y | feat: expose memory labels over MCP.
 
-- [ ] 21. Forward label filters through Hermes search
+- [x] 21. Forward label filters through Hermes search
   Recommended task executor category: quick - one adapter argument/schema change.
   What to do / Must NOT do: edit integrations/hermes/provider.py and tests/test_host_labels.py; preserve handoff callback/prefetch behavior.
   Closes: GAP-7. Parallelization: B adapters with 20.
