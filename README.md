@@ -273,9 +273,10 @@ Suggestions are inferred from the source bytes and INDEX routing state only
 ### CLI: preview, apply, replace, undo
 
 `mnemosyne label` only previews by default: it scans without creating a
-directory, lock, cache or journal, plans only notes that have no labels
-field yet, and skips generated catalogues, split receipts, archives and
-managed handoffs. User-owned manual and empty fields are never planned. For a
+directory, lock, cache or journal, proposes annotation only where the labels
+field is absent, and skips generated catalogues, split receipts, archives and
+managed handoffs. User-owned manual and empty fields are included in the
+report but not modified. For a
 test vault holding `notes/alpha.md` (`---` / `title: Alpha` / `---` /
 `Body of Alpha.`), the read-only JSON report is:
 
@@ -385,14 +386,19 @@ mnemosyne --vault my_vault init --import ./markdown_export --apply \
   else the existing topic; default routing behavior is unchanged.
 
 The report's `label_counts` is a per-note histogram: each normalized label
-counts once per note, preserving value case:
+counts once per note, preserving value case. The following **selected fields
+from the preview report** use the `notes/alpha.md` fixture above and three
+export files: `x.md` with title `Infra` and type `project`, `notes.txt` with
+plain text, and `data.json` containing `{"project": "Infra"}`. The full CLI
+report also includes source hashes, routes, mutations and verification fields:
 
 ```json
-{"mode": "preview", "ok": true, "notes": 3, "imports": 3, "topics": 1,
+{"mode": "preview", "ok": true, "notes": 4, "imports": 3, "topics": 3,
  "warning_count": 0, "warnings": [],
  "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
-   ["source:data.json", 1], ["source:notes.txt", 1], ["source:x.md", 1],
-   ["type:topic", 3], ["zone:imports", 3]],
+   ["project:Infra", 1], ["source:data.json", 1], ["source:notes.txt", 1],
+   ["source:x.md", 1], ["type:project", 1], ["type:topic", 3],
+   ["zone:imports", 3], ["zone:notes", 1]],
  "undo_transaction": null}
 ```
 
@@ -1193,7 +1199,7 @@ from birkin_mnemosyne import (
 ```
 
 Key `Mnemosyne` methods: `refresh()`,
-`search(query, limit, zone, expansions=None)`,
+`search(query, limit=8, zone=None, expansions=None, labels=None)`,
 `related(slug)`, `record_access(slug)`, `stale()`, `rezone(slug, zone)`,
 `zone_priorities()`, `stats()`.
 

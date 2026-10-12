@@ -363,17 +363,19 @@ mnemosyne --vault my_vault init --import ./markdown_export --apply \
   라우팅 동작은 변하지 않습니다.
 
 리포트의 `label_counts`는 노트별 정규화 라벨 히스토그램입니다. 노트당 한 번씩
-세고 값의 대소문자를 보존합니다:
+세고 값의 대소문자를 보존합니다. 아래는 **미리보기 리포트에서 일부 필드만
+발췌한 출력**입니다. 앞의 `notes/alpha.md`와 내보낸 파일 세 개를 사용합니다:
+타이틀 `Infra`·유형 `project`인 `x.md`, 일반 텍스트 `notes.txt`,
+`{"project": "Infra"}`를 담은 `data.json`. 전체 CLI 리포트에는 원본 해시,
+라우트, 변경 계획, 검증 상태도 포함됩니다:
 
 ```json
-{"mode": "preview", "ok": true, "notes": 7, "imports": 4, "topics": 3,
- "warning_count": 1,
- "warnings": ["broken.json: invalid JSON retained as text"],
- "label_counts": [["format:json", 2], ["format:md", 1], ["format:txt", 1],
-   ["project:Release notes", 1], ["source:broken.json", 1],
-   ["source:data.json", 1], ["source:export.txt", 1],
-   ["source:release/notes.md", 1], ["type:project", 1],
-   ["type:topic", 3], ["zone:imports", 4]],
+{"mode": "preview", "ok": true, "notes": 4, "imports": 3, "topics": 3,
+ "warning_count": 0, "warnings": [],
+ "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
+   ["project:Infra", 1], ["source:data.json", 1], ["source:notes.txt", 1],
+   ["source:x.md", 1], ["type:project", 1], ["type:topic", 3],
+   ["zone:imports", 3], ["zone:notes", 1]],
  "undo_transaction": null}
 ```
 
