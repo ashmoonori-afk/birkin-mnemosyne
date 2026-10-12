@@ -208,6 +208,278 @@ JSON-RPC 프레이밍은 제외합니다. 과거 비공개 스냅샷과는 다�
 [사용·복구 가이드](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md)와
 [측정값·분모·회귀](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md)를 참고하세요.
 
+## 레이블(namespace:value) (0.7.0)
+
+노트 프론트매터의 `labels` 필드에는 `project:Infra`, `lang:ko`처럼 읽기 쉬운
+`namespace:value` 라벨을 담을 수 있습니다. 라벨은 모델이나 API 키 없이
+결정적으로 생성되며, 저장·검색·목록 어디서든 그대로 노출됩니다. 라벨은 검색
+질문어가 아니고 순위를 올리는 점수 텍스트에도 들어가지 않습니다. 태그·타이틀·
+본문이 검색되는 방식은 변하지 않습니다.
+
+### 형식과 정규화
+
+라벨은 첫 콜론으로 나뉜 비어 있지 않은 네임스페이스와 값입니다. 저장 시에는
+NFC 정규화, 바깥 공백 제거, **네임스페이스 소문자화**, 정렬·중복 제거가
+적용되며 **값의 대소문자·철자는 보존**됩니다. `Project:Zed`는 `project:Zed`로
+저장되므로 서로 다른 프로젝트 값이 조용히 합쳐지지 않습니다. 네임스페이스는
+소문자 ASCII `[a-z][a-z0-9_-]*`, 값은 비어 있지 않고 제어 문자가 없어야
+합니다.
+
+`labels` 필드는 사용자가 소유합니다. `[]`(명시적 빈 필드)도 소유된 값이며,
+`labels=None`(또는 생략)은 기존 라벨을 그대로 유지하되 **필드가 전혀 없을
+때만** 결정적 제안을 추가합니다. 명시적 목록을 넘기면 검사된 교체이고, `[]`는
+제거입니다. 이미 있는 유효한 수동 라벨은 바이트나 순서를 고치려고 자동으로
+다시 쓰지 않습니다.
+
+### 결정적 제안(모델 없음)
+
+제안은 소스 바이트와 INDEX 라우팅 상태에서만 유도되며 공급자 호출이나
+네트워크가 없습니다:
+
+- `type`, `zone`, `topic`, `project`, `people`/`person`, `entities`/`entity`
+  메타데이터와 타이핑된 위키링크 `[[project:...]]`, `[[person:...]]`,
+  `[[entity:...]]`
+- 실제 ISO 달력 날짜 — `created`/`updated`/`date`/`dates`와 본문의 ISO 날짜
+  언급(`date:YYYY-MM-DD`). 현재 시계는 추론 입력이 아닙니다
+- 언어 — 명시적 `language`/`lang`이 우선하고, 없으면 제한된 스크립트·어휘
+  증거로 보수적으로 감지합니다(한글 → `lang:ko`, 가나 → `lang:ja` 등).
+  **라틴 문자 텍스트만으로는 영어라고 추론하지 않으며**, 알 수 없는 라틴
+  텍스트에는 `lang:` 라벨이 붙지 않습니다
+- `project` 유형 노트는 타이틀/경로에서, `person` 유형 노트는 타이틀/경로에서
+  값을 유도합니다
+- 경로의 첫 디렉터리 → `zone:`, 해당 경로에 이미 묶인 정확한 INDEX 트리거 →
+  `topic:`
+- 가져온 파일(import)은 원본 상대 경로 → `source:`, 원본 형식 → `format:`
+
+### CLI: 미리보기·적용·교체·되돌리기
+
+`mnemosyne label`은 라벨 주석을 **기본으로 미리보기만** 합니다. 디렉터리·
+잠금·캐시·저널을 만들지 않고, 라벨이 없는 노트에만 제안을 표시합니다.
+사용자가 소유한 수동 라벨과 빈 필드는 바뀌지 않습니다. 아래 출력은
+`notes/alpha.md`에 타이틀 `Alpha`와 본문만 있는 노트 한 개를 넣은 예입니다:
+
+```bash
+mnemosyne --vault my_vault label
+```
+
+```json
+{"mode": "preview", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["zone:notes", 1]],
+ "undo_transaction": null}
+```
+
+`--apply`는 볼트 잠금을 잡고 계획을 현재 바이트 이미지·라우팅과 다시 대조한
+뒤 실제 변경분만 기존 저널로 커밋합니다. 변경이 없으면 아무것도 쓰지 않고 새
+트랜잭션도 만들지 않습니다:
+
+```bash
+mnemosyne --vault my_vault label --apply
+```
+
+```json
+{"mode": "applied", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["zone:notes", 1]],
+ "undo_transaction": "28ba8df945ae48d1b2c094f7d82084ea"}
+```
+
+적용은 `labels` 줄만 넣고 다른 모든 바이트(타이틀·본문·빈 줄)를 보존합니다:
+
+```markdown
+---
+title: Alpha
+labels: ["zone:notes"]
+---
+Body of Alpha.
+```
+
+결과의 `undo_transaction`을 기존 공유 저널 실행 취소에 그대로 넘기면 원본
+바이트가 정확히 복원됩니다. 라벨 적용은 `handoff fold`와 같은
+`Consolidation.undo` 경로를 쓰므로 전용 undo 커맨드가 없습니다. 각 실행의
+receipt에 담긴 트랜잭션 ID를 사용하세요:
+
+```bash
+mnemosyne --vault my_vault handoff undo --transaction 28ba8df945ae48d1b2c094f7d82084ea
+```
+
+```json
+{"transaction_id": "28ba8df945ae48d1b2c094f7d82084ea", "state": "undone",
+ "journal_path": ".mnemosyne-reviews/28ba8df945ae48d1b2c094f7d82084ea.json"}
+```
+
+적용 후 파일이 편집되어 저널의 사후(after) 이미지와 다르면 되돌리기가
+거부됩니다. 자동 생성 카탈로그·분할 영수증·보관·관리되는 handoff는 선택에서
+제외됩니다. 분할 영수증에 묶인 원본과 토픽 문서도 경로를 직접 지정해도
+제외하여 원본 바이트 복원 검증을 유지합니다.
+
+반복된 `--path`로 선택을 제한하고, 반복된 `--label`로 명시적 교체를 제공하며,
+`--clear-labels`로 명시적 제거를 요청할 수 있습니다. `--label`과
+`--clear-labels`는 상호 배타적입니다(조합하면 종료 코드 2로 아무것도 쓰지
+않음). 지정한 경로에 자격 있는 노트가 없으면 경고만 냅니다:
+
+```bash
+mnemosyne --vault my_vault label --path notes/alpha.md \
+  --label Project:Zed --label Person:Jane
+```
+
+```json
+{"mode": "preview", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["person:Jane", 1], ["project:Zed", 1]],
+ "undo_transaction": null}
+```
+
+`--clear-labels`를 적용하면 라벨 필드가 `[]`로 바뀌고, 되돌리면 수동 라벨이
+바이트 단위로 돌아옵니다.
+
+### init --import: 외부 파일·디렉터리 가져오기
+
+`init --import`는 볼트 밖의 `.md`/`.txt`/`.json` 파일 하나 또는 디렉터리를
+가져옵니다. 숨김 파일, `_archive`, 다른 확장자는 제외됩니다. 미리보기 후
+`--apply`로 적용하고, `--group-by-label`은 옵트인입니다:
+
+```bash
+mnemosyne --vault my_vault init --import ./markdown_export
+mnemosyne --vault my_vault init --import ./markdown_export --apply \
+  --group-by-label project
+```
+
+- **Markdown**은 원본 바이트를 유지한 채 누락된 프론트매터 필드만 추가합니다.
+  라벨 필드가 없는 완전한 Markdown도 같은 방식으로 라벨을 얻습니다.
+- **`.txt`/`.json`**은 원본 바이트를 그대로 백틱 펜스 안에 넣은 **무손실
+  후보**로 변환됩니다. 펜스는 소스에서 가장 긴 백틱 run보다 길어 닫히지
+  않고, 원본 확장자가 이름에 남아(`export.txt` → `export.txt.md`) 형식끼리
+  덮어쓰지 않습니다.
+- 형식이 잘못된 JSON은 추출·재작성 없이 텍스트로 보존하고 `invalid JSON
+  retained as text` 경고를 냅니다.
+- 잘못된 UTF-8, 심볼릭 링크·리파스 포인트, 변환 이름·유니코드 케이스 폴딩
+  충돌은 계획이 만들어지기 **전에** 거부됩니다.
+- **원본 파일은 절대 수정하지 않습니다**(원본 다이제스트와 변환 후보
+  다이제스트는 분리). 적용 후 복사본의 라벨 외 바이트를 주인이 편집했다면
+  재실행이 `import destination changed`로 거부하고 원본·편집본 모두 그대로
+  둡니다. 라벨만 편집한 경우에는 그 라벨을 유지합니다. 변경 없는 재실행은
+  새 저널을 만들지 않습니다.
+- 가져온 노트에는 원본 상대 경로 → `source:`, 원본 형식 → `format:` 라벨이
+  붙습니다. 이미 라벨 필드가 있는 Markdown은 수동 라벨을 그대로 유지합니다.
+- `--group-by-label <네임스페이스>`는 해당 네임스페이스의 결정적 기존
+  값(사전순 첫 값)으로 주제 그룹을 묶고, 없으면 기존 토픽을 씁니다. 기본
+  라우팅 동작은 변하지 않습니다.
+
+리포트의 `label_counts`는 노트별 정규화 라벨 히스토그램입니다. 노트당 한 번씩
+세고 값의 대소문자를 보존합니다. 아래는 **미리보기 리포트에서 일부 필드만
+발췌한 출력**입니다. 앞의 `notes/alpha.md`와 내보낸 파일 세 개를 사용합니다:
+타이틀 `Infra`·유형 `project`인 `x.md`, 일반 텍스트 `notes.txt`,
+`{"project": "Infra"}`를 담은 `data.json`. 전체 CLI 리포트에는 원본 해시,
+라우트, 변경 계획, 검증 상태도 포함됩니다:
+
+```json
+{"mode": "preview", "ok": true, "notes": 4, "imports": 3, "topics": 3,
+ "warning_count": 0, "warnings": [],
+ "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
+   ["project:Infra", 1], ["source:data.json", 1], ["source:notes.txt", 1],
+   ["source:x.md", 1], ["type:project", 1], ["type:topic", 3],
+   ["zone:imports", 3], ["zone:notes", 1]],
+ "undo_transaction": null}
+```
+
+`undo_transaction`은 프론트매터 정규화 변경만 되돌립니다. 가져온 복사본·주제
+목차·INDEX 라우트는 부가적(additive)이라 되돌린 뒤에도 남습니다.
+
+### 검색·MCP: AND 자격 필터, 순위는 불변
+
+```python
+from birkin_mnemosyne import Mnemosyne, VaultMemory
+
+mem = VaultMemory({"vault_path": "my_vault"})
+mem.write_note(
+    "Ingress DNS",
+    "nginx ingress resolves service DNS; allow HTTPS through the firewall.",
+    zone="devops", labels=["project:Infra", "lang:en"],
+)
+for hit in mem.search("ingress dns", labels=["project:Infra"]):
+    print(hit["title"], hit["labels"])
+# ingress-dns ['lang:en', 'project:Infra']
+
+mem.write_note("Deploy runbook", "It rolls out the ingress.", zone="devops")
+recall = Mnemosyne("my_vault")
+recall.refresh()
+print([h["slug"] for h in recall.search("deploy runbook", labels=["zone:devops"])])
+# ['deploy-runbook']
+```
+
+- `Mnemosyne.search`와 `Memory.search`의 `labels`는 **AND** 의미입니다: 저장된
+  라벨이 요청 라벨을 모두 가진 노트만 후보가 되며, 후보 컷·페이지네이션
+  **이전**에 적용됩니다. `None`/빈 목록은 필터가 없어 점수·순서가 그대로
+  유지됩니다. 검색 결과 hit는 저장된 라벨을 담고, 잘못된 요청은 조회 전에
+  `LabelError`로 거부되며 언필터드 검색으로 넓혀지지 않습니다.
+- 형식이 잘못된 온디스크 라벨 메타데이터는 그 노트를 "라벨 없음"으로
+  인덱싱할 뿐 일반 회상이나 매칭을 깨지 않습니다.
+
+MCP에서 같은 필터가 도구 인자로 노출됩니다. `memory_search`의 `labels`는
+생략하거나 `[]`로 주면 필터 없음입니다:
+
+```json
+{
+  "name": "memory_search",
+  "arguments": {"query": "ingress dns", "labels": ["project:Infra"]}
+}
+```
+
+`memory_remember`의 `labels`는 `None`/생략이면 유지 또는 부재 시 추론, `[]`면
+명시적 제거입니다. 아래 생성 예제는 아직 없는 타이틀에 사용합니다:
+
+```json
+{
+  "name": "memory_remember",
+  "arguments": {
+    "title": "Ingress DNS",
+    "body": "nginx ingress resolves service DNS.",
+    "labels": ["project:Infra", "lang:en"]
+  }
+}
+```
+
+`memory_list`는 노트를 나열하되 `labels` 필터를 페이지네이션 **전에** 적용하고,
+반환 페이지가 아니라 **전체 자격 노트**의 `label_counts`를 함께 돌려줍니다.
+그래서 라벨만으로 노트를 훑어볼 수 있습니다:
+
+```json
+{
+  "name": "memory_list",
+  "arguments": {"zone": "devops", "labels": ["project:Infra"]}
+}
+```
+
+일반 검색은 여전히 루트와 한 단계 영역만 인덱스합니다. `init --import`가 만든
+중첩 복사본(`imports/init-<digest>/...`)은 검색 코퍼스를 조용히 넓히지 않으며,
+경로 키 INDEX 라우트(정확 트리거)와 그룹 카탈로그로만 도달할 수 있습니다.
+
+### Hermes에서
+
+Hermes 제공자의 `birkin_memory_search`에도 선택적 `labels` 배열이 있습니다.
+AND 필터이며 `null`이나 `[]`는 필터를 켜지 않습니다. 설치·활성화·라이프사이클
+지침은 [통합 Hermes README](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md)의
+기존 0.7.0 안내를 그대로 따릅니다:
+
+```json
+{
+  "name": "birkin_memory_search",
+  "arguments": {"query": "ingress dns", "limit": 8, "labels": ["zone:devops"]}
+}
+```
+
+### 컨텍스트 비용(측정된 fixture)
+
+등록된 프로젝트 노트 하나와 기존 범위 handoff가 있는 전체 시작 JSON fixture에서
+라벨 컨텍스트 비용은 UTF-8 **4,207 → 4,303바이트**, 추정 토큰
+**1,052 → 1,076(+24)**입니다. `ceil(bytes / 4)` 추정치로 모델 토크나이저
+수치가 아니며, 다른 fixture의 handoff 측정(+756)과 합산할 수 없습니다. 라벨은
+순위 용어가 되지 않는다는 불변 의미가 이 비용과 별개로 유지됩니다.
+
+공개 고정 벤치마크에서는 노트 160·1,000·10,000개와 검색 엔진 4종의
+12개 실행군마다 질문 1,440개를 비교했습니다. 작성자 3명·언어 6개의 모든
+순위와 종류·언어·작성자별 5개 지표군이 라벨 적용 전후 정확히 같았고,
+원본 시험 자료의 해시도 같았습니다. 이는 이 고정 자료의 회귀 검증이며,
+임의의 개인 문서에서 회수율을 보장하는 수치는 아닙니다.
+
 ## 프로젝트·태스크별 세션 기억 (0.7.0)
 
 모델이나 API 키 없이 진행한 일, 결정, 열린 작업·질문, 다음 단계와 링크를
@@ -766,10 +1038,10 @@ MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에�
 
 | 도구 | 하는 일 | 안전한 기본값 |
 |---|---|---|
-| `memory_search` | 스니펫이 있는 BM25 + 감쇠 + 영역 순위 결과. 선택 사항인 `synonyms` / `keywords` / `related` / `note_line`이 쿼리를 넓힘 | 읽기 전용 |
+| `memory_search` | 스니펫이 있는 BM25 + 감쇠 + 영역 순위 결과. 선택 사항인 `synonyms` / `keywords` / `related` / `note_line`이 쿼리를 넓힘. `labels`(AND) 필터; 생략/`[]` = 필터 없음 | 읽기 전용 |
 | `memory_get_note` | `version`이 있는 전체 노트. 사용으로 집계됨 | - |
-| `memory_list` | 영역별 노트, 페이지네이션 | 읽기 전용 |
-| `memory_remember` | 노트 쓰기: `mode="create"` / `"append"` / `"replace"` | `create`는 절대 덮어쓰지 않음. `replace`는 `expected_version` 필요 |
+| `memory_list` | 영역별 노트, 페이지네이션. `labels`(AND) 필터와 전체 자격 노트의 `label_counts` | 읽기 전용 |
+| `memory_remember` | 노트 쓰기: `mode="create"` / `"append"` / `"replace"`. `labels`는 None=유지/부재 시 추론, `[]`=제거 | `create`는 절대 덮어쓰지 않음. `replace`는 `expected_version` 필요 |
 | `memory_related` | 한 노트의 기계적 링크 후보 | 읽기 전용 |
 | `memory_forget` | 큐레이션 게이트를 거쳐 노트를 `_archive`로 이동 | `confirm=true`가 아니면 드라이 런. 절대 삭제하지 않음 |
 | `memory_restore` | `_archive`에서 노트를 다시 꺼냄 | - |
@@ -883,7 +1155,7 @@ from birkin_mnemosyne import (
 ```
 
 주요 `Mnemosyne` 메서드: `refresh()`,
-`search(query, limit, zone, expansions=None)`, `related(slug)`,
+`search(query, limit=8, zone=None, expansions=None, labels=None)`, `related(slug)`,
 `record_access(slug)`, `stale()`, `rezone(slug, zone)`, `zone_priorities()`,
 `stats()`.
 

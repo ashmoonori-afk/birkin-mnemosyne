@@ -29,6 +29,11 @@ def tool_schemas() -> list[dict[str, Json]]:
                 "properties": {
                     "query": {"type": "string", "minLength": 1, "maxLength": 500},
                     "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 8},
+                    "labels": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string", "minLength": 1},
+                        "description": "Require every namespace:value label (AND); null or [] leaves recall unfiltered.",
+                    },
                 },
                 "required": ["query"],
                 "additionalProperties": False,

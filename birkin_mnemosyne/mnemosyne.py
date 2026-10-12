@@ -50,11 +50,17 @@ import zlib
 from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from . import frontmatter
+from .labels import read_labels
+from .label_values import LabelError, normalize_labels
+from .label_frontmatter import scoring_text
 from .atomic import atomic_write, atomic_write_bytes
 from .vault_lock import VaultLock
+
+if TYPE_CHECKING:
+    from .semantic import SemanticIndex
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +82,7 @@ STALE_EFF, STALE_DAYS = 0.1, 90       # hermes curator archive tier
 MAX_ZONES = 24
 RELATED_LIMIT = 5                     # A-MEM: keep top-k small
 RELATED_QUERY_TERMS = 12
-INDEX_VERSION = 4                     # 2-3: Unicode tokenizer, stems; 4: zlib file
+INDEX_VERSION = 5                     # 2-3: Unicode tokenizer, stems; 4: zlib; 5: labels
 SCRIPT_BONUS = 0.5                    # per extra query script a note matches
 STEM_PREFIX, STEM_MIN, STEM_MARK = 5, 6, "~"   # truncation stem of long words
 INDEX_SAVE_INTERVAL = 2.0              # single-note changes save the index at most this often (s)
@@ -370,11 +376,18 @@ def decayed_ema(ema: float, last_hit: str | None, today: date) -> float:
 def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
     """Parse one note file into an index entry (module-level for testability)."""
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_bytes()
+        text = scoring_text(raw)
         st = path.stat()
     except OSError:
         return None
     meta, body = frontmatter.parse(text)
+    try:
+        labels = read_labels(raw)
+    except LabelError:
+        # Malformed label metadata must never break unfiltered recall nor
+        # count as a matching label: the note is indexed with no labels.
+        labels = ()
     title = str(meta.get("title") or path.stem)
     raw_tags = meta.get("tags")
     tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else []
@@ -396,7 +409,8 @@ def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
     return {
         "title": title, "rel": rel, "zone": zone,
         "type": str(meta.get("type", "topic")),
-        "tags": tags, "links": sorted(set(WIKILINK_RE.findall(text))),
+        "tags": tags, "labels": list(labels or ()),
+        "links": sorted(set(WIKILINK_RE.findall(text))),
         "created": str(meta.get("created", "")),
         "updated": str(meta.get("updated", "")),
         "confidence": confidence,
@@ -415,6 +429,23 @@ def _doc_length(terms: dict[str, int]) -> int:
     the average length every note is normalised against."""
     return sum(tf for t, tf in terms.items()
                if len(t) > 1 or _script(t) != "cjk")
+
+
+def _label_ok(stored: Iterable[str] | None, wanted: frozenset[str]) -> bool:
+    """True when an entry's stored labels carry every wanted label.
+
+    ``_note_entry`` already stores malformed on-disk labels as no labels, and
+    a stored value that fails normalization (e.g. from a hand-edited cache)
+    is treated the same way: it can never count as a match. An empty
+    ``wanted`` accepts every note, so callers with no filter are never
+    re-ranked."""
+    if not wanted:
+        return True
+    try:
+        have = frozenset(normalize_labels(stored or ()))
+    except LabelError:
+        return False
+    return have.issuperset(wanted)
 
 
 def _encode_index(notes: dict[str, dict[str, Any]]) -> bytes:
@@ -526,7 +557,7 @@ class Mnemosyne:
         False = core only."""
         self.vault = Path(vault)
         self._semantic_mode = semantic
-        self._sem: Any = None
+        self._sem: SemanticIndex | Literal[False] | None = None
         self._lock = threading.RLock()
         self._notes: dict[str, dict[str, Any]] | None = None
         self._aliases: dict[str, str] | None = None   # slug(stem) -> stem, lazy
@@ -944,7 +975,7 @@ class Mnemosyne:
 
     # -- retrieval ------------------------------------------------------------
 
-    def _semantic_index(self) -> Any:
+    def _semantic_index(self) -> SemanticIndex | None:
         """The SemanticIndex, or None when disabled/unavailable (decided once)."""
         if self._sem is None:
             from . import semantic
@@ -962,13 +993,21 @@ class Mnemosyne:
                 self._sem = semantic.SemanticIndex(self.vault)
         return self._sem or None
 
-    def _semantic_ranking(self, query: str) -> list[tuple[str, float]]:
+    def _semantic_ranking(self, query: str,
+                          wanted: frozenset[str] | None = None
+                          ) -> list[tuple[str, float]]:
         sem = self._semantic_index()
         if sem is None:
             return []
         try:
-            sem.sync(self.entries())
-            return sem.search(query, FUSE_DEPTH)
+            entries = self.entries()
+            sem.sync(entries)
+            ranked: list[tuple[str, float]] = sem.search(
+                query, len(entries) if wanted else FUSE_DEPTH)
+            if wanted:
+                ranked = [(s, score) for s, score in ranked
+                          if _label_ok(entries[s].get("labels"), wanted)][:FUSE_DEPTH]
+            return ranked
         except (ImportError, OSError, RuntimeError, ValueError) as exc:
             # model download/load or encoding failed: keep serving BM25
             log.warning("semantic search disabled for this session: %s", exc)
@@ -993,7 +1032,8 @@ class Mnemosyne:
     def search(self, query: str, limit: int = 8, zone: str | None = None,
                include_archive: bool = False,
                now: datetime | None = None,
-               expansions: Mapping[str, Any] | None = None
+               expansions: Mapping[str, Any] | None = None,
+               labels: Iterable[str] | None = None
                ) -> list[dict[str, Any]]:
         """BM25 × (1 + W_DYN·eff/cap + W_ZONE·zone priority), index-only.
 
@@ -1015,7 +1055,20 @@ class Mnemosyne:
 
         The vault is re-scanned for outside edits at most once per
         ``SCAN_TTL`` seconds; notes written through the library are indexed
-        by ``note_written`` and never wait. ``refresh()`` forces a scan."""
+        by ``note_written`` and never wait. ``refresh()`` forces a scan.
+
+        ``labels`` further restricts candidate eligibility to notes whose
+        stored labels hold every requested label (AND), applied before any
+        candidate cut. The request is normalised exactly like stored labels;
+        a malformed request raises :class:`LabelError` before any lookup and
+        never broadens into an unfiltered search. ``None`` or an empty
+        request leaves scoring and ordering untouched."""
+        # A malformed label request is rejected before refresh or any other
+        # index/cache lookup, so a refused search has no side effects; an
+        # empty request normalises to no restriction and leaves ranking
+        # untouched.
+        wanted = (frozenset(normalize_labels(labels))
+                  if labels is not None else None)
         with self._lock:
             if (self._notes is None or self._scanned_at is None
                     or _clock() - self._scanned_at >= SCAN_TTL):
@@ -1023,11 +1076,22 @@ class Mnemosyne:
         now = now or datetime.now(timezone.utc)
         terms = tokenize(query)
         added = expansion_weights(expansions, terms) if expansions else {}
-        sem_ranked = self._semantic_ranking(query) if query.strip() else []
+        sem_ranked = []
+        if query.strip():
+            # Retain the full vector cache, then filter before the fusion cut.
+            sem_ranked = (self._semantic_ranking(query, wanted)
+                          if wanted
+                          else self._semantic_ranking(query))
         with self._lock:
             notes = self._notes or {}
             if not notes or not (terms or sem_ranked):
                 return []
+
+            def eligible(s: str) -> bool:
+                """Candidate eligibility: every wanted label must resolve.
+                With no filter (None or empty) every note stays eligible, so
+                scoring and ordering never change."""
+                return not wanted or _label_ok(notes[s].get("labels"), wanted)
             doclens = {s: e.get("doclen", 0) for s, e in notes.items()}
             literal = bm25_scores(terms, self._postings, doclens,
                                   self._avgdl, len(notes))
@@ -1066,9 +1130,11 @@ class Mnemosyne:
                 # The lexical leg is ranked the way the core ranks (usage and
                 # zone boosts included) and nothing multiplies the fused score:
                 # reciprocal ranks sit so close together (1/6 vs 1/7) that a
-                # boost applied after fusion would reorder them at will.
-                top = sorted(lexical.items(), key=lambda kv: kv[1],
-                             reverse=True)[:FUSE_DEPTH]
+                # boost applied after fusion would reorder them at will. The
+                # leg is cut AFTER label eligibility, so a label-restricted
+                # search can reach a note the unfiltered top-k cut drops.
+                top = sorted(((s, v) for s, v in lexical.items() if eligible(s)),
+                             key=lambda kv: kv[1], reverse=True)[:FUSE_DEPTH]
                 # equal scores fall back to the newer note, as in the core
                 bm_list = sorted(((s, v * boost(s)) for s, v in top),
                                  key=lambda kv: (kv[1], notes[kv[0]]["updated"]),
@@ -1091,8 +1157,8 @@ class Mnemosyne:
             full: list[str] = []
             if added:
                 full = self._covering(query, terms, sorted(
-                    literal.items(), key=lambda kv: kv[1],
-                    reverse=True)[:FUSE_DEPTH])
+                    ((s, v) for s, v in literal.items() if eligible(s)),
+                    key=lambda kv: kv[1], reverse=True)[:FUSE_DEPTH])
                 base = dict(literal)
                 for s, v in bm25_scores(list(added), self._postings, doclens,
                                         self._avgdl, len(notes), weights=added,
@@ -1109,10 +1175,11 @@ class Mnemosyne:
             # Only a note this search can return is moved to the front: a full
             # match in another zone, archived or expired must not take a
             # candidate slot from a note the core would have returned.
-            pinned = frozenset(s for s in full if visible(s))
+            pinned = frozenset(s for s in full if visible(s) and eligible(s))
             unranked = len(bm_order) + 1
             # fused ties (a note first in one leg only) go to BM25's pick
-            cands = sorted(base.items(), key=lambda kv: (
+            pool = {s: v for s, v in base.items() if eligible(s)}
+            cands = sorted(pool.items(), key=lambda kv: (
                 kv[0] not in pinned, -kv[1],
                 bm_order.get(kv[0], unranked)))[:CAND]
             hits: list[dict[str, Any]] = []
@@ -1123,6 +1190,7 @@ class Mnemosyne:
                 score = bm if sem_ranked else bm * boost(s)
                 hits.append({"slug": s, "title": e["title"], "zone": e["zone"],
                              "rel": e["rel"], "type": e["type"],
+                             "labels": e.get("labels", []),
                              "summary": e["summary"], "links": e["links"],
                              "polarity": e["polarity"], "score": score,
                              "updated": e["updated"]})

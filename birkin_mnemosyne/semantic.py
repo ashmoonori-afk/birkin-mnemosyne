@@ -43,6 +43,7 @@ from typing import Any
 
 from . import frontmatter
 from .atomic import atomic_write_bytes
+from .label_frontmatter import scoring_text
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +56,8 @@ CHUNK_CHARS = 400
 # the repo also ships a 512 MB ONNX export that is never read
 MODEL_FILES = ["model.safetensors", "tokenizer.json"]
 VECTORS_FILE = ".mnemosyne-vectors.npz"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3  # label-independent retrieval input, including BOM headers
+MODEL_FORMAT_VERSION = 2  # compact encoder files did not change with note vectors
 ENCODE_BATCH = 2048     # chunks embedded per call while indexing
 SCORE_BLOCK = 4096      # chunks scored per lookup block (bounds the temporary)
 
@@ -73,7 +75,7 @@ def model_dir(model_name: str = MODEL_NAME) -> Path:
     root = Path(os.environ.get("MNEMOSYNE_MODEL_CACHE")
                 or Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
                 / "birkin-mnemosyne")
-    return root / f"{model_name.replace('/', '--')}-v{FORMAT_VERSION}"
+    return root / f"{model_name.replace('/', '--')}-v{MODEL_FORMAT_VERSION}"
 
 
 def prepared(model_name: str = MODEL_NAME) -> bool:
@@ -252,8 +254,11 @@ class SemanticIndex:
                 if self._fp.get(s) == fp:
                     continue
                 try:
-                    text = (self.vault / e["rel"]).read_text(encoding="utf-8",
-                                                             errors="replace")
+                    fields: dict[str, object] = e
+                    relative = fields["rel"]
+                    if not isinstance(relative, str):
+                        raise ValueError("semantic entry path must be a string")
+                    text = scoring_text((self.vault / relative).read_bytes())
                 except OSError:
                     continue
                 _, body = frontmatter.parse(text)

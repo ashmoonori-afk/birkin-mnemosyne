@@ -31,8 +31,9 @@ from .handoff_context import scope_from_defaults
 from .handoff_records import HandoffError
 from .identity_reader import IdentityReader, IdentityReadError
 from .kibitzer import KibitzerAdapter
+from .label_values import LabelError, normalize_labels
 from .memory import VaultMemory, VersionMismatchError, _is_expired, _snippet
-from .memory_index import MemoryIndex, MemoryIndexError
+from .memory_index import JsonValue, MemoryIndex, MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import split_note
 from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, expansion_weights, slug, tokenize
@@ -276,6 +277,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         note_line: Annotated[str | None, Field(
             max_length=300, description="one short sentence written like a "
             "line of a note that would answer the question")] = None,
+        labels: Annotated[list[str] | None, Field(
+            description="only notes carrying every 'namespace:value' label "
+            + "(AND); '[]' or omitted = no filter")] = None,
     ) -> dict[str, Any]:
         """Search memory notes (BM25 + usage decay + zone priority).
 
@@ -285,8 +289,16 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         note_line 0.4), so an exact match still ranks first. Fill them when
         the note may use other words than the question; nothing is stored.
 
+        An optional `labels` list (AND) restricts hits to notes carrying
+        every label before ranking; an empty or omitted list never changes
+        scores or ordering. Returned hits carry the notes' stored labels.
+
         Returns ranked hits with a snippet around the matched terms. Searching
         does not count as using a note; memory_get_note does."""
+        try:
+            wanted = normalize_labels(labels) if labels is not None else None
+        except LabelError as exc:
+            raise ToolError(str(exc)) from exc
         expansions = {tier: value for tier, value in (
             ("synonyms", synonyms), ("keywords", keywords),
             ("related", related), ("note_line", note_line)) if value}
@@ -295,7 +307,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         results = []
         for h in dex.search(query, limit=limit, zone=_zone_name(zone),
                             include_archive=include_archive,
-                            expansions=expansions or None):
+                            expansions=expansions or None,
+                            labels=wanted):
             try:
                 _, body = _read(h)
             except OSError:
@@ -304,6 +317,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 "slug": h["slug"], "title": h["title"],
                 "zone": h["zone"] or "inbox", "type": h["type"],
                 "polarity": h["polarity"], "updated": h["updated"],
+                "labels": h.get("labels", []),
                 "snippet": _snippet(body, terms),
                 "related": [slug(t) for t in h["links"][:3]],
             })
@@ -332,6 +346,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 "zone": meta["zone"] or "inbox", "type": meta["type"],
                 "polarity": meta["polarity"], "version": version,
                 "tags": meta["tags"], "links": meta["links"],
+                "labels": meta.get("labels", []),
                 "sources": fm.get("sources") or [],
                 "updated": meta["updated"],
                 "expires_at": meta.get("expires_at"), "body": body.strip()}
@@ -343,10 +358,23 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             "'_archive' = forgotten notes)")] = None,
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=500)] = 50,
+        labels: Annotated[list[str] | None, Field(
+            description="only notes carrying every 'namespace:value' label "
+            + "(AND); '[]' or omitted = no filter")] = None,
     ) -> dict[str, Any]:
-        """List notes (newest first) with slug, title, type and zone."""
+        """List notes (newest first) with slug, title, type, zone and labels.
+
+        `labels` (AND) filters eligibility before pagination; `label_counts`
+        counts every eligible note's stored labels, not just the returned
+        page. Empty or omitted filters keep totals and ordering unchanged."""
+        try:
+            wanted = (frozenset(normalize_labels(labels))
+                      if labels is not None else None)
+        except LabelError as exc:
+            raise ToolError(str(exc)) from exc
         z = _zone_name(zone)
-        notes = []
+        notes: list[dict[str, JsonValue]] = []
+        label_counts: dict[str, int] = {}
         for s, e in dex.entries().items():
             if _is_expired(e):
                 continue
@@ -354,11 +382,21 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 continue
             if z is not None and e["zone"] != z:
                 continue
+            try:
+                normalized = normalize_labels(e.get("labels") or ())
+            except LabelError:
+                normalized = ()
+            if wanted and not wanted.issubset(normalized):
+                continue
             notes.append({"slug": s, "title": e["title"], "type": e["type"],
                           "zone": e["zone"] or "inbox",
-                          "polarity": e["polarity"], "updated": e["updated"]})
+                          "polarity": e["polarity"], "updated": e["updated"],
+                          "labels": e.get("labels", [])})
+            for label in normalized:
+                label_counts[label] = label_counts.get(label, 0) + 1
         notes.sort(key=lambda n: (n["updated"], n["slug"]), reverse=True)
         return {"total": len(notes), "offset": offset,
+                "label_counts": label_counts,
                 "notes": notes[offset:offset + limit]}
 
     @server.tool(annotations=_mutating("Remember", destructive=True))
@@ -386,15 +424,26 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         ttl_days: Annotated[int | None, Field(ge=1, le=3650)] = None,
         confidence: Annotated[float | None, Field(ge=0.0, le=1.0)] = None,
         expected_version: Annotated[int | None, Field(ge=0)] = None,
+        labels: Annotated[list[str] | None, Field(
+            description="'namespace:value' labels to store: None keeps or "
+            + "infers, '[]' explicitly clears")] = None,
     ) -> dict[str, Any]:
         """Store a memory note (Markdown with frontmatter).
 
         Safe by default: mode="create" never overwrites an existing note.
         Omitted type/tags/confidence are kept from the existing note on
-        append/replace. Returns near-duplicate candidates found before the
-        write so you can link or merge them."""
+        append/replace. `labels` (normalized 'namespace:value' pairs) is
+        stored in the note's frontmatter: None keeps the note's labels or
+        infers suggestions, '[]' explicitly clears them. Returns
+        near-duplicate candidates found before the write so you can link
+        or merge them."""
         title = _clean(title, "title", max_len=200, forbid="[]|#")
         s = _title_slug(title)
+        try:
+            clean_labels = (normalize_labels(labels)
+                            if labels is not None else None)
+        except LabelError as exc:
+            raise ToolError(str(exc)) from exc
         clean_tags = [_clean(t, "tag", max_len=64, forbid=',[]"')
                       for t in tags or []]
         clean_links = [_clean(t, "link", max_len=200, forbid="[]|")
@@ -444,6 +493,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 path = mem.write_note(
                     title, body, note_type=note_type or "topic",
                     tags=clean_tags, links=clean_links, source=clean_source,
+                    labels=(list(clean_labels) if clean_labels is not None
+                            else None),
                     append=mode == "append", ttl_days=ttl_days,
                     polarity=polarity, zone=new_zone,
                     confidence=0.7 if confidence is None else confidence,

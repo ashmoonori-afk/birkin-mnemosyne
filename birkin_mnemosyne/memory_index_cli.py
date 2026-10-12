@@ -1,6 +1,6 @@
 """First-run onboarding, checker, splitter and handoff commands for the memory INDEX.
 
-Three commands over one vault:
+Commands over one vault:
 
 * ``init`` previews deterministic onboarding, or applies additive writes and
   journaled frontmatter completion only with ``--apply``.
@@ -8,6 +8,10 @@ Three commands over one vault:
   JSON (the ``IndexCheck`` fields plus ``ok``) and never writes.
 * ``split`` previews a lossless note split by default, or applies it with
   ``--apply``, printing the source digest and the complete coverage table.
+* ``label`` previews deterministic label annotation by default, or applies it
+  with ``--apply`` through the checked journal, printing the JSON
+  ``LabelReport``; repeated ``--path`` restricts selection and repeated
+  ``--label`` (or ``--clear-labels``) supplies an explicit replacement.
 
 The ``handoff`` family adds immutable scoped session memory: ``capture``
 publishes a record from flags or JSON stdin, ``latest`` prints the newest
@@ -30,6 +34,8 @@ from io import TextIOWrapper
 
 from .handoff_cli import HandoffArguments, add_handoff_parser, run_handoff
 from .handoff_records import HandoffError
+from .label_values import LabelError
+from .labeling import plan_labels, run_labeling
 from .memory_index import MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import format_coverage, split_note
@@ -52,6 +58,10 @@ class _Arguments(HandoffArguments):
     apply: bool = False
     max_tokens: int | None = None
     enable_handoff: bool = False
+    paths: list[str] | None = None
+    labels: list[str] | None = None
+    clear_labels: bool = False
+    group_by_label: str | None = None
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -66,7 +76,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "init", help="preview or apply deterministic first-run onboarding", allow_abbrev=False,
     )
     _ = init.add_argument("--vault", dest="init_vault", help="vault root; defaults to current directory")
-    _ = init.add_argument("--import", dest="import_dir", help="external plain-Markdown directory")
+    _ = init.add_argument(
+        "--import", dest="import_dir",
+        help="external Markdown/text/JSON file or directory",
+    )
+    _ = init.add_argument(
+        "--group-by-label", dest="group_by_label", default=None,
+        help="opt-in catalogue grouping by one label namespace",
+    )
     _ = init.add_argument("--apply", action="store_true", help="authorize additive and journaled writes")
     _ = init.add_argument("--max-tokens", type=int, default=None, help="INDEX estimated-token budget")
     _ = init.add_argument("--enable-handoff", action="store_true",
@@ -82,6 +99,24 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = split.add_argument("--apply", action="store_true", help="write the split; default is preview")
     _ = split.add_argument(
         "--max-tokens", type=int, default=None, help="INDEX budget to enforce while registering",
+    )
+    label = commands.add_parser(
+        "label", help="preview or apply label annotation", allow_abbrev=False,
+    )
+    _ = label.add_argument(
+        "--apply", action="store_true", help="write the label journal; default is preview",
+    )
+    _ = label.add_argument(
+        "--path", dest="paths", action="append", default=None,
+        help="vault-relative note path; repeat to restrict selection",
+    )
+    _ = label.add_argument(
+        "--label", dest="labels", action="append", default=None,
+        help="explicit replacement label; repeat to supply more",
+    )
+    _ = label.add_argument(
+        "--clear-labels", action="store_true",
+        help="explicitly clear the labels field; incompatible with --label",
     )
     add_handoff_parser(commands)
     return parser
@@ -100,15 +135,27 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("supply --vault only once")
         args.vault = args.init_vault or args.vault or "."
     elif args.vault is None:
-        parser.error("--vault is required for check, split and handoff")
+        parser.error("--vault is required for check, split, label and handoff")
     assert args.vault is not None
     try:
         if args.command == "init":
             report = run_init(plan_init(args.vault, import_dir=args.import_dir,
                                         max_tokens=args.max_tokens,
-                                        enable_handoff=args.enable_handoff), apply=args.apply)
+                                        enable_handoff=args.enable_handoff,
+                                        group_by_label=args.group_by_label),
+                              apply=args.apply)
             print(json.dumps(asdict(report), ensure_ascii=False))
             return 0 if not args.apply or report.ok else 1
+        if args.command == "label":
+            if args.clear_labels and args.labels is not None:
+                parser.error("--label and --clear-labels are mutually exclusive")
+            paths = None if args.paths is None else tuple(args.paths)
+            labels = () if args.clear_labels else (
+                None if args.labels is None else tuple(args.labels))
+            plan = plan_labels(args.vault, paths=paths, labels=labels)
+            report = run_labeling(plan, apply=args.apply)
+            print(json.dumps(asdict(report), ensure_ascii=False))
+            return 0
         if args.command == "check":
             checked = check_index(args.vault)
             payload = asdict(checked)
@@ -130,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"receipt: {report.coverage_receipt}")
             print(f"journal: {report.backup_journal}")
         return 0
-    except (HandoffError, MemoryIndexError, ReviewError, StartupError,
+    except (HandoffError, LabelError, MemoryIndexError, ReviewError, StartupError,
             OSError, UnicodeError) as exc:
         print(f"{parser.prog}: {exc}", file=sys.stderr)
         return INVALID_EXIT
