@@ -120,7 +120,7 @@ def check_index(root: str | Path) -> IndexCheck:
         view = index.read()
     except MemoryIndexError as exc:
         return IndexCheck(
-            True, 0, len(documents), tuple(sorted(documents)), (), (str(exc),),
+            True, 0, len(documents), (), (), (str(exc),),
             (f"Memory INDEX integrity error: {exc}",),
         )
     linked = {entry.document for entry in view.entries}

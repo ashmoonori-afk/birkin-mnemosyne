@@ -137,6 +137,9 @@ def test_warnings_include_integrity_errors_when_index_is_malformed(tmp_path: Pat
     assert checked.errors
     assert len(checked.warnings) == 1
     assert not checked.ok
+    assert checked.documents == 1
+    assert checked.orphan_documents == ()
+    assert index.path.read_bytes() == b"{invalid"
 
 
 def test_startup_warning_count_is_bounded_when_many_documents_are_unindexed(
