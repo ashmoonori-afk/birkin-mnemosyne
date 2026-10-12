@@ -214,6 +214,293 @@ private snapshot and was not rerun for the public replay.
 See the [usage and recovery guide](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-guide.md) and
 [measurements, denominators and regressions](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/memory-index-results.md).
 
+## Deterministic note labels (0.7.0)
+
+Notes can carry readable `namespace:value` labels in their frontmatter
+`labels` field, like `project:Infra` or `lang:ko`. Labels are derived
+deterministically without a model, an API key or the clock, and are exposed
+by storage, search, list and MCP surfaces. Labels are not query
+words and never enter the text that scores ranking; tags, titles and bodies
+keep being searched exactly as before.
+
+The pure inference/editing boundary lives in `birkin_mnemosyne.labels`
+(`read_labels`, `suggest_labels`, `annotate_labels`); `plan_labels` /
+`run_labeling` in `birkin_mnemosyne.labeling` are the vault I/O and journal
+integration built on it, and write/search integration is on
+`VaultMemory.write_note` and `search()`. The pure boundary itself never
+imports memory, mnemosyne, memory_index or onboarding.
+
+### Format and normalization
+
+A label is a nonempty namespace and value split at the first colon. Stored
+labels are NFC-normalized, trimmed, **namespace-lowercased**, sorted and
+deduplicated, while the **value spelling and case are preserved** —
+`Project:Zed` stores as `project:Zed`, so distinct project values are never
+silently conflated. The namespace is lowercase ASCII `[a-z][a-z0-9_-]*`; the
+value must be nonempty and free of control characters. Malformed explicit
+labels raise `LabelError` at the boundary instead of being filtered out.
+
+The `labels` field is user-owned: `[]` (an explicit empty field) is owned
+too; `labels=None` (or omitting it) keeps existing labels and only infers
+deterministic suggestions when the field is absent. An explicit list is a
+checked replacement; `[]` clears. Existing valid manual labels are never
+rewritten merely to normalize their bytes or ordering. Header editing changes
+only the `labels:` field (or adds it), preserving every other byte, comment,
+BOM, line ending and body; tags are retained.
+
+### Deterministic suggestions (no model)
+
+Suggestions are inferred from the source bytes and INDEX routing state only
+— no provider call and no network request:
+
+- `type`, explicit `zone` or the visible path zone, and explicit `topic`
+  metadata; the exact INDEX triggers already routed to the note's path also
+  become `topic:` suggestions
+- explicit `project`, `people`/`person`, `entities`/`entity` and typed
+  wikilinks `[[project:...]]`, `[[person:...]]`, `[[entity:...]]`
+- real ISO calendar dates from `created`/`updated`/`date`/`dates` and ISO
+  date mentions in the body (`date:YYYY-MM-DD`); the current clock is never
+  an inference input
+- language — explicit `language`/`lang` wins; otherwise conservative script
+  evidence identifies unmistakable non-Latin scripts (Hangul → `lang:ko`,
+  kana → `lang:ja`, and so on). **Latin text alone is never proof of
+  English**, so unknown Latin text stays without a `lang:` label
+- a `type: project` note derives its `project:` value from title/path, and a
+  `type: person` note derives `person:` likewise
+- the first path directory → `zone:`; imported candidates also get the
+  original relative path → `source:` and the source format → `format:`
+
+### CLI: preview, apply, replace, undo
+
+`mnemosyne label` only previews by default: it scans without creating a
+directory, lock, cache or journal, plans only notes that have no labels
+field yet, and skips generated catalogues, split receipts, archives and
+managed handoffs. User-owned manual and empty fields are never planned. For a
+test vault holding `notes/alpha.md` (`---` / `title: Alpha` / `---` /
+`Body of Alpha.`), the read-only JSON report is:
+
+```bash
+mnemosyne --vault my_vault label
+```
+
+```json
+{"mode": "preview", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["zone:notes", 1]], "undo_transaction": null}
+```
+
+`--apply` holds the shared vault lock, re-checks the captured byte images and
+routing against the live vault, and commits only the actual label changes
+through the existing review journal. A no-op apply writes nothing and creates
+no transaction:
+
+```bash
+mnemosyne --vault my_vault label --apply
+```
+
+```json
+{"mode": "applied", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["zone:notes", 1]],
+ "undo_transaction": "65c5b7ca23004a5daa41b692f58e7a6e"}
+```
+
+Application inserts only the `labels:` line, preserving every other byte:
+
+```markdown
+---
+title: Alpha
+labels: ["zone:notes"]
+---
+Body of Alpha.
+```
+
+Pass that run's `undo_transaction` to the existing shared journal undo — label
+apply uses the same `Consolidation.undo` path as handoff folds, so there is no
+dedicated undo command:
+
+```bash
+mnemosyne --vault my_vault handoff undo --transaction 65c5b7ca23004a5daa41b692f58e7a6e
+```
+
+```json
+{"transaction_id": "65c5b7ca23004a5daa41b692f58e7a6e", "state": "undone",
+ "journal_path": ".mnemosyne-reviews/65c5b7ca23004a5daa41b692f58e7a6e.json"}
+```
+
+If a note was edited after apply so the on-disk image differs from the
+journaled post-image, undo refuses with `post-image changed; refusing undo`
+rather than clobbering the edit.
+
+Repeated `--path` restricts selection; repeated `--label` supplies an
+explicit replacement; `--clear-labels` requests an explicit clear.
+`--label` and `--clear-labels` are mutually exclusive (exit code 2, nothing
+written), and a requested path with no eligible note only warns:
+
+```bash
+mnemosyne --vault my_vault label --path notes/alpha.md \
+  --label Project:Zed --label Person:Jane
+```
+
+```json
+{"mode": "preview", "ok": true, "notes": 1, "changed": 1, "warnings": [],
+ "label_counts": [["person:Jane", 1], ["project:Zed", 1]],
+ "undo_transaction": null}
+```
+
+The explicit labels are normalized, sorted and written as the replacement;
+applying `--clear-labels` stores `labels: []`, and its undo restores the
+previous manual labels byte-exactly.
+
+### init --import: external files and directories
+
+`init --import` accepts one `.md`/`.txt`/`.json` file or one directory
+outside the vault. Hidden files, `_archive`, other suffixes and paths that
+overlap the vault are excluded or refused. Preview first, apply explicitly;
+`--group-by-label` is opt-in:
+
+```bash
+mnemosyne --vault my_vault init --import ./markdown_export
+mnemosyne --vault my_vault init --import ./markdown_export --apply \
+  --group-by-label project
+```
+
+- **Markdown** keeps its original bytes; only missing frontmatter fields are
+  added. Complete unlabeled Markdown gains labels exactly like vault notes.
+- **`.txt`/`.json`** become one lossless candidate each, wrapped verbatim
+  inside a backtick fence longer than the longest backtick run in the source
+  so the body cannot close it. The original suffix is retained
+  (`export.txt` → `export.txt.md`), so formats never overwrite each other.
+- Invalid JSON is retained as text with a warning (`invalid JSON retained as
+  text`) — never extracted or rewritten.
+- Invalid UTF-8, symlinks/reparse points and destinations that collide by
+  converted name or Unicode case folding are refused before any plan forms.
+- **Source files are never modified**; the raw-source digest and the
+  converted-candidate digest are separate. If an owner edits a copy's bytes
+  other than its labels after apply, a rerun refuses with `import destination
+  changed` and leaves both the original and the edited copy alone. Label-only
+  edits are retained. Unchanged reruns create no journal.
+- Imported notes get `source:` (original relative path) and `format:` labels;
+  Markdown that already has a labels field keeps its manual labels.
+- `--group-by-label <namespace>` groups topic catalogues by the
+  deterministic lexicographically-first existing value in that namespace,
+  else the existing topic; default routing behavior is unchanged.
+
+The report's `label_counts` is a per-note histogram: each normalized label
+counts once per note, preserving value case:
+
+```json
+{"mode": "preview", "ok": true, "notes": 3, "imports": 3, "topics": 1,
+ "warning_count": 0, "warnings": [],
+ "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
+   ["source:data.json", 1], ["source:notes.txt", 1], ["source:x.md", 1],
+   ["type:topic", 3], ["zone:imports", 3]],
+ "undo_transaction": null}
+```
+
+An init `undo_transaction` reverts only the journaled frontmatter/label byte
+edits. Imported copies, topic catalogues and INDEX routes are additive and
+remain after undo.
+
+### Search and MCP: AND eligibility, ranking unchanged
+
+`Mnemosyne.search` and `Memory.search` accept `labels` with **AND**
+semantics: only notes whose stored labels carry every requested label become
+candidates, applied **before** any candidate cut or pagination. `None` or an
+empty list leaves scoring and ordering untouched; hits carry their stored
+labels; a malformed request raises `LabelError` before any lookup and never
+broadens into an unfiltered search. Malformed on-disk label metadata indexes
+that note as label-less rather than breaking ordinary recall or matching.
+
+```python
+from birkin_mnemosyne import Mnemosyne, VaultMemory
+
+mem = VaultMemory({"vault_path": "my_vault"})
+mem.write_note(
+    "Ingress DNS",
+    "nginx ingress resolves service DNS; allow HTTPS through the firewall.",
+    zone="devops", labels=["project:Infra", "lang:en"],
+)
+for hit in mem.search("ingress dns", labels=["project:Infra"]):
+    print(hit["title"], hit["labels"])
+# ingress-dns ['lang:en', 'project:Infra']
+
+mem.write_note("Deploy runbook", "It rolls out the ingress.", zone="devops")
+print([hit["title"] for hit in mem.search("deploy runbook", labels=["zone:devops"])])
+# ['deploy-runbook']
+```
+
+Over MCP the same filter is a tool argument. `memory_search`'s `labels`
+omitted or `[]` means no filter:
+
+```json
+{
+  "name": "memory_search",
+  "arguments": {"query": "ingress dns", "labels": ["project:Infra"]}
+}
+```
+
+`memory_remember`'s `labels` is `None`/omitted to keep or infer when absent,
+`[]` to clear explicitly. This creation example requires a new title:
+
+```json
+{
+  "name": "memory_remember",
+  "arguments": {
+    "title": "Ingress DNS",
+    "body": "nginx ingress resolves service DNS.",
+    "labels": ["project:Infra", "lang:en"]
+  }
+}
+```
+
+`memory_list` applies its `labels` filter before pagination and returns
+`label_counts` for the **whole eligible set** — not just the returned page —
+alongside the full eligible count, so labels alone can browse the vault:
+
+```json
+{
+  "name": "memory_list",
+  "arguments": {"zone": "devops", "labels": ["project:Infra"]}
+}
+```
+
+Ordinary search still indexes root plus one zone level only; the nested
+copies `init --import` places under `imports/init-<digest>/...` do **not**
+silently widen the search corpus. They are reachable through their path-keyed
+INDEX routes (exact triggers) and grouped catalogues.
+
+### Hermes
+
+The Hermes provider's `birkin_memory_search` also accepts an optional
+`labels` array: an AND filter, where `null` or `[]` leaves recall unfiltered.
+Install, selection and lifecycle follow the existing 0.7.0 guidance in the
+[integrations/hermes/README.md](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md):
+
+```json
+{
+  "name": "birkin_memory_search",
+  "arguments": {"query": "ingress dns", "limit": 8, "labels": ["zone:devops"]}
+}
+```
+
+### Context cost (measured fixture)
+
+On a representative synthetic fixture — a full startup JSON with one
+registered project note and an existing scoped handoff — labels grow the
+context from UTF-8 **4,207 to 4,303 bytes**, an estimated **1,052 to 1,076
+tokens (+24)**. These are `ceil(bytes / 4)` estimates, not a model tokenizer,
+and they come from a different fixture than the handoff measurement below
+(+756) — never add them into a universal total. The invariant that labels
+are not ranking terms stands independently of this cost.
+
+**Frozen candidate regression (`8b7ab156`).** Production labeling was applied
+to disposable benchmark vaults of 160, 1,000 and 10,000 notes before running
+BM25, hybrid and both frozen expansion engines: 12 runs with 1,440 queries
+each, three public query authors, six languages and all five metric/slice
+families. Every rank and metric matches the unlabeled baseline exactly, and
+the frozen corpus, query and expansion fixture hashes are unchanged. This
+is a regression check on that fixed corpus, not a recall guarantee for
+arbitrary private documents.
+
 ## Scoped session handoffs (0.7.0)
 
 Capture work, decisions, open items, open questions, next step and links without
@@ -785,10 +1072,10 @@ Orca-specific MCP file.
 
 | tool | what it does | safe default |
 |---|---|---|
-| `memory_search` | BM25 + decay + zone ranked hits with snippets; optional `synonyms` / `keywords` / `related` / `note_line` widen the query | read-only |
+| `memory_search` | BM25 + decay + zone ranked hits with snippets; optional `labels` (AND) require every label before ranking; `synonyms` / `keywords` / `related` / `note_line` widen the query | read-only |
 | `memory_get_note` | full note with its `version`; counts as a use | — |
-| `memory_list` | notes by zone, paginated | read-only |
-| `memory_remember` | write a note: `mode="create"` / `"append"` / `"replace"` | `create` never overwrites; `replace` needs `expected_version` |
+| `memory_list` | notes by zone, paginated; optional `labels` (AND) filter before pagination, `label_counts` cover the full eligible set | read-only |
+| `memory_remember` | write a note: `mode="create"` / `"append"` / `"replace"`; optional `labels` (`None` keeps/infers, `[]` clears) | `create` never overwrites; `replace` needs `expected_version` |
 | `memory_related` | mechanical link candidates for a note | read-only |
 | `memory_forget` | move a note to `_archive` through the curation gate | dry run unless `confirm=true`; never deletes |
 | `memory_restore` | move a note back out of `_archive` | — |
