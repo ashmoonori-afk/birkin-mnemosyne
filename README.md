@@ -33,12 +33,16 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## Quick start for agent users
 
+This section includes unreleased CLI additions. Install this checkout to use
+them; the published-package setup remains in the MCP server section below.
 Give your coding agent a memory, then check from a terminal what it stored:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]"
+pip install -e ".[mcp]"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
+# Start a new agent session and ask it to remember a note titled
+# "Release checklist" before inspecting that note below.
 mnemosyne --version
 mnemosyne --vault ~/mnemosyne search "release checklist"
 mnemosyne --vault ~/mnemosyne list
@@ -52,6 +56,16 @@ Other clients (Claude Desktop, Cursor, Codex CLI, IDEs) are in the
 they never count as a use, so they do not change usage ranking. `show` exits 1
 when the note does not exist; a vault directory that does not exist exits 2 and
 is not created.
+
+For label-aware recall, add `--label namespace:value` to `search` or `list`.
+Repeat `--label` to require every label (AND). Filtering happens before ranking
+or pagination; `list` reports `label_counts` for all matching notes, not just
+the returned page.
+
+User-provided Markdown extensions are case-insensitive (`.md`, `.MD`, `.Md`);
+imports also recognize `.txt` and `.json` without regard to extension case.
+Original filenames and source bytes are retained. Hidden dot files remain
+outside ordinary recall, including files inside a visible zone.
 
 Every `mnemosyne` command finds its vault the same way: `--vault` (before or
 after the command name), else `$MNEMOSYNE_VAULT`, else
@@ -1162,7 +1176,9 @@ settings above; an invalid value stops the server at start). Over budget,
 protected notes, which the agent must ask the user (`keep` or `retire`).
 Nothing is ever deleted automatically: `retire` archives the note through the
 journaled `memory_review_apply` path, and `memory_review_undo` restores it.
-Under budget, existing clients see no new keys.
+When neither capacity nor INDEX warnings apply, existing clients see no new
+keys. An INDEX token warning can attach a capacity report without retirement
+questions or choices; it does not mean the note-count or byte budget is exceeded.
 
 ## Automatic role profiles
 

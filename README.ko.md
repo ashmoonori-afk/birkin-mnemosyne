@@ -33,12 +33,16 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 
 ## 에이전트 사용자를 위한 빠른 시작
 
+이 절에는 아직 배포되지 않은 CLI 기능이 포함됩니다. 사용하려면 이 체크아웃을
+설치하세요. 배포된 패키지의 연결 방법은 아래 MCP 서버 절에 있습니다.
 코딩 에이전트에 기억을 연결하고, 무엇을 저장했는지 터미널에서 확인하세요:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]"
+pip install -e ".[mcp]"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
+# 새 에이전트 세션을 열고 "Release checklist"라는 제목으로
+# 릴리스 체크리스트 메모를 저장하도록 요청한 뒤 아래에서 확인하세요.
 mnemosyne --version
 mnemosyne --vault ~/mnemosyne search "릴리스 체크리스트"
 mnemosyne --vault ~/mnemosyne list
@@ -51,6 +55,16 @@ mnemosyne --vault ~/mnemosyne show release-checklist
 `memory_get_note`와 같은 필드의 JSON을 출력합니다. 읽기 전용이라 사용 기록으로
 세지 않으므로 사용 빈도 순위를 바꾸지 않습니다. 없는 메모를 `show`하면 종료 코드
 1, 존재하지 않는 볼트 폴더는 종료 코드 2이며 폴더를 만들지 않습니다.
+
+`search`나 `list`에 `--label namespace:value`를 붙이면 라벨로 좁힐 수 있습니다.
+여러 번 지정하면 모든 라벨을 가진 메모만 선택합니다(AND). 순위 계산이나
+페이지 나누기 전에 필터링하며, `list`의 `label_counts`는 현재 페이지가 아닌
+조건에 맞는 전체 메모의 라벨 수를 반환합니다.
+
+외부 Markdown 파일의 확장자는 대소문자를 구분하지 않습니다(`.md`, `.MD`, `.Md`).
+가져오기의 `.txt`, `.json`도 동일하며 원래 파일명과 원문 바이트를 보존합니다.
+점으로 시작하는 숨김 파일은 일반 메모 검색에서 제외하며, 공개된 zone 폴더
+안의 숨김 파일도 제외합니다.
 
 모든 `mnemosyne` 명령은 같은 순서로 볼트를 찾습니다: `--vault`(명령 이름 앞이나
 뒤), 없으면 `$MNEMOSYNE_VAULT`, 없으면 `mnemosyne-mcp`와 같은 기본값
@@ -1114,8 +1128,10 @@ MCP 파일을 추정하지 않고, 실제 작업 트리에서 실행하는 에�
 가장 오래되고 가장 덜 쓰인 보호 노트에 `retire_questions`를 추가하며, 에이전트는
 사용자에게 물어야 합니다(`keep` 또는 `retire`). 어떤 것도 자동 삭제되지
 않습니다. `retire`는 저널링된 `memory_review_apply` 경로로 노트를 아카이브하고,
-`memory_review_undo`가 복원합니다. 예산 이내에서는 기존 클라이언트에 새 키가
-보이지 않습니다.
+`memory_review_undo`가 복원합니다. 용량과 INDEX 경고가 모두 없으면 기존
+클라이언트에 새 키가 보이지 않습니다. INDEX 토큰 경고만 있으면 용량 보고서는
+붙을 수 있지만 보관 질문이나 선택지는 붙지 않습니다. 이 경고는 메모 수나
+바이트 예산을 초과했다는 뜻이 아닙니다.
 
 ## 자동 역할 프로필
 

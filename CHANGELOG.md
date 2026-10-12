@@ -4,6 +4,8 @@
 
 ### Added
 
+- Repeatable `--label namespace:value` filters for CLI `search` and `list`,
+  matching MCP AND semantics before ranking, pagination and label counts.
 - Read-only `mnemosyne search`, `list` and `show` print the same JSON fields as
   the MCP `memory_search`, `memory_list` and `memory_get_note` tools without
   recording a use or changing usage ranking.
@@ -14,6 +16,15 @@
 
 ### Fixed
 
+- Corrupt INDEX state still reports inventory and errors, but no longer
+  classifies documents as orphaned when their routes cannot be read.
+- Supported source extensions are recognized case-insensitively across recall,
+  onboarding, imports, INDEX checking and splitting without renaming originals.
+- Hidden Markdown files inside visible zones no longer enter ordinary recall.
+- Curation inserts links into the actual Related section, respecting later
+  sections, fenced examples and setext headings.
+- INDEX token warnings no longer offer memory-retirement choices unless
+  active-note or protected-note capacity is actually exceeded.
 - Atomic writes use a short temporary sibling name instead of repeating the
   destination basename, so valid long paths do not fail during staging.
   Persistent handoff names and identifiers are unchanged.
