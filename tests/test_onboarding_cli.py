@@ -119,3 +119,59 @@ def test_console_multilingual_plan_is_utf8_with_ascii_host_encoding(
     # Then its machine-readable output retains the actual Unicode path.
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["sources"][0]["path"] == "日本語.md"
+
+
+def test_init_group_by_label_is_opt_in_and_reported_in_preview(
+    tmp_path: Path,
+) -> None:
+    # Given notes carrying distinct project labels within one directory.
+    (tmp_path / "g").mkdir()
+    _ = (tmp_path / "g" / "a.md").write_bytes(
+        b"---\ntitle: A\ntype: topic\nproject: Zed\n---\nA body.")
+    _ = (tmp_path / "g" / "b.md").write_bytes(
+        b"---\ntitle: B\ntype: topic\nproject: alpha\n---\nB body.")
+
+    # When grouping is opted into through the CLI preview.
+    grouped = cli("init", "--group-by-label", "project", cwd=tmp_path)
+    default = cli("init", cwd=tmp_path)
+
+    # Then the default keeps directory routing while grouping picks values.
+    assert grouped.returncode == 0, grouped.stderr
+    assert default.returncode == 0, default.stderr
+    grouped_topics = {route["trigger"]
+                      for route in json.loads(grouped.stdout)["routes"]}
+    default_topics = {route["trigger"]
+                      for route in json.loads(default.stdout)["routes"]}
+    assert {"Zed", "alpha"} <= grouped_topics
+    assert not (default_topics & {"Zed", "alpha"})
+
+
+def test_init_group_namespace_is_normalized_case_insensitively(
+    tmp_path: Path,
+) -> None:
+    # Given a note with a manual project label.
+    _ = (tmp_path / "a.md").write_bytes(
+        b"---\ntitle: A\ntype: topic\nproject: Zed\n---\nA body.")
+
+    # When the namespace arrives with mixed case and spacing.
+    result = cli("init", "--group-by-label", "  Project  ", cwd=tmp_path)
+
+    # Then the normalized namespace groups by the matching value.
+    assert result.returncode == 0, result.stderr
+    topics = {route["trigger"] for route in json.loads(result.stdout)["routes"]}
+    assert "Zed" in topics
+
+
+def test_init_invalid_group_namespace_exits_two_without_writes(
+    tmp_path: Path,
+) -> None:
+    # Given a vault whose bytes must stay unchanged.
+    (tmp_path / "policy.md").write_bytes(b"Owner policy.")
+    before = files(tmp_path)
+
+    # When a malformed grouping namespace reaches the command boundary.
+    result = cli("init", "--group-by-label", "Not Valid!", cwd=tmp_path)
+
+    # Then it refuses without creating locks, INDEX or derived documents.
+    assert result.returncode == 2 and result.stderr
+    assert files(tmp_path) == before

@@ -540,7 +540,7 @@ required but opt-in; default routing remains compatible.
   QA: label -> undo restores exact bytes; changed post-image refuses without partial restore; user-owned labels untouched unless explicit replacement; preview leaves bytes/mtimes/cache state unchanged.
   Evidence: evidence/labeling/unit-17-tests.log and write-import-init.json. Commit: Y | feat: journal reversible label annotation.
 
-- [ ] 18. Integrate init label counts grouping and label CLI
+- [x] 18. Integrate init label counts grouping and label CLI
   Recommended task executor category: quick - extend current onboarding and argparse patterns.
   What to do / Must NOT do: edit onboarding_notes.py, onboarding_plan.py, onboarding.py, memory_index_cli.py and tests/test_onboarding_labels.py; infer on touched notes, journal with existing normalization, report counts, add label preview/apply and --group-by-label.
   Closes: GAP-5, GAP-7. Parallelization: with 16; do not edit memory.py or mnemosyne.py.
@@ -549,7 +549,7 @@ required but opt-in; default routing remains compatible.
   QA: default grouping unchanged; explicit label grouping picks matching values/fallback; init rerun changes no bytes; generated catalogues and immutable handoffs are not rewritten; counts match actual labels.
   Evidence: evidence/labeling/unit-18-tests.log. Commit: Y | feat: label and group notes during onboarding.
 
-- [ ] 19. Convert raw file imports into labeled preview candidates
+- [x] 19. Convert raw file imports into labeled preview candidates
   Recommended task executor category: quick - deterministic lossless conversion and existing import publication.
   What to do / Must NOT do: add import_candidates.py if needed, edit onboarding_plan.py/onboarding.py/CLI and tests/test_raw_imports.py; files/directories, MD/text/JSON, separate source digest, safe original suffixes and source labels.
   Closes: GAP-6. Parallelization: after 18, no overlapping onboarding writer.
