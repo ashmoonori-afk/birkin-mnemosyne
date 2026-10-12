@@ -1,0 +1,59 @@
+name: hermes-catalog
+
+# Proposes a SHA-bump PR for plugin-catalog/birkin-mnemosyne.yaml in
+# NousResearch/hermes-agent. release.yml calls this only after its PyPI publish
+# job succeeded. Run it by hand to dry-run or retry a release; this workflow
+# never builds or publishes anything to PyPI. See docs/hermes-catalog-automation.md.
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: false
+    secrets:
+      HERMES_CATALOG_TOKEN:
+        required: false
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Published release tag, e.g. v0.7.0"
+        type: string
+        required: true
+      dry_run:
+        description: "Read only: print the catalog diff, open nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hermes-catalog-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  catalog-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Propose catalog SHA bump
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          HERMES_CATALOG_TOKEN: ${{ !inputs.dry_run && secrets.HERMES_CATALOG_TOKEN || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          args=(--release-tag "$RELEASE_TAG")
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python scripts/update_hermes_catalog.py "${args[@]}"
