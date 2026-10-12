@@ -107,6 +107,20 @@ def test_stale_sidecar_from_other_model_is_rebuilt(tmp_path, concept_model):
     assert idx.search("vehicle", 1)[0][0] == "car"
 
 
+def test_note_vector_upgrade_reuses_the_existing_prepared_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MODEL_CACHE", str(tmp_path))
+    prepared = tmp_path / "minishlab--potion-multilingual-128M-v2"
+    prepared.mkdir()
+    _ = (prepared / "meta.json").write_text(
+        json.dumps({"revision": semantic.MODEL_REVISION}), encoding="utf-8",
+    )
+    assert semantic.model_dir() == prepared
+    assert semantic.prepared()
+    assert semantic.prepared_revision() == semantic.MODEL_REVISION
+
+
 def test_label_filters_retain_vectors_without_reembedding(
     tmp_path: Path, concept_model: ConceptEncoder,
 ) -> None:
