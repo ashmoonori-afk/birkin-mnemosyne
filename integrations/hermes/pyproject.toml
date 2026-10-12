@@ -1,7 +1,7 @@
 [project]
 name = "hermes-plugin-birkin-mnemosyne"
-version = "0.1.0"
-requires-python = ">=3.11"
+version = "0.2.0"
+requires-python = ">=3.10"
 dependencies = ["birkin-mnemosyne==0.7.0"]
 
 # Exempt only reviewed exact pins; transitive releases keep Hermes' quarantine.
