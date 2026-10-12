@@ -1,6 +1,8 @@
-"""First-run onboarding, checker, splitter and handoff commands for the memory INDEX.
+"""Onboarding, checker, splitter, note reads and handoff commands for one vault.
 
-Three commands over one vault:
+Every command resolves its vault the same way (see :mod:`.cli_vault`):
+``--vault``, then ``$MNEMOSYNE_VAULT``, then the current directory for ``init``
+and ``~/.birkin-mnemosyne/vault`` for the rest.
 
 * ``init`` previews deterministic onboarding, or applies additive writes and
   journaled frontmatter completion only with ``--apply``.
@@ -8,16 +10,20 @@ Three commands over one vault:
   JSON (the ``IndexCheck`` fields plus ``ok``) and never writes.
 * ``split`` previews a lossless note split by default, or applies it with
   ``--apply``, printing the source digest and the complete coverage table.
+* ``search``, ``list`` and ``show`` print the notes the agent sees as the
+  matching MCP tool's JSON, recording no access (see :mod:`.cli_notes`).
+* ``undo`` restores one journaled transaction, exactly as ``handoff undo``.
 
 The ``handoff`` family adds immutable scoped session memory: ``capture``
 publishes a record from flags or JSON stdin, ``latest`` prints the newest
 capture, ``resume`` prints the complete StartupReader bundle with INDEX and
 latest handoff, ``fold`` previews or applies curation-gated retention, and
-``undo`` restores one fold through the checked journal.
+``undo`` restores one journaled transaction through the checked journal.
 
 Invalid input, reads, and migrations surface as a clear stderr message and
-exit status 2; a failed ``check`` exits 1 and an absent latest handoff
-exits 1. Nothing else is caught.
+exit status 2, as does a read command pointed at a vault that does not exist
+(which is never created); a failed ``check``, an absent latest handoff and an
+absent ``show`` note exit 1. Nothing else is caught.
 """
 
 from __future__ import annotations
@@ -27,8 +33,18 @@ import json
 import sys
 from dataclasses import asdict
 from io import TextIOWrapper
+from pathlib import Path
 
-from .handoff_cli import HandoffArguments, add_handoff_parser, run_handoff
+from . import __version__
+from .cli_notes import NOTE_COMMANDS, add_notes_parsers, run_notes
+from .cli_vault import add_vault_option, duplicate_vault, require_vault, resolve_vault
+from .handoff_cli import (
+    HandoffArguments,
+    add_handoff_parser,
+    add_undo_parser,
+    run_handoff,
+    run_undo,
+)
 from .handoff_records import HandoffError
 from .memory_index import MemoryIndexError
 from .memory_index_integrity import check_index
@@ -46,21 +62,29 @@ class _Arguments(HandoffArguments):
 
     vault: str | None = None
     init_vault: str | None = None
+    sub_vault: str | None = None
     import_dir: str | None = None
     command: str | None = None
     note: str | None = None
     apply: bool = False
     max_tokens: int | None = None
     enable_handoff: bool = False
+    query: str | None = None
+    zone: str | None = None
+    limit: int = 0
+    offset: int = 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mnemosyne",
-        description="Initialize a vault, check its INDEX, or split one note into routed topics.",
+        description="Initialize a vault, check its INDEX, read its notes, "
+                    "split one note into routed topics, or undo a transaction.",
         allow_abbrev=False,
     )
     _ = parser.add_argument("--vault", type=str, help="vault root directory")
+    _ = parser.add_argument("--version", action="version",
+                            version=f"birkin-mnemosyne {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser(
         "init", help="preview or apply deterministic first-run onboarding", allow_abbrev=False,
@@ -72,17 +96,20 @@ def _build_parser() -> argparse.ArgumentParser:
     _ = init.add_argument("--enable-handoff", action="store_true",
                           help="enable managed scoped handoff memory on explicit apply")
 
-    _ = commands.add_parser(
+    add_vault_option(commands.add_parser(
         "check", help="report orphans, dangling routes, and lost coverage", allow_abbrev=False,
-    )
+    ))
     split = commands.add_parser(
         "split", help="preview or apply a lossless note split", allow_abbrev=False,
     )
     _ = split.add_argument("note", help="vault-relative path of the .md note to split")
+    add_vault_option(split)
     _ = split.add_argument("--apply", action="store_true", help="write the split; default is preview")
     _ = split.add_argument(
         "--max-tokens", type=int, default=None, help="INDEX budget to enforce while registering",
     )
+    add_notes_parsers(commands)
+    add_undo_parser(commands)
     add_handoff_parser(commands)
     return parser
 
@@ -95,20 +122,30 @@ def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
     args = parser.parse_args(arguments, namespace=_Arguments())
     assert args.command is not None
-    if args.command == "init":
-        if sum(argument.split("=", 1)[0] == "--vault" for argument in arguments) > 1:
-            parser.error("supply --vault only once")
-        args.vault = args.init_vault or args.vault or "."
-    elif args.vault is None:
-        parser.error("--vault is required for check, split and handoff")
-    assert args.vault is not None
+    subcommand_vault = args.sub_vault or args.family_vault
+    if duplicate_vault(arguments, args.command, subcommand_vault):
+        parser.error("supply --vault only once")
+    vault = resolve_vault(args.init_vault or subcommand_vault or args.vault,
+                          use_cwd=args.command == "init")
+    args.vault = str(vault)
+    if args.command in NOTE_COMMANDS:
+        require_vault(vault, parser)
     try:
         if args.command == "init":
-            report = run_init(plan_init(args.vault, import_dir=args.import_dir,
-                                        max_tokens=args.max_tokens,
-                                        enable_handoff=args.enable_handoff), apply=args.apply)
-            print(json.dumps(asdict(report), ensure_ascii=False))
+            import_dir = args.import_dir
+            report = run_init(plan_init(
+                args.vault,
+                import_dir=str(Path(import_dir).expanduser()) if import_dir else None,
+                max_tokens=args.max_tokens,
+                enable_handoff=args.enable_handoff), apply=args.apply)
+            payload = asdict(report)
+            payload["vault"] = args.vault
+            print(json.dumps(payload, ensure_ascii=False))
             return 0 if not args.apply or report.ok else 1
+        if args.command in NOTE_COMMANDS:
+            return run_notes(args.command, vault, args, parser)
+        if args.command == "undo":
+            return run_undo(args.vault, args, arguments, parser)
         if args.command == "check":
             checked = check_index(args.vault)
             payload = asdict(checked)
