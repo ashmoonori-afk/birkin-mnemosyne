@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -16,7 +17,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 import birkin_mnemosyne
-from birkin_mnemosyne import MemoryIndex, ProfileMemory, VaultMemory
+from birkin_mnemosyne import MemoryIndex, Mnemosyne, ProfileMemory, VaultMemory
 from birkin_mnemosyne.identity_reader import parse_sections
 
 
@@ -29,8 +30,10 @@ def main() -> None:
     args.evidence_dir.mkdir(parents=True, exist_ok=True)
     transcript = args.evidence_dir / "journeys.jsonl"
     package = Path(birkin_mnemosyne.__file__).resolve()
-    checkout = Path(__file__).resolve().parents[2] / "birkin_mnemosyne"
-    if not args.allow_checkout and package.is_relative_to(checkout):
+    installed_roots = [
+        Path(sysconfig.get_path(kind)).resolve() for kind in ("purelib", "platlib")
+    ]
+    if not args.allow_checkout and not any(package.is_relative_to(root) for root in installed_roots):
         raise RuntimeError("QA requires an installed wheel, not checkout imports")
 
     with transcript.open("w", encoding="utf-8") as evidence:
@@ -70,6 +73,19 @@ def main() -> None:
                 assert memory.dex.search("Casefold recall")[0]["rel"] == "external.MD"
                 assert not memory.dex.search("privatenotefixturezxq")
                 record("python-write-search", {"passed": True})
+                original_cache = os.environ.get("MNEMOSYNE_MODEL_CACHE")
+                os.environ["MNEMOSYNE_MODEL_CACHE"] = str(root / "unprepared-model")
+                try:
+                    fallback = Mnemosyne(vault, semantic=True)
+                    assert [hit["slug"] for hit in fallback.search("Release target")] == ["target"]
+                    fallback.flush()
+                finally:
+                    if original_cache is None:
+                        os.environ.pop("MNEMOSYNE_MODEL_CACHE", None)
+                    else:
+                        os.environ["MNEMOSYNE_MODEL_CACHE"] = original_cache
+                assert not (root / "unprepared-model").exists()
+                record("semantic-offline-fallback", {"passed": True})
                 MemoryIndex(vault).enable(max_tokens=1)
 
                 async def protocol():
@@ -165,6 +181,23 @@ def main() -> None:
                         restored = await call("memory_handoff_read", scope)
                         assert restored["count"] == 5
                     record("mcp-lifecycle", {"passed": True})
+                    empty_params = StdioServerParameters(
+                        command=sys.executable,
+                        args=["-m", "birkin_mnemosyne.mcp_server",
+                              "--vault", str(root / "empty")],
+                        env=env,
+                    )
+                    async with (
+                        stdio_client(empty_params) as (reader, writer),
+                        ClientSession(reader, writer) as client,
+                    ):
+                        await client.initialize()
+                        result = await client.call_tool("memory_startup_read", {})
+                        record("empty-startup", {
+                            "arguments": {}, "is_error": result.is_error,
+                            "output": [item.text for item in result.content if item.type == "text"],
+                        })
+                        assert result.is_error
 
                 anyio.run(protocol)
 
@@ -179,7 +212,7 @@ def main() -> None:
                         "stdout": result.stdout, "stderr": result.stderr,
                     })
                     assert result.returncode == expected, result.stderr
-                    return (json.loads(result.stdout) if expected == 0 else
+                    return (json.loads(result.stdout) if result.stdout.lstrip().startswith("{") else
                             {"exit": result.returncode, "stderr": result.stderr})
 
                 dynamics = (vault / ".mnemosyne-dynamics.json").read_bytes()
@@ -195,6 +228,8 @@ def main() -> None:
                 absent = root / "absent"
                 cli("list", "--vault", str(absent), expected=2)
                 assert not absent.exists()
+                empty_preview = cli("init", "--vault", str(absent))
+                assert empty_preview["mode"] == "preview" and not absent.exists()
                 assert cli("search", "Casefold", "--vault", str(vault))["results"]
                 assert not cli("search", "privatenotefixturezxq",
                                "--vault", str(vault))["results"]
@@ -214,6 +249,28 @@ def main() -> None:
                 initialized = cli("init", "--vault", str(plain), "--apply")
                 cli("undo", "--vault", str(plain), "--transaction", initialized["undo_transaction"])
                 assert (plain / "plain.md").read_bytes() == original
+                (plain / ".mnemosyne-memory-index" / "index.json").write_bytes(b"{invalid")
+                corrupted = cli("check", "--vault", str(plain), expected=1)
+                assert corrupted["errors"] and not corrupted["ok"]
+                assert corrupted["orphan_documents"] == []
+                assert (plain / "plain.md").read_bytes() == original
+
+                padding = 78 - len(str(root.resolve())) - 1
+                assert padding > 0, "Use a short --temp-root for the long-path scenario"
+                long_vault = root / ("q" * padding)
+                long_scope = ("--project-key", "project", "--task-key", "release")
+                checkpoint = "Preserve the complete release checkpoint."
+                receipt = cli("--vault", str(long_vault), "handoff", "capture",
+                              *long_scope, "--capture-id", "qa-long-1", "--work", checkpoint)
+                destination = long_vault / receipt["path"]
+                assert receipt["created"] and destination.is_file()
+                if os.name == "nt":
+                    assert 250 <= len(str(destination)) < 260
+                latest = cli("--vault", str(long_vault), "handoff", "latest", *long_scope)
+                assert latest["fields"]["work"] == checkpoint
+                resumed = cli("--vault", str(long_vault), "handoff", "resume", *long_scope)
+                assert checkpoint in resumed["context"]
+                record("long-path", {"passed": True, "destination_length": len(str(destination))})
 
                 command = [
                     sys.executable, "-m", "birkin_mnemosyne.memory_index_cli",
