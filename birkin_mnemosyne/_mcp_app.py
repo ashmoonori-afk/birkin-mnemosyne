@@ -631,8 +631,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         try:
             questions = service.questions(limit)
             report = capacity_report(dex, budget)
+            over_budget = any(report["over_budget"].values())
             retire = (service.retire_questions(limit, budget)
-                      if report["warnings"] else ())
+                      if over_budget else ())
         except (OSError, UnicodeError, ValueError) as exc:
             raise _review_failure(exc, vault) from exc
         result: dict[str, Any] = {
@@ -646,6 +647,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                         "drop-second", "merge"]}
         if report["warnings"]:
             result["capacity"] = report
+        if over_budget:
             result["retire_questions"] = [
                 {**asdict(q), "question": q.text} for q in retire]
             result["retire_choices"] = ["keep", "retire"]
