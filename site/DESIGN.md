@@ -62,6 +62,8 @@ the hero and all paired content stack in document order. Nav wraps; it never
 requires a script or drawer. Document owns all vertical scroll. Commands wrap.
 Single-column grids use `minmax(0, 1fr)` so token intrinsic widths cannot expand
 the mobile viewport at 200% text size.
+Headings allow emergency word wrapping when enlarged text exceeds the entire
+container; ordinary-size words keep their natural breaks.
 
 ## 5. Primitives and states
 

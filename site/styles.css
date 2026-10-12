@@ -68,6 +68,7 @@ a:hover { text-decoration-thickness: 2px; }
 a:active { opacity: 0.8; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
 h1, h2, h3, p, figure, pre { margin: 0; }
+h1, h2, h3 { overflow-wrap: anywhere; }
 h1, h2 { font-family: var(--serif); font-weight: 400; }
 h1 { font-size: var(--display); line-height: 1.06; letter-spacing: -0.045em; }
 h2 { font-size: var(--section); line-height: 1.2; letter-spacing: -0.025em; }
