@@ -2,6 +2,8 @@
 
 # birkin-mnemosyne
 
+[Landing page](https://birkin-mnemosyne.vercel.app)
+
 birkin-mnemosyne is local Markdown memory for personal agents: multilingual
 BM25 retrieval, usage-driven decay and zone priorities, plus provider-portable
 curation whose file operations are bounded by a deterministic executor. The

@@ -2,6 +2,8 @@
 
 # birkin-mnemosyne
 
+[랜딩 페이지](https://birkin-mnemosyne.vercel.app/ko/)
+
 birkin-mnemosyne은 개인 에이전트를 위한 로컬 Markdown 메모리입니다. 다국어
 BM25 검색, 사용 기반 감쇠(decay)와 영역(zone) 우선순위, 그리고 결정적 실행기가
 파일 작업 범위를 제한하는 공급자 이식형 큐레이션을 제공합니다. 코어는 런타임
