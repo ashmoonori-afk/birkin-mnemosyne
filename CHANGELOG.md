@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Label annotation preserves receipt-bound split sources and topic documents,
+  including explicitly requested paths and sources restored by undo. Apply
+  revalidates coverage authority under the vault lock before changing notes.
 - Pure journal moves and undo preserve late-arriving files and retain checked
   private snapshots instead of replacing or unlinking an unverified image.
 - Scoped startup requires the INDEX even when a fresh reader has never seen

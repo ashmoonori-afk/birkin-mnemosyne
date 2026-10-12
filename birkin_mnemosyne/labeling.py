@@ -8,8 +8,8 @@ captured image, route and selection against the live vault, and journals only
 the actual byte changes with the existing Review change/commit seam, so the
 returned transaction is undone with ``Consolidation.undo``.
 
-Generated catalogues, split receipts, archives and immutable managed handoffs
-are excluded from selection; existing manual labels (including ``[]``) are
+Generated catalogues, receipt-bound split sources/topics, archives and immutable
+managed handoffs are excluded; existing manual labels (including ``[]``) are
 user-owned and survive unless an explicit replacement is supplied.
 """
 
@@ -26,6 +26,7 @@ from .label_values import normalize_labels
 from .labels import LabelContext, LabelEdit, annotate_labels
 from .memory_index import NOTICE_PREFIX, IndexEntry, MemoryIndex
 from .onboarding_notes import generated_catalogue, inventory
+from .onboarding_state import existing_state
 from .review_journal import Change, ReviewError, commit
 from .vault_lock import VaultLock
 
@@ -81,12 +82,14 @@ def plan_labels(
     replacement = None if labels is None else normalize_labels(labels)
     resolved = Path(root).resolve()
     index = MemoryIndex(resolved)
-    entries = index.read().entries
+    state = existing_state(index)
+    entries = state.view.entries
     requested = _validate_paths(index, paths)
     notes: list[LabelPlanNote] = []
     warnings: list[str] = []
     for source in inventory(resolved):
-        if generated_catalogue(source) or source.raw.startswith(NOTICE_PREFIX.encode()):
+        if (source.path in state.protected or generated_catalogue(source)
+                or source.raw.startswith(NOTICE_PREFIX.encode())):
             continue
         if requested is not None and source.path not in requested:
             continue
@@ -169,11 +172,13 @@ def _question_id(notes: Iterable[LabelPlanNote]) -> str:
 
 def _check_plan(plan: LabelPlan) -> None:
     index = MemoryIndex(plan.root)
-    entries = index.read().entries
+    state = existing_state(index)
+    entries = state.view.entries
     eligible = {
         source.path
         for source in inventory(plan.root)
-        if not generated_catalogue(source)
+        if source.path not in state.protected
+        and not generated_catalogue(source)
         and not source.raw.startswith(NOTICE_PREFIX.encode())
     }
     planned = {note.path for note in plan.notes}

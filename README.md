@@ -275,7 +275,9 @@ Suggestions are inferred from the source bytes and INDEX routing state only
 `mnemosyne label` only previews by default: it scans without creating a
 directory, lock, cache or journal, proposes annotation only where the labels
 field is absent, and skips generated catalogues, split receipts, archives and
-managed handoffs. User-owned manual and empty fields are included in the
+managed handoffs. Sources and topic documents bound to a split receipt are
+also excluded, even when explicitly requested, so original-byte coverage
+remains valid. User-owned manual and empty fields are included in the
 report but not modified. For a
 test vault holding `notes/alpha.md` (`---` / `title: Alpha` / `---` /
 `Body of Alpha.`), the read-only JSON report is:
