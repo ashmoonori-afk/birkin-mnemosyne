@@ -14,6 +14,9 @@
 
 ### Fixed
 
+- Atomic writes use a short temporary sibling name instead of repeating the
+  destination basename, so valid long paths do not fail during staging.
+  Persistent handoff names and identifiers are unchanged.
 - MCP startup reports invalid vault paths on stderr without a traceback or
   protocol output. Explicit budget flags override malformed values in the
   corresponding environment variables; unrelated invalid settings still fail.

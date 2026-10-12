@@ -127,7 +127,7 @@ def _write(
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
-        dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
+        dir=str(path.parent), prefix=".mn-", suffix=".tmp"
     )
     tmp = Path(tmp_name)
     try:
