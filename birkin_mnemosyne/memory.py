@@ -92,7 +92,7 @@ def _iter_note_files(vault: Path) -> Iterator[Path]:
         if e.name.startswith("."):
             continue
         if e.is_file():
-            if e.suffix == ".md":
+            if e.suffix.lower() == ".md":
                 yield e
         elif e.is_dir():
             try:
@@ -100,7 +100,7 @@ def _iter_note_files(vault: Path) -> Iterator[Path]:
             except OSError:
                 continue
             for f in sub:
-                if f.suffix == ".md" and f.is_file():
+                if not f.name.startswith(".") and f.suffix.lower() == ".md" and f.is_file():
                     yield f
 
 

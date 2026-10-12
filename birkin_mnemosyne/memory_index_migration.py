@@ -68,7 +68,7 @@ def split_note(
         if max_tokens is not None:
             _ = validate_index_budget(max_tokens)
         source = index.document_path(document)
-        if source.suffix != ".md":
+        if source.suffix.lower() != ".md":
             raise MemoryIndexError("split_note requires a .md note")
         raw = source.read_bytes()
         text = raw.decode("utf-8")
