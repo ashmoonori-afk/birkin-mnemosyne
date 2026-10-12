@@ -14,6 +14,9 @@
 
 ### Fixed
 
+- MCP startup reports invalid vault paths on stderr without a traceback or
+  protocol output. Explicit budget flags override malformed values in the
+  corresponding environment variables; unrelated invalid settings still fail.
 - `memory_startup_read` and `memory_startup_verify` no longer require `paths`,
   so the documented resume call with only project/task keys (or only `task`)
   works. Reads with nothing to read still fail with the existing message.
