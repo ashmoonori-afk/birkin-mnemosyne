@@ -4,6 +4,10 @@ import re
 import sys
 from pathlib import Path
 
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
+
 import birkin_mnemosyne
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,10 +38,25 @@ def test_package_version_matches_pyproject() -> None:
     )
 
 
-def test_hermes_manifests_pin_current_release() -> None:
-    pin = f"birkin-mnemosyne=={_project_version()}"
-    for relative in ("integrations/hermes/pyproject.toml", "integrations/hermes/plugin.yaml"):
-        assert f'"{pin}"' in _read(relative), f"{relative} must pin {pin!r}; bump its dependency"
+_CORE_DEP = re.compile(r'birkin-mnemosyne([<>=!~][^"\s]*)')
+
+
+def test_hermes_manifests_declare_matching_core_range() -> None:
+    relative_pyproject = "integrations/hermes/pyproject.toml"
+    relative_manifest = "integrations/hermes/plugin.yaml"
+    declared: dict[str, SpecifierSet] = {}
+    for relative in (relative_pyproject, relative_manifest):
+        match = _CORE_DEP.search(_read(relative))
+        assert match is not None, f"{relative} declares no birkin-mnemosyne dependency"
+        declared[relative] = Requirement(f"birkin-mnemosyne{match.group(1)}").specifier
+    assert declared[relative_pyproject] == declared[relative_manifest], (
+        f"Hermes manifests declare different core ranges: {declared}"
+    )
+    specifier = declared[relative_pyproject]
+    assert Version(_project_version()) in specifier, (
+        f"published core {_project_version()} is outside the declared range {specifier}"
+    )
+    assert Version("1.0") not in specifier, "the core range must stay below 1.0"
 
 
 def test_hermes_plugin_versions_match() -> None:
@@ -57,7 +76,7 @@ def test_hermes_python_requirement_matches_core() -> None:
     assert plugin.group(1) == core.group(1)
 
 
-def test_integration_readmes_mention_current_release() -> None:
+def test_openclaw_readme_mentions_current_release() -> None:
+    relative = "integrations/openclaw/README.md"
     needle = f"=={_project_version()}"
-    for relative in ("integrations/hermes/README.md", "integrations/openclaw/README.md"):
-        assert needle in _read(relative), f"{relative} must reference {needle!r}; bump its install line"
+    assert needle in _read(relative), f"{relative} must reference {needle!r}; bump its install line"

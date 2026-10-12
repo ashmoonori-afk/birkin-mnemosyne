@@ -11,14 +11,14 @@ The plugin and core library declare Python 3.10 or later. Hermes itself
 requires Python 3.11 or later, so use a Python version supported by your
 Hermes installation when loading the plugin.
 
-Plugin 0.2.0 pins the published `birkin-mnemosyne==0.7.0` core, including
-task-bound reads, complete topic expansion, scoped handoffs and note labels.
-Use a checkout containing plugin 0.2.0 for the installation below. The core
-`v0.7.0` tag retains the earlier plugin 0.1.0 manifest.
+Plugin 0.2.1 accepts the published `birkin-mnemosyne>=0.7.0,<1.0` core,
+including task-bound reads, complete topic expansion, scoped handoffs and note
+labels. Use a checkout containing plugin 0.2.1 for the installation below. The
+core `v0.7.0` tag retains the earlier plugin 0.1.0 manifest.
 
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
-`birkin-mnemosyne==0.7.0` dependency through Hermes' package manager:
+`birkin-mnemosyne>=0.7.0,<1.0` dependency through Hermes' package manager:
 
 ```text
 hermes plugins validate ./integrations/hermes --install-deps
