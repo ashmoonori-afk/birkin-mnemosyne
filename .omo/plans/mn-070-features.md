@@ -522,7 +522,7 @@ required but opt-in; default routing remains compatible.
   QA: matching note outside unfiltered top 32 is returned; unfiltered score/rank sequences remain equal; old cache rebuilds; malformed filters refuse rather than silently broaden.
   Evidence: evidence/labeling/unit-15-tests.log and frozen comparison in 23. Commit: Y | feat: filter memory search by labels.
 
-- [ ] 16. Attach and preserve labels on normal note writes
+- [x] 16. Attach and preserve labels on normal note writes
   Recommended task executor category: quick - integrate pure inference at the existing write seam.
   What to do / Must NOT do: edit memory.py and tests/test_note_labels.py; absent labels infer, existing labels preserve, explicit labels replace; forward search labels and expose read/list metadata.
   Closes: GAP-5. Parallelization: B integration with 18.

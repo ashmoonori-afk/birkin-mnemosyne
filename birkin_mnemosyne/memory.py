@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 import threading
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -30,14 +30,16 @@ from typing import Any
 from .mnemosyne import (ARCHIVE_ZONE, IDENTITY_ZONE, MAX_ZONES, TYPE_ZONE,
                         WIKILINK_RE, Mnemosyne, expansion_weights,
                         normalize_zone)
-from .mnemosyne import atomic_write as _atomic_write
+from .atomic import atomic_write_bytes
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import STEM_MIN as _STEM_MIN
 from .mnemosyne import _script
 from .mnemosyne import normalize_with_offsets as _normalize
 from .mnemosyne import tokenize as _tokenize
-from . import frontmatter
+from . import frontmatter, label_frontmatter
+from .labels import LabelContext, read_labels, suggest_labels
+from .label_values import normalize_labels, yaml_label_list
 from .vault_lock import VaultLock
 from .memory_index import MemoryIndex
 
@@ -175,6 +177,7 @@ class VaultMemory:
                 "confidence": entry["confidence"],
                 "polarity": entry["polarity"],
                 "zone": entry["zone"] or "inbox",
+                "labels": entry.get("labels", []),
                 "path": self.vault / entry["rel"],
             })
         return notes
@@ -205,7 +208,8 @@ class VaultMemory:
         return removed
 
     def write_note(self, title: str, body: str, *, note_type: str = "topic",
-                   tags: list[str] | None = None, links: list[str] | None = None,
+                   tags: list[str] | None = None, labels: list[str] | None = None,
+                   links: list[str] | None = None,
                    confidence: float = 0.7, source: str | None = None,
                    append: bool = False, ttl_days: int | None = None,
                    polarity: str | None = None, zone: str | None = None,
@@ -223,6 +227,12 @@ class VaultMemory:
         - ``expected_version`` — optimistic lock; raise
           :class:`VersionMismatchError` if it does not match the on-disk version.
         - **Evidence gate** — a brand-new note requires at least one ``source``.
+        - ``labels`` — ``None`` keeps the note's existing labels verbatim
+          (spelling and order, including an explicit ``[]``) or infers
+          deterministic suggestions when the note has no labels field yet;
+          an explicit list replaces them (``[]`` clears). Malformed explicit
+          values or malformed on-disk label metadata raise
+          :class:`birkin_mnemosyne.label_values.LabelError` before any write.
         """
         note_type = note_type if note_type in VALID_TYPES else "topic"
         # Header-bound strings must stay on one line (a stray newline could
@@ -231,6 +241,10 @@ class VaultMemory:
         if tags is not None:   # None = keep the note's tags; [] = clear them
             tags = [_one_line(t) for t in tags]
         source = _one_line(source) if source else source
+        # Explicit labels are validated at the boundary before any write: a
+        # malformed list must never partially update a note.
+        label_replacement = (normalize_labels(labels)
+                             if labels is not None else None)
         # Serialize the read->check->write for this note so concurrent writers
         # can't both pass the version check and clobber each other (lost update),
         # and so the file is never half-written under a reader. Path resolution
@@ -238,16 +252,27 @@ class VaultMemory:
         # slip between resolve and write (stale path -> duplicate note).
         with VaultLock(self.vault).hold(), _note_lock(_slug(title)):
             p = self._resolve_path(title, note_type, zone)
+            rel = p.relative_to(self.vault).as_posix()
             created = date.today().isoformat()
             sources: list[str] = []
             existing_body = ""
             existing_polarity: str | None = None
             existing_version = 0
             existing_tags: list[str] = []
+            existing_labels: tuple[str, ...] | None = None
+            existing_label_line: str | None = None
             existing_expiry: str | None = None
             if p.is_file():
-                old = p.read_text(encoding="utf-8", errors="replace")
+                # Raw bytes keep the label field's exact values; read_labels
+                # rejects malformed label metadata before any rewrite.
+                old_bytes = p.read_bytes()
+                existing_labels = read_labels(old_bytes)
+                old = old_bytes.decode("utf-8-sig")
                 meta, old_body = frontmatter.parse(old)
+                if existing_labels is not None and label_replacement is None:
+                    scan = label_frontmatter.inspect(old_bytes)
+                    assert scan.labels_index is not None
+                    existing_label_line = scan.lines[scan.labels_index].decode("utf-8")
                 created = str(meta.get("created", created))
                 old_sources = meta.get("sources")
                 if isinstance(old_sources, list):
@@ -304,22 +329,55 @@ class VaultMemory:
                 expires_at = (date.today() + timedelta(days=int(ttl_days))).isoformat()
             note_tags = existing_tags if tags is None else tags
 
+            # Labels: an explicit list replaces (validated above); None keeps
+            # the existing user-owned field verbatim — spelling, order and an
+            # explicit [] included; a note with no labels field yet gets
+            # deterministic suggestions inferred from the completed note text,
+            # its relative path and the exact INDEX routes bound to that path.
+            # Suggestions never feed tags, title, body or any scoring text.
+            updated = _now_iso()[:10]
+            if label_replacement is not None:
+                label_values = label_replacement
+            elif existing_labels is not None:
+                label_values = existing_labels
+            else:
+                index_topics = tuple(sorted({
+                    entry.trigger for entry in MemoryIndex(self.vault).read().entries
+                    if entry.document == rel
+                }))
+                probe = _compose_frontmatter(
+                    title=title, note_type=note_type, created=created,
+                    updated=updated, confidence=confidence, sources=sources,
+                    tags=note_tags, expires_at=expires_at, polarity=pol,
+                    version=existing_version + 1) + body + "\n"
+                label_values = suggest_labels(
+                    probe.encode("utf-8"),
+                    LabelContext(path=rel, index_topics=index_topics))
+            labels_line = (
+                existing_label_line if existing_label_line is not None
+                else f"labels: {yaml_label_list(label_values)}\n"
+            )
             fm = _compose_frontmatter(
                 title=title, note_type=note_type, created=created,
-                updated=_now_iso()[:10], confidence=confidence,
+                updated=updated, confidence=confidence,
                 sources=sources, tags=note_tags, expires_at=expires_at,
-                polarity=pol, version=existing_version + 1)
-            _atomic_write(p, fm + body + "\n")
+                polarity=pol, version=existing_version + 1,
+                labels_line=labels_line)
+            atomic_write_bytes(p, (fm + body + "\n").encode("utf-8"))
             self.dex.note_written(p)
             self.dex.record_access(p.stem)   # writing = using
             return p
 
     def search(self, query: str, limit: int = 8,
-               expansions: Mapping[str, Any] | None = None
+               expansions: Mapping[str, Any] | None = None,
+               labels: Iterable[str] | None = None
                ) -> list[dict[str, Any]]:
         """Index-backed search (BM25 × dynamics × zone priority). Reads only
         the top ``limit`` note files for snippets — never the whole vault.
-        ``expansions``: see :meth:`Mnemosyne.search`."""
+        ``expansions``: see :meth:`Mnemosyne.search`. ``labels`` (forwarded
+        to the engine) restricts candidate notes to those carrying every
+        requested label (AND) before any candidate cut; ``None``/empty
+        preserves scores and ordering."""
         # Use the SAME tokenizer the index/BM25 use (Hangul bigrams included),
         # so the snippet locator finds the tokens that actually matched — a
         # plain whitespace split misses every Korean bigram hit.
@@ -327,7 +385,8 @@ class VaultMemory:
         if expansions:
             terms += list(expansion_weights(expansions, terms))
         out: list[dict[str, Any]] = []
-        for h in self.dex.search(query, limit=limit, expansions=expansions):
+        for h in self.dex.search(query, limit=limit, expansions=expansions,
+                                 labels=labels):
             body = h["summary"]
             try:
                 _, parsed = frontmatter.parse(
@@ -341,7 +400,8 @@ class VaultMemory:
             out.append({"title": h["slug"],
                         "snippet": _snippet(body, terms),
                         "zone": h["zone"] or "inbox",
-                        "related": [_slug(t) for t in h["links"][:3]]})
+                        "related": [_slug(t) for t in h["links"][:3]],
+                        "labels": h.get("labels", [])})
         return out
 
     def neighbors(self, title: str) -> list[str]:
@@ -490,7 +550,8 @@ def _compose_frontmatter(*, title: str, note_type: str, created: str,
                          sources: list[str], tags: list[str],
                          expires_at: str | None = None,
                          polarity: str = "positive",
-                         version: int = 1) -> str:
+                         version: int = 1,
+                         labels_line: str = "") -> str:
     src = ", ".join(_yaml_str(s) for s in sources)
     tg = ", ".join(_yaml_str(t) for t in tags)
     ttl_line = f"expires_at: {expires_at}\n" if expires_at else ""
@@ -505,6 +566,7 @@ def _compose_frontmatter(*, title: str, note_type: str, created: str,
         f"version: {int(version)}\n"
         f"sources: [{src}]\n"
         f"tags: [{tg}]\n"
+        + labels_line
         + ttl_line
         + "---\n\n"
     )
