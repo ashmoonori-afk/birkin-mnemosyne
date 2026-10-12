@@ -76,6 +76,8 @@ p { max-width: 65ch; }
 p + p { margin-top: var(--s4); }
 code, .mono { font-family: var(--mono); }
 code { overflow-wrap: anywhere; }
+.code-token, p code { display: inline-block; inline-size: max-content; max-inline-size: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nowrap { white-space: nowrap; }
 small, .small { font-size: var(--small); }
 .muted { color: var(--muted); }
 .container { width: min(var(--max-width), calc(100% - var(--gutter) * 2)); margin-inline: auto; }
@@ -131,7 +133,7 @@ small, .small { font-size: var(--small); }
 }
 .button:hover { opacity: 0.85; }
 .button:active { transform: scale(0.98); opacity: 0.75; }
-.button.secondary { color: var(--ink); background: transparent; border-color: var(--line); }
+.button.secondary { color: var(--ink); background: transparent; border-color: var(--muted); }
 .hero-install { margin-top: var(--s6); font-size: var(--small); overflow-wrap: anywhere; }
 .hero-install span { user-select: none; color: var(--muted); margin-right: var(--s2); }
 .ledger {
@@ -190,18 +192,20 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--s6); border
 .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--s6); }
 .footer a { display: inline-block; padding-block: var(--s3); }
 .footer-links { display: flex; flex-wrap: wrap; gap: var(--s6); }
-:lang(ko) h1, :lang(ko) h2 { font-family: var(--sans); font-weight: 550; word-break: keep-all; }
+:lang(ko) { word-break: keep-all; }
+:lang(ko) .eyebrow, :lang(ko) .ledger-connector { font-family: var(--sans); }
+:lang(ko) h1, :lang(ko) h2 { font-family: var(--sans); font-weight: 550; }
 :lang(ko) h1 { font-size: clamp(2.625rem, 5.2vw, 4.25rem); line-height: 1.17; letter-spacing: -0.04em; }
 :lang(ko) p, :lang(ko) li, :lang(ko) h3 { word-break: keep-all; overflow-wrap: anywhere; }
 
 @media (max-width: 800px) {
-  .hero { grid-template-columns: 1fr; gap: var(--s12); padding-block: var(--s12) var(--s16); }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: var(--s12); padding-block: var(--s12) var(--s16); }
   .hero h1 { max-width: 12ch; }
   :lang(ko) .hero h1 { max-width: 15ch; }
   .hero .lead { max-width: 42ch; }
   .section { padding-block: var(--s16); }
   .section-heading { margin-bottom: var(--s8); }
-  .workflow, .measure, .costs, .install-grid, .integrations { grid-template-columns: 1fr; gap: var(--s8); }
+  .workflow, .measure, .costs, .install-grid, .integrations { grid-template-columns: minmax(0, 1fr); gap: var(--s8); }
   .principle-list { grid-template-columns: 1fr; gap: var(--s3); }
   .contributions li { grid-template-columns: 1fr; gap: var(--s2); }
   .nav { flex-wrap: wrap; padding-block: var(--s3); gap: var(--s2); }

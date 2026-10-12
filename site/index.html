@@ -39,7 +39,7 @@
         <h1 id="hero-title">Memory that survives the session.</h1>
         <p class="lead">Your agent starts over. Your notes shouldn't. Keep memory as local Markdown, load the map at startup, and open the details when they're needed.</p>
         <div class="actions">
-          <a class="button" href="#install">Get started <span aria-hidden="true">&nbsp;↗</span></a>
+          <a class="button" href="#install">Get started <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">Read the evidence</a>
         </div>
         <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne</code></p>
@@ -114,7 +114,7 @@
           </div>
           <div>
             <h3>The cost of reading small notes</h3>
-            <p class="measure-caption">Small-note combined task costs are 199–221 tokens for Sol (12/12 cost more than the full original) and 229–432 for Claude (0/12 cost more). <strong>These are separate measurements, not task accuracy on the large corpus.</strong></p>
+            <p class="measure-caption">Small-note combined task costs are <span class="nowrap">199–221</span> tokens for Sol (12/12 cost more than the full original) and <span class="nowrap">229–432</span> for Claude (0/12 cost more). <strong>These are separate measurements, not task accuracy on the large corpus.</strong></p>
             <div class="measure-note">
               <h3>Historical v0.6.0 measurement</h3>
               <p>The earlier fictional large-note result was <strong>45,128 → 1,781</strong> <code>o200k_base</code> whole-startup tokens. There was no accuracy gain. On its separate small-note fixtures, all 12 Sol tasks and 7 of 12 Claude tasks cost more than reading the full original.</p>
@@ -129,7 +129,7 @@
           </article>
           <article>
             <h3>Optional retrieval has trade-offs</h3>
-            <p>Semantic mode is opt-in and not the recommended default: some test slices lose to the core. The Linux replay measured a 0.38 → 80.24 MB install, excluding 669.1 MB of raw and compact model files. Its largest indexing-memory addition was 163 MB, above the 150 MB budget. These are not service-level guarantees.</p>
+            <p>Semantic mode is opt-in and not the recommended default: some test slices lose to the core. The Linux replay measured a <span class="nowrap">0.38 → 80.24 MB</span> install, excluding <span class="nowrap">669.1 MB</span> of raw and compact model files. Its largest indexing-memory addition was <span class="nowrap">163 MB</span>, above the <span class="nowrap">150 MB</span> budget. These are not service-level guarantees.</p>
           </article>
         </div>
         <p class="measure-note muted">Host-written query expansion costs about 115–200 output tokens per widened search and about twice the ranking time. The default core does not improve Korean recall; synthetic results do not establish superiority, answer accuracy or universal multilingual coverage.</p>
@@ -171,17 +171,17 @@
       <div class="install-grid">
         <article>
           <h3>Install the core</h3>
-          <pre><code>pip install birkin-mnemosyne
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne</span>
 
-mnemosyne init --vault my_vault
-mnemosyne init --vault my_vault --apply</code></pre>
+mnemosyne init <span class="code-token">--vault</span> my_vault
+mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>
           <p>The first init command is a read-only preview. Inspect the plan before applying. Without <code>--vault</code>, init uses the current directory.</p>
           <a class="text-link" href="https://pypi.org/project/birkin-mnemosyne/">View the package on PyPI ↗</a>
         </article>
         <article>
           <h3>Connect an MCP client</h3>
-          <pre><code>uvx --from "birkin-mnemosyne[mcp]" \
-  mnemosyne-mcp --vault ~/mnemosyne</code></pre>
+          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]"</span> \
+  <span class="code-token">mnemosyne-mcp</span> <span class="code-token">--vault</span> ~/mnemosyne</code></pre>
           <p>The MCP extra downloads the official SDK on first launch. Configure this stdio command in your client. Point clients at the same vault to share memory.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#mcp-server-claude-code-claude-desktop-codex-cli-cursor">Read the full setup instructions ↗</a>
         </article>
@@ -200,7 +200,7 @@ mnemosyne init --vault my_vault --apply</code></pre>
         <li><strong>HOL Guard / OpenClaw</strong><div><p>Opt-in MCP registration and Python stdio bundle guidance. Open proposals are not shipped improvements; approval does not mean merged.</p><a href="https://github.com/hashgraph-online/hol-guard/pull/3441">HOL Guard #3441 · approved, still open</a><br><a href="https://github.com/openclaw/openclaw/pull/163588">OpenClaw #163588 · open</a></div></li>
         <li><strong>Awesome Agent Memory</strong><div><p>The maintainer added the listing by hand; the original PR is closed.</p><a href="https://github.com/TeleAI-UAGI/Awesome-Agent-Memory/pull/122">#122 · closed, landed by hand</a></div></li>
       </ul>
-      <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#upstream-contributions">Read the full contribution record and caveats ↗</a>
+      <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#upstream-contributions">Read the full contribution record and caveats&nbsp;↗</a>
     </section>
   </main>
   <footer class="footer">

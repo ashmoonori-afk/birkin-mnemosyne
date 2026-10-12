@@ -45,8 +45,9 @@ One accent family; no decorative status color. System light/dark only.
 - Display/headings: Georgia, "Times New Roman", serif; Korean uses the system
   sans stack for reliable glyph shape and natural word grouping.
 - Body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif.
-- Technical samples alone use ui-monospace, SFMono-Regular, Consolas, monospace.
-  This third stack is justified by selectable exact commands and paths.
+- Technical samples and metadata use ui-monospace, SFMono-Regular, Consolas,
+  monospace. This third stack distinguishes commands, paths and technical labels.
+  Korean eyebrows and connectors use sans for natural mixed-script spacing.
 - Scale: 15px small, 17px body, 20px lead, 24px card title, 40px section title,
   76px display. Fluid display minimum 42px; section minimum 32px.
 - Body line-height 1.65; heading 1.06-1.2. Hero tracking -0.045em; Korean -0.04em.
@@ -59,6 +60,8 @@ Content width 1160px, fluid gutter 20-48px. Hero asymmetric 1.15fr/1fr with
 64px gap. Sections use 96px desktop and 64px mobile vertical space. At 800px
 the hero and all paired content stack in document order. Nav wraps; it never
 requires a script or drawer. Document owns all vertical scroll. Commands wrap.
+Single-column grids use `minmax(0, 1fr)` so token intrinsic widths cannot expand
+the mobile viewport at 200% text size.
 
 ## 5. Primitives and states
 
@@ -70,12 +73,15 @@ requires a script or drawer. Document owns all vertical scroll. Commands wrap.
 - Button link: >=48px tall, 4px radius, dark accent or quiet secondary variant;
   hover opacity, active transform 0.98, visible keyboard focus.
 - Code block: selectable real code, bordered surface, 8px radius, wraps long
-  commands rather than making the page scroll horizontally.
+  commands rather than making the page scroll horizontally. Hyphenated command
+  tokens form inline boxes that move intact when they fit, but still wrap if a
+  200% text-size token exceeds the whole container. Selection text stays exact.
 - Memory ledger: semantic figure/figcaption, labelled conceptual illustration
   with genuine documented INDEX/detail/handoff concepts. No fabricated output.
 - Feature row: numbered label, concise heading, paragraph, optional source link.
 - Measurement: tabular number text and explicit unit/corpus adjacent; all
-  caveats visible, not hidden behind a disclosure.
+  caveats visible, not hidden behind a disclosure. Short ranges and quantities
+  keep their units together.
 - Reference card: heading/body/link, neutral border, 8px radius; no hover lift
   on noninteractive content.
 - Native details: optional long context, default/expanded states; summary has
@@ -94,6 +100,8 @@ decorative animation or scroll-driven motion. All content is visible on first
 paint. Reduced motion removes press displacement and preserves opacity feedback.
 Button hover uses opacity 0.85 and press uses 0.75, so reduced-motion users still
 see distinct press feedback. The header home link gains an underline on hover.
+Secondary action borders use the muted-text token to exceed 3:1 contrast.
+In-page install actions use a downward arrow; external references use an up-right arrow.
 Native language anchors work without JavaScript. Focus follows DOM order.
 
 ## 7. Depth and surface
