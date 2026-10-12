@@ -71,7 +71,12 @@ def _parser() -> argparse.ArgumentParser:
 def resolve_budget(args: argparse.Namespace,
                    environ: Mapping[str, str] = os.environ) -> CapacityBudget:
     """Env budget with CLI flags overriding; invalid values raise."""
-    env = budget_from_env(environ)
+    fallback = dict(environ)
+    if args.max_protected_notes is not None:
+        fallback.pop(ENV_MAX_PROTECTED, None)
+    if args.max_vault_bytes is not None:
+        fallback.pop(ENV_MAX_BYTES, None)
+    env = budget_from_env(fallback)
     return CapacityBudget(
         parse_limit("--max-protected-notes", args.max_protected_notes)
         if args.max_protected_notes is not None else env.max_protected,
@@ -97,7 +102,10 @@ def main(argv: list[str] | None = None) -> int:
         log.error("the MCP SDK is not installed (%s). Install the optional "
                   "extra: pip install \"birkin-mnemosyne[mcp]\"", exc.name)
         return 2
-    vault = resolve_vault(args.vault)
+    try:
+        vault = resolve_vault(args.vault)
+    except OSError as exc:
+        parser.error(f"cannot open vault {exc.filename}: {exc.strerror}")
     log.info("serving vault %s (evidence_required=%s, require_memory_index=%s)",
              vault, args.evidence_required, args.require_memory_index)
     identity_raw = args.identity_root or os.environ.get("MNEMOSYNE_IDENTITY_ROOT")

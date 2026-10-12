@@ -49,7 +49,7 @@ def scan_import(import_path: Path) -> tuple[ImportCandidate, ...]:
     if root.is_file():
         if root.name.startswith(".") or root.name == "_archive":
             raise MemoryIndexError(f"import file is not a visible source: {root.name}")
-        if root.suffix not in SUPPORTED_SUFFIXES:
+        if root.suffix.lower() not in SUPPORTED_SUFFIXES:
             raise MemoryIndexError(f"import file must be .md, .txt or .json: {root.name}")
         return (_candidate(root, root.name),)
     if root.is_dir():
@@ -59,7 +59,7 @@ def scan_import(import_path: Path) -> tuple[ImportCandidate, ...]:
 
 def destination_name(relative: str) -> str:
     """Converted destination basename below the import namespace."""
-    return relative if PurePosixPath(relative).suffix == ".md" else f"{relative}.md"
+    return relative if PurePosixPath(relative).suffix.lower() == ".md" else f"{relative}.md"
 
 
 def _scan_directory(root: Path) -> tuple[ImportCandidate, ...]:
@@ -73,7 +73,7 @@ def _scan_directory(root: Path) -> tuple[ImportCandidate, ...]:
             _refuse_link(node)
             if node.is_dir():
                 pending.append(node)
-            elif node.is_file() and node.suffix in SUPPORTED_SUFFIXES:
+            elif node.is_file() and node.suffix.lower() in SUPPORTED_SUFFIXES:
                 relative = node.relative_to(root).as_posix()
                 candidate = _candidate(node, relative)
                 destination = destination_name(relative)
@@ -91,7 +91,7 @@ def _candidate(path: Path, relative: str) -> ImportCandidate:
         text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise MemoryIndexError(f"import source is not valid UTF-8: {relative}") from exc
-    format_ = FORMAT_BY_SUFFIX[path.suffix]
+    format_ = FORMAT_BY_SUFFIX[path.suffix.lower()]
     warning: str | None = None
     if format_ == "json":
         try:

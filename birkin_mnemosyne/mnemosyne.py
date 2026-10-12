@@ -744,7 +744,7 @@ class Mnemosyne:
         out: dict[str, tuple[str, float, int]] = {}
 
         def add(name: str, full: str, rel: str) -> None:
-            if not name.endswith(".md"):
+            if name.startswith(".") or not name.lower().endswith(".md"):
                 return
             try:
                 st = os.stat(full)

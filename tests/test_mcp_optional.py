@@ -6,6 +6,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import pytest
+
 from birkin_mnemosyne import mcp_server
 
 BLOCK_SDK = "import sys; sys.modules['mcp'] = None; "
@@ -87,3 +89,47 @@ def test_invalid_capacity_env_fails_at_start(tmp_path):
     assert r.returncode == 2
     assert "MNEMOSYNE_MAX_PROTECTED_NOTES" in r.stderr
     assert r.stdout == ""
+
+
+@pytest.mark.parametrize(
+    ("flag", "variable", "field"),
+    [
+        ("--max-protected-notes", "MNEMOSYNE_MAX_PROTECTED_NOTES", "max_protected"),
+        ("--max-vault-bytes", "MNEMOSYNE_MAX_VAULT_BYTES", "max_bytes"),
+    ],
+)
+def test_explicit_budget_overrides_invalid_environment(flag, variable, field):
+    # Given an invalid lower-priority source and a valid explicit value.
+    args = mcp_server._parser().parse_args([flag, "5"])
+
+    # When the effective budget is resolved.
+    budget = mcp_server.resolve_budget(args, {variable: "broken"})
+
+    # Then only the chosen source controls that budget field.
+    assert getattr(budget, field) == 5
+
+
+def test_override_does_not_hide_another_invalid_budget():
+    args = mcp_server._parser().parse_args(["--max-protected-notes", "5"])
+    with pytest.raises(ValueError, match="MNEMOSYNE_MAX_VAULT_BYTES"):
+        mcp_server.resolve_budget(args, {"MNEMOSYNE_MAX_VAULT_BYTES": "broken"})
+
+
+def test_existing_file_vault_reports_startup_error_without_traceback(tmp_path):
+    pytest.importorskip("mcp")
+    # Given a file mistakenly configured as the vault.
+    path = tmp_path / "not-a-vault"
+    path.write_bytes(b"preserve original bytes")
+
+    # When the real MCP entry point starts.
+    result = subprocess.run(
+        [sys.executable, "-m", "birkin_mnemosyne.mcp_server", "--vault", str(path)],
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+
+    # Then startup fails cleanly before emitting protocol data or touching it.
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "Traceback" not in result.stderr
+    assert str(path) in result.stderr
+    assert path.read_bytes() == b"preserve original bytes"

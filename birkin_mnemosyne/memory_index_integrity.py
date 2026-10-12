@@ -113,14 +113,14 @@ def check_index(root: str | Path) -> IndexCheck:
                 continue
             if node.is_dir():
                 pending.append(node)
-            elif node.is_file() and node.suffix == ".md":
+            elif node.is_file() and node.suffix.lower() == ".md":
                 documents.add(node.relative_to(index.root).as_posix())
     errors: list[str] = []
     try:
         view = index.read()
     except MemoryIndexError as exc:
         return IndexCheck(
-            True, 0, len(documents), tuple(sorted(documents)), (), (str(exc),),
+            True, 0, len(documents), (), (), (str(exc),),
             (f"Memory INDEX integrity error: {exc}",),
         )
     linked = {entry.document for entry in view.entries}

@@ -9,7 +9,9 @@
   latest handoff, plus every lexical ``--task`` match.
 * ``fold`` previews curation-gated retention by default; ``--apply`` requires
   the exact ``--plan-id`` of a fresh preview.
-* ``undo`` restores a committed or prepared fold through the checked journal.
+* ``undo`` restores one committed or prepared journaled transaction -- a fold,
+  an ``init --apply`` frontmatter completion or an applied review -- through
+  the same checked journal (``mnemosyne undo`` shares this command).
 
 Success exits 0, invalid input exits 2 with a useful stderr message, and a
 missing latest capture exits 1. Only required_scope resolves project/task
@@ -23,6 +25,7 @@ import json
 import sys
 from dataclasses import asdict
 
+from .cli_vault import add_vault_option
 from .consolidation import Consolidation
 from .handoff_cli_payload import payload_capture
 from .handoff_context import required_scope
@@ -38,12 +41,15 @@ _CAPTURE_FLAGS = (
     "--project-key", "--task-key", "--capture-id", "--work", "--next-step",
     "--decision", "--open-item", "--open-question", "--link",
 )
+UNDO_HELP = ("undo one journaled transaction (init --apply, fold or review) "
+             "through the checked journal")
 
 
 class HandoffArguments(argparse.Namespace):
     """Typed parse result; the CLI namespace subclasses this for parity."""
 
     vault: str | None = None
+    family_vault: str | None = None
     handoff_command: str | None = None
     project_key: str | None = None
     task_key: str | None = None
@@ -70,6 +76,10 @@ def add_handoff_parser(
         "handoff", help="publish, resume, fold or undo scoped handoffs",
         allow_abbrev=False,
     )
+    # A separate dest: a leaf parser's own ``--vault`` default would overwrite
+    # a value parsed here (argparse copies the leaf namespace back over it).
+    _ = handoff.add_argument("--vault", dest="family_vault",
+                             help="vault root directory")
     subcommands = handoff.add_subparsers(dest="handoff_command", required=True)
     capture = subcommands.add_parser(
         "capture", help="publish an immutable handoff capture",
@@ -113,13 +123,31 @@ def add_handoff_parser(
         "--apply", action="store_true",
         help="apply the fold; requires --plan-id from preview")
     _ = fold.add_argument("--plan-id", help="64-hex plan_id from preview")
-    undo = subcommands.add_parser(
-        "undo", help="undo one journaled fold transaction", allow_abbrev=False,
+    handoff_undo = subcommands.add_parser(
+        "undo", help=UNDO_HELP, allow_abbrev=False,
     )
-    _ = undo.add_argument("--transaction", help="id from a committed fold")
+    add_vault_option(handoff_undo)
+    _add_undo_arguments(handoff_undo)
+
+
+def add_undo_parser(
+    commands: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Attach the top-level ``undo`` subcommand; same work as ``handoff undo``."""
+    undo = commands.add_parser("undo", help=UNDO_HELP, allow_abbrev=False)
+    add_vault_option(undo)
+    _add_undo_arguments(undo)
+
+
+def _add_undo_arguments(parser: argparse.ArgumentParser) -> None:
+    _ = parser.add_argument(
+        "--transaction",
+        help="journaled transaction id, as printed by init --apply "
+             "(undo_transaction), an applied fold or an applied review")
 
 
 def _add_scope_args(parser: argparse.ArgumentParser) -> None:
+    add_vault_option(parser)
     _ = parser.add_argument(
         "--project-key",
         help="opaque project key; required unless MNEMOSYNE_PROJECT_KEY is set")
@@ -130,7 +158,6 @@ def _add_scope_args(parser: argparse.ArgumentParser) -> None:
 def run_handoff(args: HandoffArguments, arguments: list[str],
                 parser: argparse.ArgumentParser) -> int:
     """Dispatch one validated handoff command; returns the process status."""
-    _duplicate(parser, arguments, "--vault")
     vault = args.vault
     assert vault is not None
     match args.handoff_command:
@@ -143,7 +170,7 @@ def run_handoff(args: HandoffArguments, arguments: list[str],
         case "fold":
             return _fold(vault, args, arguments, parser)
         case "undo":
-            return _undo(vault, args, arguments, parser)
+            return run_undo(vault, args, arguments, parser)
         case _:
             raise AssertionError(
                 f"unknown handoff command: {args.handoff_command}")
@@ -241,8 +268,9 @@ def _fold(vault: str, args: HandoffArguments, arguments: list[str],
     return 0
 
 
-def _undo(vault: str, args: HandoffArguments, arguments: list[str],
-          parser: argparse.ArgumentParser) -> int:
+def run_undo(vault: str, args: HandoffArguments, arguments: list[str],
+             parser: argparse.ArgumentParser) -> int:
+    """Restore one journaled transaction; identical for ``mnemosyne undo``."""
     _duplicate(parser, arguments, "--transaction")
     if args.transaction is None:
         parser.error("--transaction is required")

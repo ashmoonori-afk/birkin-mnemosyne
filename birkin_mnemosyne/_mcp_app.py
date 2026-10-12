@@ -631,8 +631,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         try:
             questions = service.questions(limit)
             report = capacity_report(dex, budget)
+            over_budget = any(report["over_budget"].values())
             retire = (service.retire_questions(limit, budget)
-                      if report["warnings"] else ())
+                      if over_budget else ())
         except (OSError, UnicodeError, ValueError) as exc:
             raise _review_failure(exc, vault) from exc
         result: dict[str, Any] = {
@@ -646,6 +647,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                         "drop-second", "merge"]}
         if report["warnings"]:
             result["capacity"] = report
+        if over_budget:
             result["retire_questions"] = [
                 {**asdict(q), "question": q.text} for q in retire]
             result["retire_choices"] = ["keep", "retire"]
@@ -884,7 +886,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_startup_read(
-        paths: Annotated[list[str], Field(max_length=64)],
+        paths: Annotated[list[str], Field(default_factory=list, max_length=64)],
         task: str | None = None,
         project_key: str | None = None,
         task_key: str | None = None,
@@ -921,7 +923,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_startup_verify(
-        paths: Annotated[list[str], Field(max_length=64)], context: str,
+        context: str,
+        paths: Annotated[list[str], Field(default_factory=list, max_length=64)],
         task: str | None = None,
         project_key: str | None = None,
         task_key: str | None = None,
