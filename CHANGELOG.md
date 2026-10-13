@@ -4,6 +4,15 @@
 
 ### Added
 
+- Recursive vault discovery by default, including nested imports and folders
+  with spaces or Unicode names. Hidden files/directories, dependency caches,
+  symlinks and Windows reparse points are excluded. Duplicate filename stems
+  select the newest file, with a warning; equal timestamps select the
+  lexicographically smallest POSIX relative path.
+- Complete relative zone paths across labels, INDEX routing, startup reads,
+  curation and MCP. Archive moves preserve the original relative subpath;
+  journal undo restores exact paths and bytes. MCP restore keeps its inbox
+  default and accepts an explicit nested destination.
 - Repeatable `--label namespace:value` filters for CLI `search` and `list`,
   matching MCP AND semantics before ranking, pagination and label counts.
 - Read-only `mnemosyne search`, `list` and `show` print the same JSON fields as
@@ -16,6 +25,14 @@
 
 ### Fixed
 
+- Nested writes, moves and journal archive/undo refuse symlink or Windows
+  reparse-point destinations and parent folders, preserving the source
+  rather than following a link into another directory.
+- Archived descendants, including case-variant archive components, stay out
+  of active search, rendering, catalogs and curation limits. Nested rezone
+  targets cannot bypass archive protection or caps.
+- Path-bound consolidation answers validate the offered document rather
+  than an unrelated duplicate-stem winner.
 - Corrupt INDEX state still reports inventory and errors, but no longer
   classifies documents as orphaned when their routes cannot be read.
 - Supported source extensions are recognized case-insensitively across recall,

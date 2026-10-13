@@ -415,6 +415,7 @@ mnemosyne --vault my_vault init --import ./markdown_export --apply \
 타이틀 `Infra`·유형 `project`인 `x.md`, 일반 텍스트 `notes.txt`,
 `{"project": "Infra"}`를 담은 `data.json`. 전체 CLI 리포트에는 원본 해시,
 라우트, 변경 계획, 검증 상태도 포함됩니다:
+아래의 `<digest>`는 실제 64자리 가져오기 다이제스트를 줄여 쓴 것입니다.
 
 ```json
 {"mode": "preview", "ok": true, "notes": 4, "imports": 3, "topics": 3,
@@ -422,7 +423,7 @@ mnemosyne --vault my_vault init --import ./markdown_export --apply \
  "label_counts": [["format:json", 1], ["format:md", 1], ["format:txt", 1],
    ["project:Infra", 1], ["source:data.json", 1], ["source:notes.txt", 1],
    ["source:x.md", 1], ["type:project", 1], ["type:topic", 3],
-   ["zone:imports", 3], ["zone:notes", 1]],
+   ["zone:imports/init-<digest>", 3], ["zone:notes", 1]],
  "undo_transaction": null}
 ```
 
@@ -494,9 +495,10 @@ MCP에서 같은 필터가 도구 인자로 노출됩니다. `memory_search`의 
 }
 ```
 
-일반 검색은 여전히 루트와 한 단계 영역만 인덱스합니다. `init --import`가 만든
-중첩 복사본(`imports/init-<digest>/...`)은 검색 코퍼스를 조용히 넓히지 않으며,
-경로 키 INDEX 라우트(정확 트리거)와 그룹 카탈로그로만 도달할 수 있습니다.
+일반 검색은 모든 깊이의 공개 Markdown을 재귀적으로 인덱스하며,
+`init --import`가 만든 중첩 복사본(`imports/init-<digest>/...`)도 포함합니다.
+INDEX 라우트는 정확한 상대 경로와 그룹 카탈로그를 유지합니다. 새로 추론한
+`zone:` 라벨은 전체 부모 경로를 사용하며 기존 수동 라벨은 유지합니다.
 
 ### Hermes에서
 
@@ -1211,7 +1213,7 @@ from birkin_mnemosyne import (
 ## 볼트 레이아웃과 설정
 
 노트는 슬러그 이름의 Markdown 파일이며 YAML 프론트매터와 `[[wikilinks]]`를
-씁니다. 영역은 한 단계 디렉터리이고, 볼트 루트가 인박스입니다.
+씁니다. 영역은 전체 상대 디렉터리 경로이고, 볼트 루트가 인박스입니다.
 
 ```text
 my_vault/
@@ -1220,11 +1222,14 @@ my_vault/
     ingress-dns.md
   people/
   projects/
+    Active Work/
+      roadmap.md
   identity/
   knowledge/
   journal/
   system/                       # ProfileMemory가 소유하는 역할 파일
   _archive/                     # 소프트 삭제된 노트
+    projects/Active Work/       # 보관 시 원래 부모 경로 유지
   .mnemosyne-memory-index/       # 옵트인; index.json 라우팅과 상주 맥락 맵
   .mnemosyne-handoffs/           # 불변 범위별 기록·요약·아카이브·활성화 설정
   .mnemosyne-index.json.z        # 다시 만들 수 있는 압축 인덱스 캐시
@@ -1233,6 +1238,29 @@ my_vault/
   .mnemosyne-reviews/            # 리뷰 실행 취소 저널(<transaction-id>.json)
   .mnemosyne-mcp.lock            # 프로세스 간 쓰기 잠금
 ```
+
+탐색은 기본적으로 재귀적입니다. 숨김 파일·디렉터리(`.git`, `.obsidian` 포함),
+`node_modules`, `__pycache__`, 심볼릭 링크와 Windows 리파스 포인트는 따라가지
+않습니다. 파일명에서 확장자를 뺀 이름을 계속 노트 키로 사용합니다. 같은 키가
+여러 경로에 있으면 수정 시간이 최신인 파일을 선택하고 충돌 경고를 남깁니다.
+시간이 같으면 POSIX 상대 경로의 사전순 첫 파일을 선택합니다. INDEX 라우트는
+키가 아니라 정확한 경로를 유지합니다.
+
+예를 들어 `zone="projects/Active Work"`는 쓰기와 영역별 검색에서 전체 부모
+경로를 지정합니다. 중첩 경로나 사람이 붙인 이름은 표기를 유지하고, 기존의
+단순 이름은 계속 정규화합니다(`"Projects"` → `"projects"`). 절대 경로,
+드라이브·UNC, 상위 경로 이동, 역슬래시와 숨김·캐시 경로는 거부됩니다.
+Windows에서 허용되지 않는 파일명 문자와 구성 요소 끝의 점·공백도 거부됩니다.
+쓰기·이동·저널 작업은 연결된 대상 파일이나 부모 폴더도 거부합니다.
+Windows 리파스 포인트도 같은 규칙을 따릅니다.
+
+`projects/Active Work/roadmap.md`를 보관하면
+`_archive/projects/Active Work/roadmap.md`로 이동합니다. 어느 깊이에 있든
+`_archive` 구성 요소는 대소문자와 관계없이 활성 보기에서 제외되며,
+`zone="_archive"`로 보관 트리를 검색합니다. MCP `memory_restore`의 기본
+목적지는 계속 인박스입니다. 중첩 부모를 고르려면
+`zone="projects/Active Work"`를 지정하세요. 저널 되돌리기는 원래 경로와
+바이트를 복원하며, 실행 후 파일이 바뀌었다면 거부합니다.
 
 인덱스 캐시, 벡터 파일, 잠금 파일은 Mnemosyne 프로세스가 볼트를 쓰는 동안이
 아닐 때만 지워도 안전합니다. 캐시는 자동으로 다시 만들어지고(벡터 파일이 없으면

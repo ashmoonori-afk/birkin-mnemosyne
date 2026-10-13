@@ -16,6 +16,7 @@ from .labels import LabelContext, annotate_labels, read_labels
 from .memory import _one_line, _yaml_str
 from .memory_index import JsonValue, MemoryIndex, MemoryIndexError
 from .startup_coverage import digest
+from .vault_paths import hidden_or_cache
 
 CATALOGUE_MARKER: Final = b"<!-- mnemosyne-init-catalogue:v1 -->\n"
 CATALOGUE_NAME: Final = re.compile(r"init-([a-f0-9]{64})\.md")
@@ -54,7 +55,7 @@ def inventory(root: Path) -> tuple[SourceBytes, ...]:
     identities: set[str] = set()
     while pending:
         for node in sorted(pending.pop().iterdir()):
-            if node.name.startswith(".") or node.name == "_archive":
+            if hidden_or_cache(node.name) or node.name.casefold() == "_archive":
                 continue
             attributes = getattr(node.lstat(), "st_file_attributes", 0)
             if node.is_symlink() or attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0):

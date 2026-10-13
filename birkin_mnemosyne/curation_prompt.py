@@ -5,9 +5,9 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from . import mnemosyne
 from .curation_contract import PLAN_VERSION
 from .mnemosyne import Mnemosyne
+from .vault_paths import archived_zone
 
 
 _FENCED_JSON = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.S)
@@ -70,7 +70,7 @@ def mechanical_catalog(dex: Mnemosyne, now: datetime | None = None) -> dict[str,
     entries = dex.entries()
     notes = []
     for s, e in sorted(entries.items()):
-        if e["zone"] == mnemosyne.ARCHIVE_ZONE:
+        if archived_zone(e["zone"]):
             continue
         related = [h["slug"] for h in dex.related(s, limit=4)]
         notes.append({"slug": s, "title": e["title"], "zone": e["zone"] or "inbox",
@@ -78,7 +78,7 @@ def mechanical_catalog(dex: Mnemosyne, now: datetime | None = None) -> dict[str,
                       "summary": e["summary"], "links": e["links"],
                       "related_candidates": related})
     zones = sorted({e["zone"] for e in entries.values()
-                    if e["zone"] and e["zone"] != mnemosyne.ARCHIVE_ZONE})
+                    if e["zone"] and not archived_zone(e["zone"])})
     stale = [{"slug": s["slug"], "title": s["title"]}
              for s in dex.stale(now=now)]
     return {"notes": notes, "existing_zones": zones, "stale_candidates": stale}

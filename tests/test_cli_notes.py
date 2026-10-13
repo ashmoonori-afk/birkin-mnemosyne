@@ -111,7 +111,7 @@ def test_invalid_zone_and_limit_exit_two(tmp_path: Path) -> None:
     # Given a vault that must not be read on invalid input.
     vault = seeded_vault(tmp_path)
 
-    for case in (("search", "릴리스", "--zone", "Not A Zone"),
+    for case in (("search", "릴리스", "--zone", "../escape"),
                  ("search", "릴리스", "--limit", "0"),
                  ("list", "--limit", "501"),
                  ("list", "--offset", "-1")):
@@ -208,4 +208,46 @@ def test_label_filters_are_anded_before_results_and_counts(
         assert payload["notes"][0]["slug"] in {"match-alpha", "match-beta"}
     else:
         assert {hit["slug"] for hit in payload["results"]} == {"match-alpha", "match-beta"}
+    assert digests(vault) == before
+
+
+@pytest.mark.parametrize("command", [("list",), ("search", "quartz")])
+def test_nested_zone_filter_accepts_the_full_parent(
+    tmp_path: Path, command: tuple[str, ...],
+) -> None:
+    vault = tmp_path / "vault"
+    memory = VaultMemory({"vault_path": str(vault)})
+    memory.write_note("Inside", "quartz nested fixture", zone="Work/Team")
+    memory.write_note("Outside", "quartz other fixture", zone="Work/Other")
+    memory.dex.flush()
+    before = digests(vault)
+    result = run_cli(*command, "--zone", "Work/Team", "--vault", str(vault), cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    rows = payload["notes" if command[0] == "list" else "results"]
+    assert [row["slug"] for row in rows] == ["inside"]
+    assert rows[0]["zone"] == "Work/Team"
+    assert digests(vault) == before
+
+
+def test_list_excludes_nested_archives_and_archive_scope_includes_them(
+    tmp_path: Path,
+) -> None:
+    vault = tmp_path / "vault"
+    memory = VaultMemory({"vault_path": str(vault)})
+    memory.write_note("Live", "quartz active fixture", zone="Work/Team", labels=["topic:live"])
+    memory.write_note("Old", "quartz archived fixture", zone="Work/Team", labels=["topic:old"])
+    memory.rezone("Old", "_archive")
+    memory.dex.flush()
+    before = digests(vault)
+    active = run_cli("list", "--vault", str(vault), cwd=tmp_path)
+    archived = run_cli("list", "--zone", "_archive", "--vault", str(vault), cwd=tmp_path)
+    assert active.returncode == archived.returncode == 0
+    active_rows, archive_rows = json.loads(active.stdout), json.loads(archived.stdout)
+    assert active_rows["total"] == 1
+    assert [row["slug"] for row in active_rows["notes"]] == ["live"]
+    assert active_rows["label_counts"] == {"topic:live": 1}
+    assert archive_rows["total"] == 1
+    assert archive_rows["notes"][0]["slug"] == "old"
+    assert archive_rows["notes"][0]["zone"] == "_archive/Work/Team"
     assert digests(vault) == before

@@ -179,7 +179,7 @@ def test_gate_rejects_invalid_zone_and_selflink():
     snap = _snap(vault)
     s = mnemosyne.slug("Budget plan")
     plan = {"plan_version": 1, "ops": [
-        {"op": "rezone", "slug": s, "zone": "Bad Zone!"},
+        {"op": "rezone", "slug": s, "zone": "../escape"},
         {"op": "link", "a": s, "b": s}]}
     g = curation.validate_clamp(plan, dex, snap, now=NOW)
     assert g.accepted == []

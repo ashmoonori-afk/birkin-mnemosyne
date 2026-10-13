@@ -343,6 +343,40 @@ def test_edited_import_destination_refused_for_txt(tmp_path: Path) -> None:
     assert (external / "x.txt").read_bytes() == b"original\n"
 
 
+def test_nested_import_zone_label_matches_the_complete_destination_parent(
+    tmp_path: Path,
+) -> None:
+    # Given a raw import nested in a subdirectory of the source tree.
+    external, root = tmp_path / "external", tmp_path / "vault"
+    external.mkdir()
+    _ = (external / "notes").mkdir()
+    raw = b"deep body\n"
+    _ = (external / "notes" / "deep.txt").write_bytes(raw)
+
+    # When it is applied, re-applied and undone.
+    plan = plan_init(root, import_dir=external)
+    first = run_init(plan, apply=True)
+    assert first.ok and first.imports == 1
+    document = first.import_documents[0]
+    parent = "/".join(document.split("/")[:-1])
+    meta, _ = frontmatter.parse(
+        (root / document).read_bytes().decode("utf-8-sig"))
+    zones = [label for label in meta["labels"]
+             if isinstance(label, str) and label.startswith("zone:")]
+    assert zones == [f"zone:{parent}"]
+    assert zones[0].startswith("zone:imports/init-") and zones[0].endswith("/notes")
+
+    # Then reruns stay stable and undo restores the pre-normalized candidate.
+    image = tree(root)
+    second = run_init(plan_init(root, import_dir=external), apply=True)
+    assert second.ok and second.mutations == 0 and second.journal is None
+    assert tree(root) == image
+    assert first.undo_transaction is not None
+    _ = undo_receipt(root, first.undo_transaction)
+    assert (root / document).read_bytes() == plan.imports[0].destination.raw
+    assert (external / "notes" / "deep.txt").read_bytes() == raw
+
+
 def test_preview_writes_no_files_locks_or_caches(tmp_path: Path) -> None:
     # Given an external tree with every format and no vault.
     external, root = tmp_path / "external", tmp_path / "vault"

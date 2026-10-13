@@ -146,7 +146,7 @@ def suggest_labels(raw: bytes, context: LabelContext) -> tuple[str, ...]:
     parts = PurePosixPath(context.path).parts
     if not any(label.startswith("zone:") for label in candidates):
         if len(parts) > 1 and not parts[0].startswith("."):
-            add("zone", parts[0])
+            add("zone", "/".join(parts[:-1]))
     add("source", context.source)
     add("format", context.format)
     valid = [label for label in candidates if is_valid_label(label)]

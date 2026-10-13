@@ -20,7 +20,8 @@ from typing import Any
 from . import frontmatter
 from .label_values import LabelError, normalize_labels
 from .memory import _is_expired, _snippet
-from .mnemosyne import ARCHIVE_ZONE, ZONE_RE, Mnemosyne, slug, tokenize
+from .mnemosyne import ARCHIVE_ZONE, Mnemosyne, normalize_zone, slug, tokenize
+from .vault_paths import archived_zone
 
 NOTE_COMMANDS = ("search", "list", "show")
 ABSENT_EXIT = 1
@@ -86,15 +87,10 @@ def run_notes(command: str, vault: Path, args: argparse.Namespace,
 def _zone(zone: str | None, parser: argparse.ArgumentParser) -> str | None:
     if zone is None:
         return None
-    name = zone.strip().lower()
-    if name in ("", "inbox"):
-        return ""
-    if name == ARCHIVE_ZONE:
-        return ARCHIVE_ZONE
-    if not ZONE_RE.fullmatch(name):
-        parser.error(f"invalid --zone {zone!r} (want lowercase letters, "
-                     "digits and hyphens, max 32, or 'inbox')")
-    return name
+    try:
+        return normalize_zone(zone, allow_archive=True)
+    except ValueError as exc:
+        parser.error(f"invalid --zone {zone!r}: {exc}")
 
 
 def _bounded(value: int, high: int, flag: str,
@@ -150,9 +146,13 @@ def _list(dex: Mnemosyne, args: argparse.Namespace,
     for key, entry in dex.entries().items():
         if _is_expired(entry):
             continue
-        if zone is None and entry["zone"] == ARCHIVE_ZONE:
-            continue
-        if zone is not None and entry["zone"] != zone:
+        if zone == ARCHIVE_ZONE:
+            if not archived_zone(entry["zone"]):
+                continue
+        elif zone is not None:
+            if entry["zone"] != zone:
+                continue
+        elif archived_zone(entry["zone"]):
             continue
         try:
             normalized = normalize_labels(entry.get("labels") or ())

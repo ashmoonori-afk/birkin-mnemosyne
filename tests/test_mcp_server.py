@@ -628,7 +628,7 @@ def test_retire_question_apply_dry_run_confirm_and_undo(tmp_path):
     receipt = budgeted(tmp_path, budget, "memory_review_apply",
                        {**args, "confirm": True})
     assert receipt["state"] == "committed"
-    assert (tmp_path / "_archive" / Path(question["note"]["path"]).name).is_file()
+    assert (tmp_path / "_archive" / Path(question["note"]["path"])).is_file()
     ok(tmp_path, "memory_review_undo",
        {"transaction_id": receipt["transaction_id"], "confirm": True})
     assert _files(tmp_path) == before

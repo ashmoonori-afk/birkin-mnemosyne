@@ -28,6 +28,7 @@ from .journal_moves import (
     restore_move,
 )
 from .mnemosyne import Mnemosyne
+from .vault_paths import checked_note_path
 
 State = Literal["prepared", "committed", "rolled-back", "recovery-required", "undone"]
 
@@ -132,12 +133,13 @@ def _save(path: Path, manifest: Manifest) -> None:
 
 
 def _safe(vault: Path, relative: str) -> Path:
-    path = vault / relative
     if not relative or Path(relative).is_absolute() or \
-            not path.resolve().is_relative_to(vault) or path.is_symlink() or \
-            not relative.endswith(".md"):
+            not relative.lower().endswith(".md"):
         raise ReviewError(f"unsafe journal path: {relative!r}")
-    return path
+    try:
+        return checked_note_path(vault, relative)
+    except ValueError as exc:
+        raise ReviewError(f"unsafe journal path: {relative!r}") from exc
 
 
 def _journal_ref(vault: Path, path: Path) -> str:

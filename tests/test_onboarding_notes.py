@@ -154,3 +154,30 @@ def test_recursive_inventory_preserves_equal_basenames_without_writes(tmp_path: 
     assert [source.path for source in sources] == ["a/deep/policy.md", "b/deep/policy.md"]
     assert {path: (path.read_bytes(), path.stat().st_mtime_ns)
             for path in tmp_path.rglob("*.md")} == before
+
+
+def test_describe_note_uses_the_complete_parent_as_zone_for_nested_sources() -> None:
+    # Given a nested source without an existing labels field.
+    source = SourceBytes("knowledge/nested/policy.md", b"# Policy\n")
+
+    # When the note is described for onboarding.
+    note = describe_note(source)
+
+    # Then the inferred zone matches the engine's full relative parent.
+    assert "zone:knowledge/nested" in note.labels
+    assert b"labels: " in note.normalized
+    assert note.raw == source.raw
+
+
+def test_catalogue_links_nested_members_with_their_full_paths() -> None:
+    # Given nested and flat members sharing one topic.
+    flat = describe_note(SourceBytes("knowledge/policy.md", b"flat\n"))
+    nested = describe_note(SourceBytes("knowledge/nested/policy.md", b"nested\n"))
+    created = catalogue(flat.topic, (flat, nested))
+
+    # Then each link keeps the exact relative path and the catalogue round-trips.
+    assert b"](../knowledge/policy.md)" in created.raw
+    assert b"](../knowledge/nested/policy.md)" in created.raw
+    assert sorted(member.path for member in (flat, nested)) == [
+        "knowledge/nested/policy.md", "knowledge/policy.md"]
+    assert generated_catalogue(created)
