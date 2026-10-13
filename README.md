@@ -12,12 +12,26 @@ search notes. Notes stay readable, greppable and diffable; an optional MCP
 server connects the vault to agent clients, and an opt-in semantic mode adds
 meaning-based retrieval.
 
+## 0.7.1: nested folders and terminal reads
+
+Visible Markdown notes are discovered recursively, including nested imports
+and folders with spaces or Unicode names. Hidden files, cache folders and
+links remain excluded. Zones use the complete relative parent; archive moves
+keep the original subpath, and checked undo restores exact paths and bytes.
+Duplicate filename stems select the newest file with a warning and a
+deterministic path tie-break.
+
+The published package also includes read-only `search`, `list` and `show`,
+repeatable CLI label filters, `--version`, and journaled `undo`. Terminal and
+MCP commands share the documented vault defaults. These changes do not add
+a model requirement or turn labels into ranking terms.
+
 ## Install
 
 Requires Python >= 3.10. Install from PyPI:
 
 ```bash
-pip install birkin-mnemosyne
+pip install "birkin-mnemosyne==0.7.1"
 ```
 
 From a checkout, the existing development and benchmark commands are:
@@ -35,12 +49,12 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## Quick start for agent users
 
-This section includes unreleased CLI additions. Install this checkout to use
-them; the published-package setup remains in the MCP server section below.
+The commands below ship in 0.7.1. Install the published MCP extra to connect
+your agent; a source checkout is not required.
 Give your coding agent a memory, then check from a terminal what it stored:
 
 ```bash
-pip install -e ".[mcp]"
+pip install "birkin-mnemosyne[mcp]==0.7.1"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # Start a new agent session and ask it to remember a note titled

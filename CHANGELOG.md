@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.1 - 2026-10-14
 
 ### Added
 
@@ -57,6 +57,16 @@
   fallback). `check`, `split` and `handoff` no longer fail without `--vault`.
 - `~` is expanded in `--vault`, `$MNEMOSYNE_VAULT` and `init --import`, so a
   quoted `~/mnemosyne` no longer creates a literal `~` directory.
+
+### Documentation
+
+- English and Korean installation and quick-start examples use the published
+  0.7.1 package rather than requiring a checkout for the terminal commands.
+- English and Korean landing pages describe nested folders and read-only
+  terminal inspection, with the existing measurement limits retained.
+- Hermes plugin 0.2.2 pins core 0.7.1 through its matching manifests and
+  documented plugin-manager installation. OpenClaw's install example also
+  pins core 0.7.1.
 
 ## 0.7.0 - 2026-10-11
 
