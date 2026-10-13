@@ -137,7 +137,11 @@ jobs:
           report["workflow_snapshots_readable"] = all(item is not None for item in workflow_sets)
           report["workflow_snapshot_changes"] = workflow_sets[0] != workflow_sets[1]
           probes = []
-          for label, sha in (("fork", fork_sha), ("upstream", upstream_sha)):
+          for label, sha in (
+              ("fork", fork_sha),
+              ("upstream", upstream_sha),
+              ("catalog-ancestor", "367fac064ec05aa76fba31695c36f97b454c0e2e"),
+          ):
               branch = "catalog/birkin-mnemosyne-v0.7.1-probe-" + label + "-" + os.environ["GITHUB_RUN_ID"]
               encoded = urllib.parse.quote(branch, safe="")
               status, _, _, _ = github("GET", fork + "/git/ref/heads/" + encoded)
