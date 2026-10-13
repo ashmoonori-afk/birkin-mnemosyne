@@ -62,7 +62,7 @@ def inventory(root: Path) -> tuple[SourceBytes, ...]:
                 raise MemoryIndexError(f"refusing linked source: {node.relative_to(index.root)}")
             if node.is_dir():
                 pending.append(node)
-            elif node.is_file() and node.suffix == ".md":
+            elif node.is_file() and node.suffix.lower() == ".md":
                 relative = node.relative_to(index.root).as_posix()
                 _ = index.document_path(relative)
                 identity = unicodedata.normalize("NFC", relative).casefold()

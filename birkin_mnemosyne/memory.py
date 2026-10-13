@@ -115,7 +115,7 @@ def _iter_note_files(vault: Path) -> Iterator[Path]:
                     is_file = e.is_file(follow_symlinks=False)
                 except OSError:
                     continue
-                if is_file and e.name.endswith(".md"):
+                if is_file and e.name.lower().endswith(".md"):
                     yield Path(e.path)
 
 

@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from birkin_mnemosyne import mnemosyne
+from birkin_mnemosyne.consolidation import Answer, Consolidation
 from birkin_mnemosyne.vault_paths import archived_zone
 
 NOW = datetime(2026, 7, 2, 12, 0, 0, tzinfo=timezone.utc)
@@ -46,6 +47,30 @@ def _note(vault: Path, rel: str, body: str = "body text") -> Path:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(f"---\ntitle: {p.stem}\n---\n\n{body}\n", encoding="utf-8")
     return p
+
+
+def test_nested_archive_and_restore_keep_mixed_case_filename(tmp_path: Path) -> None:
+    original = _note(tmp_path, "Work/Team/Original.MD")
+    before = original.read_bytes()
+    engine = mnemosyne.Mnemosyne(tmp_path)
+    archived = engine.rezone("Original", "_archive")
+    assert archived.relative_to(tmp_path).as_posix() == "_archive/Work/Team/Original.MD"
+    assert archived.read_bytes() == before
+    restored = engine.rezone("Original", "Work/Restored")
+    assert restored.relative_to(tmp_path).as_posix() == "Work/Restored/Original.MD"
+    assert restored.read_bytes() == before
+
+
+def test_nested_review_journal_preserves_mixed_case_extensions(tmp_path: Path) -> None:
+    paths = [_note(tmp_path, relative, "review every release before publication")
+             for relative in ("Work/Team/first.MD", "Work/Team/second.Md")]
+    before = {path.relative_to(tmp_path).as_posix(): path.read_bytes() for path in paths}
+    review = Consolidation(tmp_path)
+    question, = review.questions()
+    receipt = review.apply(question, Answer(question.id, "drop-first"))
+    assert (tmp_path / "_archive" / question.first.path).read_bytes() == before[question.first.path]
+    assert review.undo(receipt.transaction_id).state == "undone"
+    assert {relative: (tmp_path / relative).read_bytes() for relative in before} == before
 
 
 # ---------------- recursive discovery ---------------------------------------

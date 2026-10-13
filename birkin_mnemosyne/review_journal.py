@@ -134,7 +134,7 @@ def _save(path: Path, manifest: Manifest) -> None:
 
 def _safe(vault: Path, relative: str) -> Path:
     if not relative or Path(relative).is_absolute() or \
-            not relative.endswith(".md"):
+            not relative.lower().endswith(".md"):
         raise ReviewError(f"unsafe journal path: {relative!r}")
     try:
         return checked_note_path(vault, relative)

@@ -802,7 +802,7 @@ class Mnemosyne:
                     stack.append((f"{prefix}/{e.name}" if prefix else e.name,
                                   e.path))
                     continue
-                if not is_file or not e.name.endswith(".md"):
+                if not is_file or not e.name.lower().endswith(".md"):
                     continue
                 rel = f"{prefix}/{e.name}" if prefix else e.name
                 try:
@@ -1346,7 +1346,7 @@ class Mnemosyne:
                 raise ValueError(f"zone cap reached ({MAX_ZONES}); "
                                  "re-use an existing zone")
             old = checked_note_path(self.vault, str(e["rel"]))
-            rel = f"{new_zone}/{s}.md" if new_zone else f"{s}.md"
+            rel = f"{new_zone}/{old.name}" if new_zone else old.name
             new = checked_note_path(self.vault, rel)
             if old != new:
                 # _scan tolerates same-stem files in several zones (newest

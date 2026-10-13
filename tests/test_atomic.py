@@ -16,6 +16,27 @@ WRITERS = [
     pytest.param(atomic.atomic_write_bytes, b"bytes", id="bytes"),
 ]
 
+
+@pytest.mark.parametrize(
+    ("write", "payload"),
+    [*WRITERS, pytest.param(atomic.atomic_create_bytes, b"bytes", id="exclusive")],
+)
+def test_valid_long_destination_does_not_overflow_staging_name(tmp_path, write, payload):
+    # Given a legal destination near the component or legacy Windows path limit.
+    name_length = 250
+    if os.name == "nt":
+        name_length = 250 - len(str(tmp_path)) - 1
+    target = tmp_path / ("n" * (name_length - 3) + ".md")
+
+    # When atomic publication stages data beside that destination.
+    write(target, payload)
+
+    # Then the destination's valid name does not make the temporary name invalid.
+    expected = payload.encode("utf-8") if isinstance(payload, str) else payload
+    assert target.read_bytes() == expected
+    assert list(tmp_path.iterdir()) == [target]
+
+
 posix_only = pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
 
 

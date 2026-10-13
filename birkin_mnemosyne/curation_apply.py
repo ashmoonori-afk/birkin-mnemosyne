@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import mnemosyne
+from .identity_reader import parse_sections
 from .mnemosyne import Mnemosyne
 
 
@@ -22,8 +23,14 @@ def _append_related(vault: Path, dex: Mnemosyne, s: str, target_title: str) -> b
         return False
     if f"[[{target_title}]]" in text:
         return False
-    if "## Related" in text:
-        new = text.rstrip() + f"\n- [[{target_title}]]\n"
+    related = next((section for section in parse_sections(text)
+                    if section.level == 2 and section.heading == "Related"), None)
+    if related is not None:
+        lines = text.splitlines(keepends=True)
+        before = "".join(lines[:related.line_end])
+        after = "".join(lines[related.line_end:])
+        separator = "" if before.endswith("\n") else "\n"
+        new = before + separator + f"- [[{target_title}]]\n\n" + after
     else:
         new = text.rstrip() + f"\n\n## Related\n- [[{target_title}]]\n"
     mnemosyne.atomic_write(path, new)

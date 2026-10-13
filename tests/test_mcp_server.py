@@ -597,6 +597,23 @@ def test_review_questions_add_retire_keys_only_when_over_budget(tmp_path):
     assert "budget" in question["question"]
 
 
+def test_index_budget_warning_does_not_offer_capacity_retirement(tmp_path):
+    from birkin_mnemosyne import MemoryIndex
+
+    # Given protected notes below capacity and an independently tiny INDEX budget.
+    _seed_protected(tmp_path)
+    MemoryIndex(tmp_path).enable(max_tokens=1)
+
+    # When an agent requests review questions.
+    result = ok(tmp_path, "memory_review_questions")
+
+    # Then INDEX warnings stay visible without suggesting capacity retirement.
+    assert result["capacity"]["warnings"]
+    assert result["capacity"]["over_budget"] == {"protected": False, "bytes": False}
+    assert "retire_questions" not in result
+    assert "retire_choices" not in result
+
+
 def test_retire_question_apply_dry_run_confirm_and_undo(tmp_path):
     from birkin_mnemosyne.capacity import CapacityBudget
     budget = CapacityBudget(1, None)

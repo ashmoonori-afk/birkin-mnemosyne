@@ -15,3 +15,5 @@ vault/
 benchmarks/results/
 *.local.*
 .DS_Store
+.vercel/
+.env.local

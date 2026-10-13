@@ -1,10 +1,12 @@
 name: release
 
 # Builds the sdist and wheel, checks them, and publishes to PyPI through a
-# Trusted Publisher (OIDC): no API token, no secret. Run by hand for now; add
-# `release: {types: [published]}` once the PyPI publisher for this repository
-# and the "pypi" environment exists.
+# Trusted Publisher (OIDC): no API token, no secret. Runs when a GitHub release
+# is published, or by hand. After a successful publish from a tag, the
+# hermes-catalog job proposes the Hermes plugin-catalog SHA bump.
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -95,3 +97,15 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  hermes-catalog:
+    needs: publish
+    if: github.ref_type == 'tag' && !github.event.release.prerelease
+    permissions:
+      contents: read
+    uses: ./.github/workflows/hermes-catalog.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+      dry_run: false
+    secrets:
+      HERMES_CATALOG_TOKEN: ${{ secrets.HERMES_CATALOG_TOKEN }}

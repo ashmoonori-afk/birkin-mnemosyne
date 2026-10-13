@@ -140,8 +140,9 @@ class KibitzerAdapter:
 
     def _snapshot(self, force_refresh: bool) -> _Snapshot:
         with VaultLock(self.vault).hold(), self._lock:
-            paths = sorted(p for p in self.vault.rglob("*.md")
-                           if _allowed(p.relative_to(self.vault).as_posix()) and
+            paths = sorted(p for p in self.vault.rglob("*")
+                           if p.suffix.lower() == ".md" and p.is_file() and
+                           _allowed(p.relative_to(self.vault).as_posix()) and
                            p.resolve().is_relative_to(self.vault))
             fingerprints: list[tuple[str, int, int, int]] = []
             for path in paths:

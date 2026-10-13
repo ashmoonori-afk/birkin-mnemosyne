@@ -222,7 +222,7 @@ def _active_snapshot_path(dex: Mnemosyne, note: NoteSnapshot) -> Path:
     """
     parts = note.path.split("/")
     if (PureWindowsPath(note.path).drive or "\\" in note.path
-            or not note.path.endswith(".md")
+            or not note.path.lower().endswith(".md")
             or any(part in ("", ".", "..") or hidden_or_cache(part) for part in parts)):
         raise ReviewError("unsafe note path")
     if archived_zone("/".join(parts[:-1])):

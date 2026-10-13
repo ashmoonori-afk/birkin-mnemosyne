@@ -183,3 +183,20 @@ The upstream source uses the
 [Sustainable Use License](https://github.com/code-yeongyu/oh-my-openagent/blob/61086739c3b00f0990cbcdcdfde9146791e243db/LICENSE.md).
 No upstream implementation is vendored; this adapter independently implements
 the documented data shapes and conservative admission rules.
+
+# Replaying the round-3 measurements
+
+The measurement runner uses the benchmark-only `tiktoken` package; the core
+package and its `dev`, `mcp` and `semantic` extras do not install it. From an
+installed checkout, use the same Python interpreter for setup and execution:
+
+```bash
+python -m pip install tiktoken
+python benchmarks/round3/run.py --output round3-results.json
+```
+
+Keep the committed frozen fixture files in place. This replays fixed inputs
+and does not call an LLM provider. Tokenizer setup may need network access on
+the first run; later offline replay requires its cached encoding data.
+The reported token counts are measurements of `o200k_base`, not provider
+billing or a guarantee of generative answer quality.

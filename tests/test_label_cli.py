@@ -289,10 +289,31 @@ def test_label_on_absent_vault_creates_nothing(tmp_path: Path) -> None:
     assert not root.exists() and not root.parent.exists()
 
 
-def test_label_requires_vault(tmp_path: Path) -> None:
+@pytest.mark.parametrize("use_env", [False, True])
+def test_label_uses_shared_vault_defaults_without_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, use_env: bool,
+) -> None:
+    # Given a controlled home and distinct default and environment vaults.
+    home = tmp_path / "home"
+    default = home / ".birkin-mnemosyne" / "vault"
+    selected = tmp_path / "selected"
+    seed_vault(default)
+    write(selected, "alpha.md", ALPHA)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.delenv("MNEMOSYNE_VAULT", raising=False)
+    if use_env:
+        monkeypatch.setenv("MNEMOSYNE_VAULT", str(selected))
+    before = tree(tmp_path)
+
+    # When label previews without an explicit --vault.
     result = run_cli("label", cwd=tmp_path)
-    assert result.returncode == 2
-    assert result.stderr
+
+    # Then it follows the shared precedence and does not change either vault.
+    report = label_report(result)
+    assert report["notes"] == (1 if use_env else 3)
+    assert report["mode"] == "preview"
+    assert tree(tmp_path) == before
 
 
 def test_label_output_is_utf8_even_when_host_encoding_is_ascii(

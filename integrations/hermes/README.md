@@ -7,15 +7,18 @@ service, telemetry, or automatic transcript capture is required.
 
 ## Install and select
 
-The Hermes plugin requires Python 3.11 or later, because Hermes itself does;
-the core `birkin-mnemosyne` library supports Python 3.10 and later.
+The plugin and core library declare Python 3.10 or later. Hermes itself
+requires Python 3.11 or later, so use a Python version supported by your
+Hermes installation when loading the plugin.
 
-The installation below is for the provider at the `v0.7.0` tag, including
-task-bound reads and complete topic expansion with the matching 0.7.0 core.
+Plugin 0.2.1 accepts the published `birkin-mnemosyne>=0.7.0,<1.0` core,
+including task-bound reads, complete topic expansion, scoped handoffs and note
+labels. Use a checkout containing plugin 0.2.1 for the installation below. The
+core `v0.7.0` tag retains the earlier plugin 0.1.0 manifest.
 
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
-`birkin-mnemosyne==0.7.0` dependency through Hermes' package manager:
+`birkin-mnemosyne>=0.7.0,<1.0` dependency through Hermes' package manager:
 
 ```text
 hermes plugins validate ./integrations/hermes --install-deps
@@ -48,6 +51,8 @@ The 0.7.0 provider source exposes four memory-provider tools:
 With a managed INDEX, `prefetch(query)` reads every task-matched
 document and its complete topic view. The system prompt retains every topic;
 an empty prefetch never removes that map. Budget warnings do not evict entries.
+Managed startup verification reports INDEX drift when registered source bytes
+change; the warning does not remove routes or silently rewrite the INDEX.
 
 Ask Hermes to remember a synthetic fact, then recall it in a new session.
 Unmatched searches return no results. Invalid arguments return an error without

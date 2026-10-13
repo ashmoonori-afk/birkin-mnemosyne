@@ -13,6 +13,15 @@
   curation and MCP. Archive moves preserve the original relative subpath;
   journal undo restores exact paths and bytes. MCP restore keeps its inbox
   default and accepts an explicit nested destination.
+- Repeatable `--label namespace:value` filters for CLI `search` and `list`,
+  matching MCP AND semantics before ranking, pagination and label counts.
+- Read-only `mnemosyne search`, `list` and `show` print the same JSON fields as
+  the MCP `memory_search`, `memory_list` and `memory_get_note` tools without
+  recording a use or changing usage ranking.
+- `mnemosyne undo --transaction ID` undoes an `init --apply`, fold or review
+  transaction through the existing checked journal (`handoff undo` remains).
+- `mnemosyne --version`, matching `mnemosyne-mcp --version`.
+- `init` JSON output names the resolved absolute `vault`.
 
 ### Fixed
 
@@ -24,6 +33,30 @@
   targets cannot bypass archive protection or caps.
 - Path-bound consolidation answers validate the offered document rather
   than an unrelated duplicate-stem winner.
+- Corrupt INDEX state still reports inventory and errors, but no longer
+  classifies documents as orphaned when their routes cannot be read.
+- Supported source extensions are recognized case-insensitively across recall,
+  onboarding, imports, INDEX checking and splitting without renaming originals.
+- Hidden Markdown files inside visible zones no longer enter ordinary recall.
+- Curation inserts links into the actual Related section, respecting later
+  sections, fenced examples and setext headings.
+- INDEX token warnings no longer offer memory-retirement choices unless
+  active-note or protected-note capacity is actually exceeded.
+- Atomic writes use a short temporary sibling name instead of repeating the
+  destination basename, so valid long paths do not fail during staging.
+  Persistent handoff names and identifiers are unchanged.
+- MCP startup reports invalid vault paths on stderr without a traceback or
+  protocol output. Explicit budget flags override malformed values in the
+  corresponding environment variables; unrelated invalid settings still fail.
+- `memory_startup_read` and `memory_startup_verify` no longer require `paths`,
+  so the documented resume call with only project/task keys (or only `task`)
+  works. Reads with nothing to read still fail with the existing message.
+- Every `mnemosyne` command resolves its vault as `--vault`, then
+  `$MNEMOSYNE_VAULT`, then the `mnemosyne-mcp` default
+  `~/.birkin-mnemosyne/vault` (`init` keeps the current directory as its
+  fallback). `check`, `split` and `handoff` no longer fail without `--vault`.
+- `~` is expanded in `--vault`, `$MNEMOSYNE_VAULT` and `init --import`, so a
+  quoted `~/mnemosyne` no longer creates a literal `~` directory.
 
 ## 0.7.0 - 2026-10-11
 
