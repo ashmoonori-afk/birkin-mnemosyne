@@ -35,14 +35,14 @@
   <main id="main">
     <section class="container hero" aria-labelledby="hero-title">
       <div>
-        <p class="eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases/tag/v0.7.0">v0.7.0</a></p>
+        <p class="eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.7.1</a></p>
         <h1 id="hero-title">Memory that survives the session.</h1>
         <p class="lead">Your agent starts over. Your notes shouldn't. Keep memory as local Markdown, load the map at startup, and open the details when they're needed.</p>
         <div class="actions">
           <a class="button" href="#install">Get started <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">Read the evidence</a>
         </div>
-        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne</code></p>
+        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.7.1</code></p>
       </div>
       <figure class="ledger">
         <div class="ledger-top"><strong class="mono">your vault/</strong><span class="small">Markdown on disk</span></div>
@@ -93,6 +93,14 @@
         <article class="feature">
           <h3>Labels and a preview-first start</h3>
           <p>Readable <code>namespace:value</code> labels filter eligible notes without becoming ranking terms. <code>mnemosyne init</code> previews organization and imports before an explicit apply. It does not automatically merge, archive or delete your notes.</p>
+        </article>
+        <article class="feature">
+          <h3>Your folders stay intact</h3>
+          <p>From 0.7.1, ordinary recall includes visible nested Markdown folders. Hidden files, caches and links stay excluded. Zones keep the complete relative parent; archive and checked undo retain the original subpath and bytes.</p>
+        </article>
+        <article class="feature">
+          <h3>Read memory from the terminal</h3>
+          <p>The published package includes <code>search</code>, <code>list</code> and <code>show</code>. These commands inspect memory without counting a use or changing usage ranking. Repeatable label filters narrow the eligible notes before ranking or pagination.</p>
         </article>
       </div>
     </section>
@@ -171,16 +179,16 @@
       <div class="install-grid">
         <article>
           <h3>Install the core</h3>
-          <pre><code>pip install <span class="code-token">birkin-mnemosyne</span>
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.7.1</span>
 
 mnemosyne init <span class="code-token">--vault</span> my_vault
 mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>
-          <p>The first init command is a read-only preview. Inspect the plan before applying. Without <code>--vault</code>, init uses the current directory.</p>
+          <p>The first init command is a read-only preview. Inspect the plan before applying. Without <code>--vault</code>, init uses <code>MNEMOSYNE_VAULT</code> when set, otherwise the current directory.</p>
           <a class="text-link" href="https://pypi.org/project/birkin-mnemosyne/">View the package on PyPI ↗</a>
         </article>
         <article>
           <h3>Connect an MCP client</h3>
-          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]"</span> \
+          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]==0.7.1"</span> \
   <span class="code-token">mnemosyne-mcp</span> <span class="code-token">--vault</span> ~/mnemosyne</code></pre>
           <p>The MCP extra downloads the official SDK on first launch. Configure this stdio command in your client. Point clients at the same vault to share memory.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#mcp-server-claude-code-claude-desktop-codex-cli-cursor">Read the full setup instructions ↗</a>
