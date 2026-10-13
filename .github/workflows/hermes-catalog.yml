@@ -113,6 +113,7 @@ jobs:
                   report["fork_is_correct"] = body.get("full_name") == "ashmoonori-afk/hermes-agent"
                   report["actor_has_fork_push"] = bool(body.get("permissions", {}).get("push"))
                   report["fork_archived"] = body.get("archived")
+                  fork_node_id = body["node_id"]
           if not all(report[key] for key in (
               "actor_matches_fork_owner", "classic_public_write_scope", "fork_is_correct",
           )):
@@ -157,5 +158,31 @@ jobs:
                       raise SystemExit("Owned probe cleanup failed.")
               probes.append(probe)
           report["reference_probes"] = probes
+          branch = "catalog/birkin-mnemosyne-v0.7.1-probe-graphql-" + os.environ["GITHUB_RUN_ID"]
+          encoded = urllib.parse.quote(branch, safe="")
+          status, _, _, _ = github("GET", fork + "/git/ref/heads/" + encoded)
+          if status != 404:
+              raise SystemExit("GraphQL probe already exists; refusing any write.")
+          status, result, _, _ = github("POST", "/graphql", {
+              "query": "mutation($input:CreateRefInput!){createRef(input:$input){ref{id}}}",
+              "variables": {"input": {"repositoryId": fork_node_id,
+                            "name": "refs/heads/" + branch, "oid": upstream_sha}},
+          })
+          report["graphql_create_http_status"] = status
+          report["graphql_create_errors"] = [
+              item["message"] for item in result.get("errors", [])
+          ]
+          created = (result.get("data") or {}).get("createRef")
+          if status == 200 and created is not None and not result.get("errors"):
+              current_status, current, _, _ = github("GET", fork + "/git/ref/heads/" + encoded)
+              if current_status != 200 or current["object"]["sha"] != upstream_sha:
+                  raise SystemExit("GraphQL probe changed unexpectedly; refusing deletion.")
+              deleted, result, _, _ = github("POST", "/graphql", {
+                  "query": "mutation($input:DeleteRefInput!){deleteRef(input:$input){clientMutationId}}",
+                  "variables": {"input": {"refId": created["ref"]["id"]}},
+              })
+              report["graphql_delete_http_status"] = deleted
+              if deleted != 200 or result.get("errors") or (result.get("data") or {}).get("deleteRef") is None:
+                  raise SystemExit("Owned GraphQL probe cleanup failed.")
           print("CATALOG_ACCESS_DIAGNOSTIC " + json.dumps(report, sort_keys=True))
           PY
