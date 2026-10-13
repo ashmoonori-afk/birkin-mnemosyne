@@ -16,6 +16,9 @@
 
 ### Fixed
 
+- Nested writes, moves and journal archive/undo refuse symlink or Windows
+  reparse-point destinations and parent folders, preserving the source
+  rather than following a link into another directory.
 - Archived descendants, including case-variant archive components, stay out
   of active search, rendering, catalogs and curation limits. Nested rezone
   targets cannot bypass archive protection or caps.

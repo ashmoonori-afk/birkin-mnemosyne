@@ -1248,6 +1248,8 @@ writes and zone-filtered search. Nested and human-named folders retain their
 spelling; legacy simple names still normalize (`"Projects"` to `"projects"`).
 Absolute, drive/UNC, traversal, backslash and hidden/cache paths are refused,
 as are Windows-invalid filename characters and trailing dots/spaces.
+Writes, moves and journal operations also refuse linked destination files
+or parent folders, including Windows reparse points.
 
 Archiving `projects/Active Work/roadmap.md` moves it to
 `_archive/projects/Active Work/roadmap.md`. Archive components at any depth,

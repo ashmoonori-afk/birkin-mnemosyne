@@ -33,7 +33,7 @@ from .mnemosyne import (IDENTITY_ZONE, MAX_ZONES, TYPE_ZONE,
                         WIKILINK_RE, Mnemosyne, expansion_weights,
                         normalize_zone)
 from .atomic import atomic_write_bytes
-from .vault_paths import archived_zone, hidden_or_cache
+from .vault_paths import archived_zone, checked_note_path, hidden_or_cache
 from .mnemosyne import slug as _slug
 from .mnemosyne import STEM_MARK as _STEM_MARK
 from .mnemosyne import STEM_MIN as _STEM_MIN
@@ -142,7 +142,7 @@ class VaultMemory:
         s = _slug(title)
         rel = self.dex.resolve_rel(title)
         if rel:
-            return self.vault / rel
+            return checked_note_path(self.vault, rel)
         if zone is not None:
             z = normalize_zone(zone)
             existing = {e["zone"] for e in self.dex.entries().values()
@@ -152,7 +152,7 @@ class VaultMemory:
                                  "re-use an existing zone")
         else:
             z = TYPE_ZONE.get(note_type, "knowledge")
-        return (self.vault / z / f"{s}.md") if z else self.vault / f"{s}.md"
+        return checked_note_path(self.vault, f"{z}/{s}.md" if z else f"{s}.md")
 
     def _find_note(self, title: str) -> Path | None:
         s = _slug(title)

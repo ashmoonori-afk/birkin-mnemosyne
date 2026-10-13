@@ -6,7 +6,9 @@ import sys
 
 import pytest
 
+from birkin_mnemosyne.consolidation import Answer, Consolidation
 from birkin_mnemosyne.mnemosyne import Mnemosyne, normalize_zone
+from birkin_mnemosyne.memory import VaultMemory
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
 from birkin_mnemosyne.memory_index_integrity import check_index
 from birkin_mnemosyne.onboarding_notes import inventory
@@ -55,6 +57,57 @@ def test_inventory_and_index_exclude_case_variant_archives(
         MemoryIndex(tmp_path).document_path(f"{zone}/retired.md")
 
 
+@pytest.mark.parametrize("operation", ["write", "rezone", "archive"])
+@pytest.mark.parametrize("outside", [False, True])
+def test_nested_mutation_refuses_linked_destination(
+    tmp_path: Path, operation: str, outside: bool,
+) -> None:
+    vault = tmp_path / "vault"
+    memory = VaultMemory({"vault_path": str(vault)})
+    source = memory.write_note("Moved", "original bytes", zone="Work/Team")
+    original = source.read_bytes()
+    target = tmp_path / "outside" if outside else vault / "elsewhere"
+    target.mkdir()
+    sentinel = target / "untouched.md"
+    sentinel.write_bytes(b"unrelated bytes")
+    link = vault / ("_archive/Work/Team" if operation == "archive" else "Linked/Team")
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError):
+        if operation == "write":
+            memory.write_note("New note", "new body", zone="Linked/Team")
+        else:
+            memory.rezone("Moved", "_archive" if operation == "archive" else "Linked/Team")
+    assert source.read_bytes() == original
+    assert {path.name: path.read_bytes() for path in target.iterdir()} == {
+        "untouched.md": b"unrelated bytes",
+    }
+
+
+@pytest.mark.parametrize("outside", [False, True])
+def test_nested_review_archive_refuses_linked_destination(
+    tmp_path: Path, outside: bool,
+) -> None:
+    vault = tmp_path / "vault"
+    memory = VaultMemory({"vault_path": str(vault)})
+    for title in ("First", "Second"):
+        memory.write_note(title, "review every release before publication", zone="Work/Team")
+    review = Consolidation(vault)
+    question, = review.questions()
+    originals = {
+        note.path: (vault / note.path).read_bytes() for note in (question.first, question.second)
+    }
+    target = tmp_path / "outside" if outside else vault / "elsewhere"
+    target.mkdir()
+    link = vault / "_archive/Work/Team"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError):
+        review.apply(question, Answer(question.id, "drop-first"))
+    assert {path: (vault / path).read_bytes() for path in originals} == originals
+    assert list(target.iterdir()) == []
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="native Windows junction")
 def test_recursive_scan_does_not_follow_windows_junction(tmp_path: Path) -> None:
     vault = tmp_path / "vault"
@@ -72,5 +125,12 @@ def test_recursive_scan_does_not_follow_windows_junction(tmp_path: Path) -> None
         assert check_index(vault).documents == 0
         with pytest.raises(MemoryIndexError, match="refusing linked source"):
             inventory(vault)
+        memory = VaultMemory({"vault_path": str(vault)})
+        with pytest.raises(ValueError):
+            memory.write_note("New", "new bytes", zone="linked/deep")
+        memory.write_note("Existing", "existing bytes", zone="inbox")
+        with pytest.raises(ValueError):
+            memory.rezone("Existing", "linked/deep")
+        assert [path.name for path in outside.iterdir()] == ["external.md"]
     finally:
         junction.rmdir()

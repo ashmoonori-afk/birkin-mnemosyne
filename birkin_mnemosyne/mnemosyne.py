@@ -59,7 +59,7 @@ from .label_values import LabelError, normalize_labels
 from .label_frontmatter import scoring_text
 from .atomic import atomic_write, atomic_write_bytes
 from .vault_lock import VaultLock
-from .vault_paths import archived_zone, hidden_or_cache
+from .vault_paths import archived_zone, checked_note_path, hidden_or_cache
 
 if TYPE_CHECKING:
     from .semantic import SemanticIndex
@@ -1345,9 +1345,9 @@ class Mnemosyne:
                     and len(existing) >= MAX_ZONES):
                 raise ValueError(f"zone cap reached ({MAX_ZONES}); "
                                  "re-use an existing zone")
-            old = self.vault / e["rel"]
+            old = checked_note_path(self.vault, str(e["rel"]))
             rel = f"{new_zone}/{s}.md" if new_zone else f"{s}.md"
-            new = self.vault / rel
+            new = checked_note_path(self.vault, rel)
             if old != new:
                 # _scan tolerates same-stem files in several zones (newest
                 # wins), so the destination may hold a note the index cannot

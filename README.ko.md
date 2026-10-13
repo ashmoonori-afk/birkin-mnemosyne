@@ -1202,6 +1202,8 @@ my_vault/
 단순 이름은 계속 정규화합니다(`"Projects"` → `"projects"`). 절대 경로,
 드라이브·UNC, 상위 경로 이동, 역슬래시와 숨김·캐시 경로는 거부됩니다.
 Windows에서 허용되지 않는 파일명 문자와 구성 요소 끝의 점·공백도 거부됩니다.
+쓰기·이동·저널 작업은 연결된 대상 파일이나 부모 폴더도 거부합니다.
+Windows 리파스 포인트도 같은 규칙을 따릅니다.
 
 `projects/Active Work/roadmap.md`를 보관하면
 `_archive/projects/Active Work/roadmap.md`로 이동합니다. 어느 깊이에 있든
