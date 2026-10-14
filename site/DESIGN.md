@@ -97,13 +97,22 @@ depend on an API. Validate the primitives in a local-only showcase first.
 
 ## 6. Motion and interaction
 
-Only button opacity/press transform uses 120ms ease-out. No entrance reveal,
-decorative animation or scroll-driven motion. All content is visible on first
-paint. Reduced motion removes press displacement and preserves opacity feedback.
-Button hover uses opacity 0.85 and press uses 0.75, so reduced-motion users still
-see distinct press feedback. The header home link gains an underline on hover.
-Secondary action borders use the muted-text token to exceed 3:1 contrast.
-In-page install actions use a downward arrow; external references use an up-right arrow.
+Redesigned with BurnGuard 0.5.29 (2026-10-14). Motion lives in `motion.js` and
+CSS; all of it is decorative and the page is complete without it.
+
+- Hero: the vault map loops a capture → resume handoff packet, then the INDEX
+  lights its routes to the notes in sequence.
+- Recall: a query passes through one INDEX route and opens a single complete
+  note while the other notes stay on disk.
+- Measurement: 45,128 → 1,297 counts down once with a proportional bar; the
+  final number is in the HTML, so no-JS readers see the real value.
+- Scroll reveals: `[data-reveal]` blocks fade/rise once via IntersectionObserver.
+  They are only hidden after JS arms them, so content is visible without JS.
+- `prefers-reduced-motion: reduce` disables every loop, count and reveal (also
+  when the preference changes mid-session); all content shows at once.
+- Button feedback stays: 120ms opacity (0.85 hover, 0.75 press) and a 0.98
+  press transform that reduced motion removes.
+
 Native language anchors work without JavaScript. Focus follows DOM order.
 
 ## 7. Depth and surface
