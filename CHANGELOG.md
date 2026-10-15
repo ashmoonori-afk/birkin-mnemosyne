@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.7.2 - 2026-10-15
+
+### Fixed
+
+- Index every visible same-stem Markdown file instead of dropping all but one.
+  The newest file retains the bare stem, with the existing sorted-path tie-break;
+  other files use relative path keys. Writes, winner deletion and file renames
+  refresh those keys without changing source files.
+- Keep curation targets bound to their physical files across re-keying, return
+  usable identifiers after MCP mutations, and attribute reads/writes to the
+  actual note rather than another same-stem file.
+
+### Measurement and release decision
+
+- On 20,000 public round-two documents, heldout known-gold recall@2 improves
+  from 270/1,011 to 537/1,011 (+26.41 percentage points; 274 gains, seven losses).
+  The already-indexed development slice declines from 231/405 to 224/405.
+- Independent source anchors show 28 gains and no losses (p=7.45e-9).
+  The preregistered family interval was not computable because of singleton
+  strata. The owner explicitly decided to ship on the paired evidence and
+  waived that criterion; it is not claimed to have passed.
+- Only the slug-indexing fix ships. The experimental ranking correction and
+  taxonomy code remain excluded.
+
+### Documentation
+
+- Update English/Korean READMEs, release notes and both landing pages with the
+  measured public aggregates, loss slice and statistical limitation.
+- Align core 0.7.2 and the bundled plugin 0.2.3 install metadata.
+
 ## 0.7.1 - 2026-10-14
 
 ### Added

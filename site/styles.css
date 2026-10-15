@@ -546,6 +546,12 @@ code {
 .costs p { margin-top: var(--s-3); }
 p.measure-note { margin-top: var(--s-10); max-width: 65ch; font-size: .9375rem; }
 
+/* Public retrieval evidence */
+#same-stem-recall { max-width: 65ch; margin-bottom: var(--s-16); }
+#same-stem-recall h3 { font-size: 1.5rem; margin-bottom: var(--s-3); }
+#same-stem-recall p + p { margin-top: var(--s-3); }
+#same-stem-recall .text-link { display: inline-block; margin-top: var(--s-4); }
+
 /* Integrations */
 .section--cards .section-heading { max-width: 58ch; }
 .integrations {

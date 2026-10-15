@@ -176,7 +176,9 @@ class VaultMemory:
             text = p.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return None
-        self.dex.record_access(p.stem)   # reading a note = using it
+        key = self.dex.key_for_path(p)
+        if key is not None:
+            self.dex.record_access(key)   # reading a note = using it
         return text
 
     def list_notes(self) -> list[dict[str, Any]]:
@@ -381,7 +383,9 @@ class VaultMemory:
                 labels_line=labels_line)
             atomic_write_bytes(p, (fm + body + "\n").encode("utf-8"))
             self.dex.note_written(p)
-            self.dex.record_access(p.stem)   # writing = using
+            key = self.dex.key_for_path(p)
+            assert key is not None
+            self.dex.record_access(key)   # writing = using
             return p
 
     def search(self, query: str, limit: int = 8,

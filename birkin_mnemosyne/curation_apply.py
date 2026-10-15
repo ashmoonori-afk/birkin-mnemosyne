@@ -7,16 +7,9 @@ from .identity_reader import parse_sections
 from .mnemosyne import Mnemosyne
 
 
-def _title_of(dex: Mnemosyne, s: str) -> str:
-    e = dex.note_meta(s)
-    return (e or {}).get("title", s)
-
-
-def _append_related(vault: Path, dex: Mnemosyne, s: str, target_title: str) -> bool:
-    e = dex.note_meta(s)
-    if e is None:
+def _append_related(path: Path, dex: Mnemosyne, target_title: str) -> bool:
+    if dex.key_for_path(path) is None:
         return False
-    path = vault / e["rel"]
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -38,11 +31,9 @@ def _append_related(vault: Path, dex: Mnemosyne, s: str, target_title: str) -> b
     return True
 
 
-def _append_line(vault: Path, dex: Mnemosyne, s: str, line: str) -> bool:
-    e = dex.note_meta(s)
-    if e is None:
+def _append_line(path: Path, dex: Mnemosyne, line: str) -> bool:
+    if dex.key_for_path(path) is None:
         return False
-    path = vault / e["rel"]
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -56,28 +47,39 @@ def _append_line(vault: Path, dex: Mnemosyne, s: str, line: str) -> bool:
 
 def apply_plan(accepted: list[dict], vault: Path,
                dex: Mnemosyne) -> list[dict]:
+    bound = dex.entries()
     effected: list[dict] = []
     for op in accepted:
         kind = op["op"]
         try:
             if kind == "rezone":
-                dex.rezone(op["slug"], op["zone"])
+                target = op["slug"]
+                key = dex.key_for_path(vault / bound[target]["rel"])
+                if key is None:
+                    raise ValueError(f"note moved or removed: {bound[target]['rel']}")
+                path = dex.rezone(key, op["zone"])
+                bound[target] = {**bound[target], "rel": path.relative_to(vault).as_posix()}
                 effected.append({"op": "rezone", "slug": op["slug"],
                                  "zone": op["zone"]})
             elif kind == "archive":
-                dex.rezone(op["slug"], mnemosyne.ARCHIVE_ZONE)
+                target = op["slug"]
+                key = dex.key_for_path(vault / bound[target]["rel"])
+                if key is None:
+                    raise ValueError(f"note moved or removed: {bound[target]['rel']}")
+                path = dex.rezone(key, mnemosyne.ARCHIVE_ZONE)
+                bound[target] = {**bound[target], "rel": path.relative_to(vault).as_posix()}
                 effected.append({"op": "archive", "slug": op["slug"]})
             elif kind == "link":
                 a, b = op["a"], op["b"]
-                ok1 = _append_related(vault, dex, a, _title_of(dex, b))
-                ok2 = _append_related(vault, dex, b, _title_of(dex, a))
+                ok1 = _append_related(vault / bound[a]["rel"], dex, bound[b]["title"])
+                ok2 = _append_related(vault / bound[b]["rel"], dex, bound[a]["title"])
                 if ok1 or ok2:
                     effected.append({"op": "link", "a": a, "b": b})
             elif kind == "supersede":
                 st, by = op["stale"], op["by"]
-                ok = _append_line(vault, dex, st,
-                                  f"> Superseded by [[{_title_of(dex, by)}]]")
-                _append_related(vault, dex, by, _title_of(dex, st))
+                ok = _append_line(vault / bound[st]["rel"], dex,
+                                  f"> Superseded by [[{bound[by]['title']}]]")
+                _append_related(vault / bound[by]["rel"], dex, bound[st]["title"])
                 if ok:
                     effected.append({"op": "supersede", "stale": st, "by": by})
         except (ValueError, OSError) as exc:

@@ -403,6 +403,13 @@ def decayed_ema(ema: float, last_hit: str | None, today: date) -> float:
 
 # -- note parsing -------------------------------------------------------------
 
+def path_key(rel: str) -> str:
+    """Index key of a file whose stem is taken by a newer same-stem file:
+    its vault-relative path without ``.md`` (never equal to a bare stem)."""
+    stem = rel[:-3] if rel.lower().endswith(".md") else rel
+    return stem if "/" in stem else f"./{stem}"
+
+
 def _note_entry(path: Path, rel: str) -> dict[str, Any] | None:
     """Parse one note file into an index entry (module-level for testability)."""
     try:
@@ -772,12 +779,13 @@ class Mnemosyne:
         Walks nested zone folders recursively, pruning hidden and
         dependency-cache entries (``hidden_or_cache``) at every depth and
         never following symlinks/reparse points. ``rel`` is the full POSIX
-        path relative to the vault (``projects/active/note.md``). Duplicate
-        stems keep the newest file, ties breaking on the lexicographically
-        smallest relative path, with a warning naming both files and the
-        chosen winner. Archives stay discoverable here; query-time filters
-        decide visibility."""
+        path relative to the vault (``projects/active/note.md``). For duplicate
+        stems, the newest file keeps the bare stem; every other file uses
+        its path key. Ties select the lexicographically smallest relative
+        path for the bare stem, with a warning describing both keys.
+        Archives stay discoverable here; query-time filters decide visibility."""
         out: dict[str, tuple[str, float, int]] = {}
+        by_stem: dict[str, list[tuple[str, float, int]]] = {}
         stack = [("", str(self.vault))]
         while stack:
             prefix, dirpath = stack.pop()
@@ -809,22 +817,17 @@ class Mnemosyne:
                     st = e.stat(follow_symlinks=False)
                 except OSError:
                     continue
-                s = e.name[:-3]
-                cur = out.get(s)
-                newer = False
-                tie = False
-                if cur is not None:
-                    # same-stem duplicate: newest mtime wins, ties break on
-                    # the lexicographically smallest relative path
-                    newer = st.st_mtime > cur[1]
-                    tie = st.st_mtime == cur[1] and rel < cur[0]
-                    log.warning(
-                        "duplicate slug %r: %r and %r collide; "
-                        "keeping winner %r (newest mtime, ties by sorted "
-                        "relative path)", s, cur[0], rel,
-                        rel if newer or tie else cur[0])
-                if cur is None or newer or tie:
-                    out[s] = (rel, st.st_mtime, st.st_size)
+                by_stem.setdefault(e.name[:-3], []).append(
+                    (rel, st.st_mtime, st.st_size))
+        for s, files in by_stem.items():
+            # The newest file keeps the bare stem; all others use path keys.
+            files.sort(key=lambda f: (-f[1], f[0]))
+            out[s] = files[0]
+            for other in files[1:]:
+                log.warning("duplicate slug %r: %r keeps the stem; %r is "
+                            "indexed as %r", s, files[0][0], other[0],
+                            path_key(other[0]))
+                out[path_key(other[0])] = other
         return out
 
     def refresh(self) -> None:
@@ -893,12 +896,14 @@ class Mnemosyne:
             s = path.stem
             old = self._notes.get(s)
             if old is not None and old["rel"] != rel:
-                # a hand-copied same-stem file: the index keeps the scan
-                # winner, so a write to a losing path must not steal it
+                # A newer same-stem write re-keys both files.
                 newer = entry["mtime"] > old["mtime"]
                 tie = entry["mtime"] == old["mtime"] and rel < old["rel"]
-                if not (newer or tie):
+                if newer or tie:
+                    self.refresh()
                     return
+                s = path_key(rel)
+                old = self._notes.get(s)
             self._drop_postings(s)
             self._adjust_doclen(
                 old.get("doclen", 0) if old else 0, entry["doclen"],
@@ -944,14 +949,23 @@ class Mnemosyne:
         return self._alias_map().get(s)
 
     def key_for(self, title_or_slug: str) -> str | None:
-        """The index key (file stem) of the note a title names, or None.
+        """The current stem or path key of the named note, or None.
 
-        The index is keyed by raw file stems, search returns those stems as
-        titles, and callers hand titles back, so an exact key wins, then the
-        title's slug, then the stem whose slug it is."""
+        An exact key wins, then the title's slug, then a normalized key alias."""
         with self._lock:
             self.refresh()
             return self._key(title_or_slug)
+
+    def key_for_path(self, path: Path) -> str | None:
+        """Resolve an actual vault file after a write or move changes its key."""
+        try:
+            rel = path.relative_to(self.vault).as_posix()
+        except ValueError:
+            return None
+        with self._lock:
+            self.refresh()
+            return next((key for key, entry in (self._notes or {}).items()
+                         if entry["rel"] == rel), None)
 
     def note_meta(self, s: str) -> dict[str, Any] | None:
         with self._lock:
@@ -1349,9 +1363,7 @@ class Mnemosyne:
             rel = f"{new_zone}/{old.name}" if new_zone else old.name
             new = checked_note_path(self.vault, rel)
             if old != new:
-                # _scan tolerates same-stem files in several zones (newest
-                # wins), so the destination may hold a note the index cannot
-                # see; os.replace would silently destroy it.
+                # Never overwrite another file, including a same-stem note.
                 if new.exists() and not (old.exists()
                                          and os.path.samefile(old, new)):
                     raise ValueError(
@@ -1367,7 +1379,9 @@ class Mnemosyne:
             self._notes[s] = {**e, "rel": rel, "zone": new_zone,
                               "mtime": mtime, "size": size}
             self._aliases = None
-            self._index_changed()
+            with self.deferred_save():
+                self.refresh()
+                self._index_changed()
             return new
 
     # -- stats ------------------------------------------------------------------
