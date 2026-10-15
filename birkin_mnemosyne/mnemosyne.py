@@ -949,14 +949,23 @@ class Mnemosyne:
         return self._alias_map().get(s)
 
     def key_for(self, title_or_slug: str) -> str | None:
-        """The index key (file stem) of the note a title names, or None.
+        """The current stem or path key of the named note, or None.
 
-        The index is keyed by raw file stems, search returns those stems as
-        titles, and callers hand titles back, so an exact key wins, then the
-        title's slug, then the stem whose slug it is."""
+        An exact key wins, then the title's slug, then a normalized key alias."""
         with self._lock:
             self.refresh()
             return self._key(title_or_slug)
+
+    def key_for_path(self, path: Path) -> str | None:
+        """Resolve an actual vault file after a write or move changes its key."""
+        try:
+            rel = path.relative_to(self.vault).as_posix()
+        except ValueError:
+            return None
+        with self._lock:
+            self.refresh()
+            return next((key for key, entry in (self._notes or {}).items()
+                         if entry["rel"] == rel), None)
 
     def note_meta(self, s: str) -> dict[str, Any] | None:
         with self._lock:
@@ -1354,9 +1363,7 @@ class Mnemosyne:
             rel = f"{new_zone}/{old.name}" if new_zone else old.name
             new = checked_note_path(self.vault, rel)
             if old != new:
-                # _scan tolerates same-stem files in several zones (newest
-                # wins), so the destination may hold a note the index cannot
-                # see; os.replace would silently destroy it.
+                # Never overwrite another file, including a same-stem note.
                 if new.exists() and not (old.exists()
                                          and os.path.samefile(old, new)):
                     raise ValueError(
@@ -1372,7 +1379,9 @@ class Mnemosyne:
             self._notes[s] = {**e, "rel": rel, "zone": new_zone,
                               "mtime": mtime, "size": size}
             self._aliases = None
-            self._index_changed()
+            with self.deferred_save():
+                self.refresh()
+                self._index_changed()
             return new
 
     # -- stats ------------------------------------------------------------------

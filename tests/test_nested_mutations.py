@@ -64,6 +64,46 @@ def _write(vault: Path, rel: str, body: str = "shared fixture body") -> Path:
     return p
 
 
+def _same_stem_mcp_notes(vault: Path, first: str = "a/card.md") -> None:
+    for rel, title, mtime in ((first, "Alice", 100), ("b/card.md", "Bob", 200)):
+        path = _write(vault, rel, f"---\ntitle: {title}\nversion: 1\n---\n{title} payload\n")
+        os.utime(path, (mtime, mtime))
+
+
+def test_same_stem_mcp_edit_returns_usable_identifier(tmp_path: Path) -> None:
+    _same_stem_mcp_notes(tmp_path)
+    changed = remember(tmp_path, "a/card", "new payload", mode="append")
+    assert changed["path"] == "a/card.md"
+    note = ok(tmp_path, "memory_get_note", {"note": changed["slug"]})
+    assert "Alice payload" in note["body"] and "new payload" in note["body"]
+    assert "Bob payload" in (tmp_path / "b/card.md").read_text(encoding="utf-8")
+
+
+def test_same_stem_mcp_edit_keeps_duplicate_candidates_bound(tmp_path: Path) -> None:
+    _same_stem_mcp_notes(tmp_path)
+    changed = remember(tmp_path, "a/card", "Bob payload", mode="append")
+    candidate, = changed["near_duplicates"]
+    note = ok(tmp_path, "memory_get_note", {"note": candidate["slug"]})
+    assert note["title"] == "Bob"
+    assert note["body"] == "Bob payload"
+
+
+def test_same_stem_mcp_restore_returns_usable_identifier(tmp_path: Path) -> None:
+    _same_stem_mcp_notes(tmp_path, "_archive/a/card.md")
+    restored = ok(tmp_path, "memory_restore", {"note": "_archive/a/card", "zone": "c"})
+    assert restored["path"] == "c/card.md"
+    note = ok(tmp_path, "memory_get_note", {"note": restored["slug"]})
+    assert "Alice payload" in note["body"]
+
+
+def test_same_stem_mcp_forget_returns_usable_identifier(tmp_path: Path) -> None:
+    _same_stem_mcp_notes(tmp_path)
+    forgotten = ok(tmp_path, "memory_forget", {"note": "a/card", "confirm": True})
+    assert forgotten["archived"] is True
+    note = ok(tmp_path, "memory_get_note", {"note": forgotten["slug"]})
+    assert "Alice payload" in note["body"]
+
+
 # ---------------- recursive cold fallback -----------------------------------
 
 

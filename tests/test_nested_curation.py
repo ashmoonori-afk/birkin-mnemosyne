@@ -13,6 +13,7 @@ snapshots/catalogs never leak archive descendants.
 from __future__ import annotations
 import config
 
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,42 @@ from birkin_mnemosyne.handoff_retention import HandoffRetention
 from birkin_mnemosyne.vault_paths import archived_zone
 
 NOW = datetime(2026, 7, 3, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _same_stem_notes(vault: Path) -> tuple[Path, Path]:
+    paths: list[Path] = []
+    for folder, title, mtime in (("a", "Alice", 100), ("b", "Bob", 200)):
+        path = vault / folder / "card.md"
+        path.parent.mkdir(parents=True)
+        path.write_text(f"---\ntitle: {title}\n---\n{title} payload\n", encoding="utf-8")
+        os.utime(path, (mtime, mtime))
+        paths.append(path)
+    return paths[0], paths[1]
+
+
+def test_same_stem_link_mutates_both_bound_files(tmp_path: Path) -> None:
+    alice, bob = _same_stem_notes(tmp_path)
+    result = curation.evaluate_plan(
+        tmp_path, {"plan_version": 1, "ops": [
+            {"op": "link", "a": "a/card", "b": "card"}]}, apply=True, now=NOW)
+    assert result.effected == [{"op": "link", "a": "a/card", "b": "card"}]
+    assert "[[Bob]]" in alice.read_text(encoding="utf-8")
+    assert "[[Alice]]" in bob.read_text(encoding="utf-8")
+
+
+def test_later_plan_operation_keeps_original_same_stem_target(tmp_path: Path) -> None:
+    alice, bob = _same_stem_notes(tmp_path)
+    (tmp_path / "replacement.md").write_text(
+        "---\ntitle: Replacement\n---\nreplacement payload\n", encoding="utf-8")
+    result = curation.evaluate_plan(
+        tmp_path, {"plan_version": 1, "ops": [
+            {"op": "supersede", "stale": "a/card", "by": "replacement"},
+            {"op": "rezone", "slug": "card", "zone": "destination"}]},
+        apply=True, now=NOW)
+    assert all("error" not in op for op in result.effected)
+    assert "Superseded by [[Replacement]]" in alice.read_text(encoding="utf-8")
+    assert not bob.exists()
+    assert "Bob payload" in (tmp_path / "destination/card.md").read_text(encoding="utf-8")
 
 
 def _stamp(hour: int) -> str:

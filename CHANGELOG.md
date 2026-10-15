@@ -8,6 +8,9 @@
   The newest file retains the bare stem, with the existing sorted-path tie-break;
   other files use relative path keys. Writes, winner deletion and file renames
   refresh those keys without changing source files.
+- Keep curation targets bound to their physical files across re-keying, return
+  usable identifiers after MCP mutations, and attribute reads/writes to the
+  actual note rather than another same-stem file.
 
 ### Measurement and release decision
 

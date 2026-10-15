@@ -494,7 +494,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 clean_tags = clean_tags or existing["tags"]
                 if confidence is None:
                     confidence = existing["confidence"]
-            duplicates = mem.near_duplicates(title, body)
+            duplicate_paths: list[tuple[Path, float]] = []
+            for candidate, similarity in mem.near_duplicates(title, body):
+                relative = dex.resolve_rel(candidate)
+                assert relative is not None
+                duplicate_paths.append((vault / relative, similarity))
             try:
                 path = mem.write_note(
                     title, body, note_type=note_type or "topic",
@@ -511,6 +515,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 raise ToolError(str(exc)) from exc
             fm, _ = frontmatter.parse(path.read_text(encoding="utf-8"))
             warnings = capacity_report(dex, budget)["warnings"]
+            s = dex.key_for_path(path)
+            assert s is not None
+            duplicates: list[tuple[str, float]] = []
+            for candidate_path, similarity in duplicate_paths:
+                candidate = dex.key_for_path(candidate_path)
+                assert candidate is not None
+                duplicates.append((candidate, similarity))
         out: dict[str, Any] = {
             "slug": s, "path": path.relative_to(vault).as_posix(),
             "version": int(fm.get("version") or 0),
@@ -547,20 +558,24 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         notes (negative polarity, identity/preference types, filed + linked
         notes) and the per-call archive cap are enforced. Dry run unless
         confirm=true."""
-        s = dex.key_for(note) or slug(note)
-        meta = dex.note_meta(s)
-        if meta is not None and archived_zone(meta["zone"]):
-            raise ToolError(f"note {s!r} is already forgotten "
-                            f"(zone {meta['zone'] or 'inbox'!r})")
-        plan = {"plan_version": PLAN_VERSION, "summary": reason,
-                "ops": [{"op": "archive", "slug": s, "reason": reason}]}
         with lock.hold():
+            s = dex.key_for(note) or slug(note)
+            meta = dex.note_meta(s)
+            if meta is not None and archived_zone(meta["zone"]):
+                raise ToolError(f"note {s!r} is already forgotten "
+                                f"(zone {meta['zone'] or 'inbox'!r})")
+            plan = {"plan_version": PLAN_VERSION, "summary": reason,
+                    "ops": [{"op": "archive", "slug": s, "reason": reason}]}
             out = evaluate_plan(vault, plan, apply=confirm)
             if confirm:
                 dex.refresh()
-        allowed = any(o.get("op") == "archive" for o in out.accepted)
-        archived = any(o.get("op") == "archive" and "error" not in o
-                       for o in out.effected)
+            allowed = any(o.get("op") == "archive" for o in out.accepted)
+            archived = any(o.get("op") == "archive" and "error" not in o
+                           for o in out.effected)
+            if archived:
+                assert meta is not None
+                s = dex.key_for_path(vault / ARCHIVE_ZONE / meta["rel"])
+                assert s is not None
         return {"slug": s, "allowed": allowed,
                 "archived": archived, **_outcome(out)}
 
@@ -585,6 +600,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
                 path = dex.rezone(key, target or "")
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
+            key = dex.key_for_path(path)
+            assert key is not None
         return {"slug": key, "zone": target or "inbox",
                 "path": path.relative_to(vault).as_posix()}
 

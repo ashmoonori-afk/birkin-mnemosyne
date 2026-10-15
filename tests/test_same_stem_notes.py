@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
+from birkin_mnemosyne import VaultMemory, memory, mnemosyne
 from birkin_mnemosyne.mnemosyne import Mnemosyne, path_key
 
 
@@ -77,3 +80,46 @@ def test_refresh_tracks_renamed_same_stem_file_without_stale_key(tmp_path: Path)
         "profile": "a/profile.md", "card": "b/card.md",
     }
     assert eng.search("gardener")[0]["rel"] == "a/profile.md"
+
+
+def test_rezone_returns_with_canonical_search_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(mnemosyne, "_clock", lambda: 100.0)
+    _write(tmp_path, "a/card.md", "gardener\n", 100)
+    _write(tmp_path, "b/card.md", "astronomer\n", 200)
+    eng = Mnemosyne(tmp_path, semantic=False)
+    eng.refresh()
+    moved = eng.rezone("a/card", "c")
+    hit = eng.search("gardener")[0]
+    assert moved == tmp_path / "c/card.md"
+    assert (hit["slug"], hit["rel"]) == ("c/card", "c/card.md")
+
+
+def test_read_credits_same_stem_file_and_its_zone(tmp_path: Path) -> None:
+    _write(tmp_path, "a/card.md", "gardener\n", 100)
+    _write(tmp_path, "b/card.md", "astronomer\n", 200)
+    mem = VaultMemory({"vault_path": str(tmp_path)})
+    assert mem.get_note("a/card") == "gardener\n"
+    assert mem.dex.dynamics_of("a/card")["access_count"] == 1
+    assert mem.dex.dynamics_of("card")["access_count"] == 0
+    assert mem.dex.zone_priorities() == {"a": 1.0, "b": 0.0}
+
+
+def test_write_credits_same_stem_file_when_it_remains_older(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write(tmp_path, "a/card.md", "gardener\n", 100)
+    _write(tmp_path, "b/card.md", "astronomer\n", 200)
+    original_write = memory.atomic_write_bytes
+
+    def stamped_write(path: Path, data: bytes) -> None:
+        original_write(path, data)
+        os.utime(path, (150, 150))
+
+    monkeypatch.setattr(memory, "atomic_write_bytes", stamped_write)
+    mem = VaultMemory({"vault_path": str(tmp_path)})
+    mem.write_note("a/card", "updated gardener")
+    assert mem.dex.dynamics_of("a/card")["access_count"] == 1
+    assert mem.dex.dynamics_of("card")["access_count"] == 0
+    assert mem.dex.zone_priorities() == {"a": 1.0, "b": 0.0}
