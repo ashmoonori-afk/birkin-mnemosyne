@@ -11,11 +11,12 @@ import json
 import re
 import threading
 from collections import Counter
-from collections.abc import Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from html import escape
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any
 
 from . import frontmatter
 from .mnemosyne import bm25_scores, tokenize
@@ -208,6 +209,20 @@ class KibitzerAdapter:
             doc.path, doc.description, _excerpt(doc.body, query),
             1 / (1 + scores[doc.path]),
         ) for doc in ranked)
+
+    def select_crosslingual(
+        self, query: str, *, decide: Callable[[dict[str, Any]], Mapping[str, Any]],
+        views: Sequence[str] = (), limit: int = 5,
+        surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
+        model: str | None = None, force_refresh: bool = False,
+    ) -> tuple[RecallCandidate, ...]:
+        """Opt-in hosted reranking; see :mod:`birkin_mnemosyne.crosslingual`."""
+        from . import crosslingual
+        return crosslingual.rerank(
+            self, query, decide=decide, views=views, limit=limit, surfaced=surfaced,
+            exclude_paths=exclude_paths, model=model or crosslingual.MODEL,
+            force_refresh=force_refresh,
+        )
 
     def export(self, destination: str | Path) -> tuple[str, ...]:
         """Export described notes to a separate explicit root; never overwrite files."""

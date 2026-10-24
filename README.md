@@ -208,6 +208,64 @@ that saw only the question moved paraphrase MRR from 0.204 to 0.981 and
 upper bound: see
 [Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11).
 
+## Cross-language recall reranking (opt-in, hosted)
+
+`KibitzerAdapter.select_crosslingual()` adds a reranking stage for recall
+across languages. It is off unless you call it with a `decide` client, and
+each call sends paid requests to a hosted decision model. `select()`, `search()`
+and the stdlib core are unchanged.
+
+```python
+from birkin_mnemosyne import KibitzerAdapter, get_completer, opengateway_decider, translate_views
+
+adapter = KibitzerAdapter("my_vault")
+query = "클러스터 오토스케일러는 언제 노드를 추가하나요?"
+views = translate_views(query, "ko", get_completer("api"))   # English view
+decide = opengateway_decider()          # OPENGATEWAY_API_KEY, sionic-ai/jev-omni
+for hit in adapter.select_crosslingual(query, decide=decide, views=views):
+    print(hit.path, hit.score)          # lower score is better
+```
+
+The pipeline has five steps:
+
+1. Take the top 32 notes for the original query and for each translated view,
+   once with BM25 and once with TF-IDF cosine. Keep the original query's notes
+   first and drop repeats.
+2. Score every card with the judge in packets of at most 8. A card is the
+   note description plus the 1,500-character excerpt richest in the query's
+   rare terms. The judge only sees the original query.
+3. Average the two retrievers' scores and keep five notes.
+4. Compare every pair of the five in both orders and sort by the summed,
+   order-symmetrised preference. Exact ties keep the step-3 order.
+5. Raise `RerankError` on any malformed or failed judge response. There is no
+   partial fallback and no automatic retry.
+
+A query costs `ceil(n_bm25/8) + ceil(n_cosine/8) + 20` judge requests.
+
+**Measured result (kib-bm25 study, October 2026).** The research harness ran
+this method on a fixed set of 2,400 questions in six languages (zh, ja, ko, es,
+fr, en; 400 per language, half native and half cross-language). A labeled
+relevant document appeared among the five initial candidates for 1,602
+questions, up from 485 for the installed Kibitzer recall baseline. That is
+3.30x, with a grouped 95% ratio interval of 3.05 to 3.58. Every language rose,
+and so did every native-language subset. On older top-2 checks it reached
+452/524 (floor 425), SciFact 231/300 (floor 224) and Korean MIRACL 137/213
+(floor 107).
+
+The earlier method without the pairwise step scored 142 on that Korean set but
+failed SciFact with 215. So the pairwise step costs five Korean hits while
+clearing every floor.
+
+The extra pairwise requests over all 3,437 cases cost an estimated $1.85
+(68,600 requests at $0.0000000378 per input token). That is not an invoice,
+and it excludes the earlier pointwise stage.
+
+These figures come from the research harness and its retrievers, not from
+rerunning this module. The module ports the union, excerpt, packet, merge and
+pairwise stages exactly, but uses this package's tokenizer for retrieval.
+The question sets were reused during method selection, so they are not
+untouched holdouts.
+
 ## Always-loaded memory INDEX (opt-in)
 
 Keep a complete **when to read -> which document** map available from startup
@@ -1288,6 +1346,8 @@ from birkin_mnemosyne import (
     validate_clamp,     # the gate, if you want to inspect a plan without applying
     build_plan_prompt, extract_plan, mechanical_catalog,
     slug, tokenize, bm25_scores,
+    KibitzerAdapter,    # Kibitzer-shaped recall; select_crosslingual() is opt-in
+    opengateway_decider, translate_views, RerankError,  # hosted reranking parts
 )
 ```
 
