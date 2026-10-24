@@ -204,6 +204,60 @@ mem.search(
 모델이 작성했으므로 상한선으로 읽어 주세요:
 [검색 시점 쿼리 확장](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11).
 
+## 언어를 넘는 회상 재정렬(선택, 호스팅 모델)
+
+`KibitzerAdapter.select_crosslingual()`은 다른 언어로 쓴 노트까지 찾도록
+재정렬 단계를 더합니다. `decide` 클라이언트를 넘겨 호출할 때만 동작하고,
+호출마다 호스팅 판정 모델에 유료 요청을 보냅니다. `select()`, `search()`와
+표준 라이브러리 코어는 바뀌지 않습니다.
+
+```python
+from birkin_mnemosyne import KibitzerAdapter, get_completer, opengateway_decider, translate_views
+
+adapter = KibitzerAdapter("my_vault")
+query = "클러스터 오토스케일러는 언제 노드를 추가하나요?"
+views = translate_views(query, "ko", get_completer("api"))   # 영어 질의
+decide = opengateway_decider()          # OPENGATEWAY_API_KEY, sionic-ai/jev-omni
+for hit in adapter.select_crosslingual(query, decide=decide, views=views):
+    print(hit.path, hit.score)          # 점수는 낮을수록 좋음
+```
+
+동작은 다섯 단계입니다.
+
+1. 원래 질의와 번역 질의마다 BM25와 TF-IDF 코사인으로 상위 32개 노트를
+   가져옵니다. 원래 질의의 결과를 앞에 두고 중복은 뺍니다.
+2. 판정 모델이 카드를 최대 8장씩 묶어 점수를 매깁니다. 카드는 노트 설명과,
+   질의의 드문 단어가 가장 많은 1,500자 발췌입니다. 판정 모델에는 원래
+   질의만 보냅니다.
+3. 두 검색 방식의 점수를 평균해 다섯 개를 남깁니다.
+4. 다섯 개의 모든 쌍을 양쪽 순서로 비교하고, 순서 영향을 상쇄한 선호 합으로
+   정렬합니다. 완전히 같으면 3단계 순서를 지킵니다.
+5. 판정 응답이 잘못되거나 실패하면 `RerankError`를 냅니다. 부분 결과로
+   대체하거나 자동 재시도하지 않습니다.
+
+질의 하나에 판정 요청은 `ceil(BM25 카드/8) + ceil(코사인 카드/8) + 20`건입니다.
+
+**측정 결과(kib-bm25 연구, 2026년 10월).** 연구 실행기로 6개 언어(zh, ja, ko,
+es, fr, en) 고정 질문 2,400개를 측정했습니다. 언어마다 400개이고, 절반은 같은
+언어, 절반은 다른 언어 문서를 찾는 질문입니다. 정답 문서가 첫 후보 다섯 개 안에
+든 질문은 설치된 Kibitzer 회상 485개에서 1,602개로 늘었습니다. 3.30배이고,
+묶음 단위 95% 비율 구간은 3.05~3.58입니다. 6개 언어 모두, 같은 언어 질문만 따로
+봐도 모두 올랐습니다. 과거 상위 2개 검사는 452/524(기준 425), SciFact
+231/300(기준 224), 한국어 MIRACL 137/213(기준 107)입니다.
+
+쌍 비교가 없는 직전 방식은 한국어 세트에서 142개였지만 SciFact가 215개로
+기준에 못 미쳤습니다. 쌍 비교 단계가 한국어에서 다섯 개를 잃는 대신 모든 기준을
+넘긴 셈입니다.
+
+전체 3,437개 문제에 더한 쌍 비교 요청 68,600건의 비용은 약 1.85달러로
+추정했습니다(입력 토큰당 0.0000000378달러). 청구서 금액이 아니고, 앞 단계 점수
+비용은 빠져 있습니다.
+
+이 수치는 이 모듈을 다시 돌린 결과가 아니라 연구 실행기와 그 검색기로 잰
+값입니다. 이 모듈은 후보 합치기, 발췌, 요청 형식, 평균, 쌍 비교 단계를 그대로
+옮겼고, 검색에는 이 패키지의 토크나이저를 씁니다. 방법을 고르는 동안 같은 문제
+세트를 여러 번 썼으므로, 처음 보는 검증 세트가 아닙니다.
+
 ## 항상 로드되는 메모리 INDEX(선택)
 
 언제 읽어야 하는지(읽을 시점)에서 어떤 문서인지로 이어지는 **완전한 지도**를 시작
@@ -1240,6 +1294,8 @@ from birkin_mnemosyne import (
     validate_clamp,     # 적용 없이 계획을 검사하고 싶을 때의 게이트
     build_plan_prompt, extract_plan, mechanical_catalog,
     slug, tokenize, bm25_scores,
+    KibitzerAdapter,    # Kibitzer 형태 회상; select_crosslingual()은 옵트인
+    opengateway_decider, translate_views, RerankError,  # 호스팅 재정렬 구성 요소
 )
 ```
 
