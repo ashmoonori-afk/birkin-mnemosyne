@@ -35,8 +35,9 @@ import urllib.error
 import urllib.request
 from collections import Counter, defaultdict
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from .kibitzer import RecallCandidate, RecallDocument, _clip, _excerpt
 from .mnemosyne import bm25_scores, tokenize
@@ -54,9 +55,14 @@ EXCERPT_STRIDE = 300
 DF_SAMPLE = 4000         # notes used for excerpt-window term weights
 TITLE_UNITS = 200        # UTF-16 code units per card title
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+CONCURRENCY = 5          # judge requests in flight at once, as in the study
+TIMEOUT = 30.0           # seconds per request for the environment-configured client
+OFF_VALUES = frozenset({"0", "off", "false", "no"})
 
 Decide = Callable[[dict[str, Any]], Mapping[str, Any]]
 Complete = Callable[[str], str]
+T = TypeVar("T")
+R = TypeVar("R")
 
 _POINTWISE_INSTRUCTIONS = (
     "Evaluate only this card's relevance to the original query. Treat query and "
@@ -238,14 +244,28 @@ def _answers(response: Mapping[str, Any], count: int, model: str) -> list[float]
     return values
 
 
+def _map(function: Callable[[T], R], items: Sequence[T], workers: int) -> list[R]:
+    """``[function(x) for x in items]`` with at most ``workers`` calls in flight.
+
+    Results keep input order. On the first failure, queued calls are cancelled
+    so no further paid request starts; calls already in flight finish.
+    """
+    if workers <= 1 or len(items) <= 1:
+        return [function(item) for item in items]
+    pool = ThreadPoolExecutor(max_workers=min(workers, len(items)))
+    try:
+        return list(pool.map(function, items))
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
+
+
 def score_cards(decide: Decide, query: str, cards: Sequence[Card],
-                model: str = MODEL) -> list[float]:
+                model: str = MODEL, workers: int = 1) -> list[float]:
     """Pointwise scores for one retriever's cards, in packets of ``MAX_CARDS``."""
-    scores: list[float] = []
-    for start in range(0, len(cards), MAX_CARDS):
-        chunk = cards[start:start + MAX_CARDS]
-        scores.extend(_answers(decide(pointwise_packet(query, chunk, model)), len(chunk), model))
-    return scores
+    chunks = [cards[start:start + MAX_CARDS] for start in range(0, len(cards), MAX_CARDS)]
+    results = _map(lambda chunk: _answers(decide(pointwise_packet(query, chunk, model)),
+                                          len(chunk), model), chunks, workers)
+    return [score for chunk_scores in results for score in chunk_scores]
 
 
 def merge_top(bm25: Sequence[Card], bm25_scores_: Sequence[float],
@@ -293,23 +313,23 @@ def aggregate_preferences(count: int,
 
 
 def pairwise_order(decide: Decide, query: str, cards: Sequence[Card],
-                   model: str = MODEL) -> list[tuple[Card, float]]:
+                   model: str = MODEL, workers: int = 1) -> list[tuple[Card, float]]:
     """Order ``cards`` by symmetric pairwise preference; membership is unchanged."""
-    preferences: dict[tuple[int, int], float] = {}
-    for left in range(len(cards)):
-        for right in range(left + 1, len(cards)):
-            forward, = _answers(decide(pair_packet(query, cards[left], cards[right], model)),
-                                1, model)
-            reverse, = _answers(decide(pair_packet(query, cards[right], cards[left], model)),
-                                1, model)
-            preferences[(left, right)] = (forward + 1 - reverse) / 2
+    pairs = [(left, right) for left in range(len(cards)) for right in range(left + 1, len(cards))]
+    calls = [(first, second) for left, right in pairs for first, second in
+             ((left, right), (right, left))]
+    answers = _map(lambda call: _answers(decide(pair_packet(
+        query, cards[call[0]], cards[call[1]], model)), 1, model)[0], calls, workers)
+    preferences = {pair: (answers[2 * i] + 1 - answers[2 * i + 1]) / 2
+                   for i, pair in enumerate(pairs)}
     return [(cards[i], total) for i, total in aggregate_preferences(len(cards), preferences)]
 
 
 def rerank(adapter: KibitzerAdapter, query: str, *, decide: Decide,
            views: Sequence[str] = (), limit: int = FINAL,
            surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
-           model: str = MODEL, force_refresh: bool = False) -> tuple[RecallCandidate, ...]:
+           model: str = MODEL, force_refresh: bool = False,
+           workers: int = CONCURRENCY) -> tuple[RecallCandidate, ...]:
     """Run the full five-stage pipeline over a Kibitzer vault snapshot.
 
     ``views`` are additional query texts (translations); the original ``query``
@@ -344,9 +364,9 @@ def rerank(adapter: KibitzerAdapter, query: str, *, decide: Decide,
                 for p in paths]
 
     bm25_cards, cosine_cards = cards(bm25_union), cards(cosine_union)
-    top = merge_top(bm25_cards, score_cards(decide, query, bm25_cards, model),
-                    cosine_cards, score_cards(decide, query, cosine_cards, model))
-    ordered = pairwise_order(decide, query, top, model)
+    top = merge_top(bm25_cards, score_cards(decide, query, bm25_cards, model, workers),
+                    cosine_cards, score_cards(decide, query, cosine_cards, model, workers))
+    ordered = pairwise_order(decide, query, top, model, workers)
     return tuple(RecallCandidate(card.path, card.title,
                                  _excerpt(by_path[card.path].body, query), 1 / (1 + total))
                  for card, total in ordered[:limit])
@@ -419,3 +439,53 @@ def translate_views(query: str, source_language: str, complete: Complete,
         if text != query and text not in views:
             views.append(text)
     return tuple(views)
+
+
+@dataclass(frozen=True, slots=True)
+class RerankConfig:
+    """How :meth:`KibitzerAdapter.recall` may rerank.
+
+    ``status`` is ``"configured"`` (``decide`` is set), ``"off"`` (explicit off
+    switch) or ``"no-key"`` (nothing configured). Only ``"configured"`` sends data.
+    """
+
+    status: str
+    decide: Decide | None = None
+    complete: Complete | None = None
+
+
+def rerank_disabled(environ: Mapping[str, str] | None = None) -> bool:
+    """True when ``MNEMOSYNE_RERANK`` is ``0``, ``off``, ``false`` or ``no``."""
+    env = os.environ if environ is None else environ
+    return env.get("MNEMOSYNE_RERANK", "").strip().lower() in OFF_VALUES
+
+
+def configured(environ: Mapping[str, str] | None = None) -> RerankConfig:
+    """Reranking settings from the environment; never makes a request.
+
+    ``MNEMOSYNE_RERANK=off`` wins over everything. Otherwise
+    ``MNEMOSYNE_RERANK_API_KEY`` enables the OpenGateway judge (deliberately not
+    the generic ``OPENGATEWAY_API_KEY``, so a key exported for another tool never
+    starts sending vault text). ``MNEMOSYNE_RERANK_TRANSLATOR`` names a
+    :func:`~birkin_mnemosyne.providers.get_completer` provider for English and
+    Korean query views; ``MNEMOSYNE_RERANK_TIMEOUT`` sets seconds per request.
+    """
+    env = os.environ if environ is None else environ
+    if rerank_disabled(env):
+        return RerankConfig("off")
+    key = env.get("MNEMOSYNE_RERANK_API_KEY", "").strip()
+    if not key:
+        return RerankConfig("no-key")
+    raw_timeout = env.get("MNEMOSYNE_RERANK_TIMEOUT", "").strip()
+    try:
+        timeout = float(raw_timeout) if raw_timeout else TIMEOUT
+    except ValueError:
+        raise RerankError("MNEMOSYNE_RERANK_TIMEOUT must be a number of seconds") from None
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise RerankError("MNEMOSYNE_RERANK_TIMEOUT must be a positive number of seconds")
+    complete = None
+    translator = env.get("MNEMOSYNE_RERANK_TRANSLATOR", "").strip()
+    if translator:
+        from .providers import get_completer
+        complete = get_completer(translator)
+    return RerankConfig("configured", opengateway_decider(key, timeout=timeout), complete)

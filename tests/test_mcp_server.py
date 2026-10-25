@@ -133,13 +133,15 @@ def test_identity_reader_via_real_mcp_client(tmp_path):
     })
 
 
-def test_kibitzer_candidates_via_real_mcp_client(tmp_path):
+def test_kibitzer_candidates_via_real_mcp_client(tmp_path, monkeypatch):
+    monkeypatch.delenv("MNEMOSYNE_RERANK_API_KEY", raising=False)
     remember(tmp_path, "Publish guard", "Release requires approval.")
     remember(tmp_path, "Release logs", "Release logs are retained.")
     result = ok(tmp_path, "memory_kibitzer_candidates", {
         "query": "release", "surfaced": ["knowledge/publish-guard.md"], "limit": 1,
     })
     assert result["snapshot"] == "live"
+    assert (result["selector"], result["fallback"]) == ("mnemosyne-bm25", "no-key")
     candidate, = result["candidates"]
     assert candidate["path"] == "knowledge/release-logs.md"
     assert set(candidate) == {"path", "description", "excerpt", "score"}
