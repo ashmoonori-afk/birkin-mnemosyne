@@ -8,6 +8,7 @@ committed-HEAD provider semantics, or an autonomous resident judgement.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 from collections import Counter
@@ -131,13 +132,35 @@ def _excerpt(body: str, query: str) -> str:
     return _clip(plain[start:], 200)
 
 
+log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class RecallResult:
+    """What :meth:`KibitzerAdapter.recall` returned and why.
+
+    ``selector`` is ``"crosslingual-rerank"`` or ``"mnemosyne-bm25"``.
+    ``fallback`` is ``None`` when the rerank ran, else the reason it did not:
+    ``"off"``, ``"no-key"``, ``"limit"``, ``"error"`` or ``"disabled"``.
+    """
+
+    candidates: tuple[RecallCandidate, ...]
+    selector: str
+    fallback: str | None = None
+
+
 class KibitzerAdapter:
     """Mutable snapshot cache; lexical index reuses the stdlib core tokenizer."""
 
-    def __init__(self, vault: str | Path) -> None:
+    def __init__(self, vault: str | Path, *,
+                 decide: Callable[[dict[str, Any]], Mapping[str, Any]] | None = None,
+                 complete: Callable[[str], str] | None = None) -> None:
         self.vault: Path = Path(vault).resolve()
         self._cache: _Snapshot | None = None
         self._lock: threading.RLock = threading.RLock()
+        self._decide = decide
+        self._complete = complete
+        self._warned_no_key = False
 
     def _snapshot(self, force_refresh: bool) -> _Snapshot:
         with VaultLock(self.vault).hold(), self._lock:
@@ -223,6 +246,61 @@ class KibitzerAdapter:
             exclude_paths=exclude_paths, model=model or crosslingual.MODEL,
             force_refresh=force_refresh,
         )
+
+    def recall(
+        self, query: str, *, limit: int = 3,
+        surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
+        force_refresh: bool = False, rerank: bool = True,
+    ) -> RecallResult:
+        """Rerank across languages when a judge is configured, else :meth:`select`.
+
+        A judge is configured by ``decide=`` on the adapter or by
+        ``MNEMOSYNE_RERANK_API_KEY``; ``MNEMOSYNE_RERANK=off`` or ``rerank=False``
+        turns it off and nothing leaves the machine. Without a judge the BM25
+        ranking is returned and one warning is logged per adapter. A failed or
+        timed-out judge call logs one warning and returns the BM25 ranking, never
+        a partial rerank. Limits above five use BM25 without any request.
+        """
+        from . import crosslingual
+
+        def lexical(reason: str) -> RecallResult:
+            return RecallResult(self.select(query, limit=limit, surfaced=surfaced,
+                                            exclude_paths=exclude_paths,
+                                            force_refresh=force_refresh),
+                                "mnemosyne-bm25", reason)
+
+        if not rerank:
+            return lexical("disabled")
+        if crosslingual.rerank_disabled():
+            return lexical("off")
+        if limit <= 0 or limit > crosslingual.FINAL or not query.strip():
+            return lexical("limit")
+        decide, complete = self._decide, self._complete
+        if decide is None:
+            try:
+                config = crosslingual.configured()
+            except Exception as exc:  # noqa: BLE001 - misconfiguration must not break recall
+                log.warning("cross-language rerank skipped (%s: %s); using BM25 recall",
+                            type(exc).__name__, exc)
+                return lexical("error")
+            if config.decide is None:
+                if not self._warned_no_key:
+                    self._warned_no_key = True
+                    log.warning("cross-language rerank is not configured "
+                                "(MNEMOSYNE_RERANK_API_KEY unset); using BM25 recall. "
+                                "Set MNEMOSYNE_RERANK=off to silence this.")
+                return lexical(config.status)
+            decide, complete = config.decide, config.complete
+        try:
+            views = crosslingual.translate_views(query, "", complete) if complete else ()
+            hits = crosslingual.rerank(self, query, decide=decide, views=views, limit=limit,
+                                       surfaced=surfaced, exclude_paths=exclude_paths,
+                                       force_refresh=force_refresh)
+        except Exception as exc:  # noqa: BLE001 - any judge/translator/timeout failure falls back
+            log.warning("cross-language rerank failed (%s: %s); using BM25 recall",
+                        type(exc).__name__, exc)
+            return lexical("error")
+        return RecallResult(hits, "crosslingual-rerank")
 
     def export(self, destination: str | Path) -> tuple[str, ...]:
         """Export described notes to a separate explicit root; never overwrite files."""

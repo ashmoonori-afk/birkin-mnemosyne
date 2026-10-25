@@ -208,63 +208,120 @@ that saw only the question moved paraphrase MRR from 0.204 to 0.981 and
 upper bound: see
 [Search-time query expansion](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/retrieval/RESULTS.md#latest-main-replay-2026-10-11).
 
-## Cross-language recall reranking (opt-in, hosted)
+## Cross-language recall reranking (hosted, on when you set a key)
 
-`KibitzerAdapter.select_crosslingual()` adds a reranking stage for recall
-across languages. It is off unless you call it with a `decide` client, and
-each call sends paid requests to a hosted decision model. `select()`, `search()`
-and the stdlib core are unchanged.
+Recall can find notes written in another language than the question. When you
+configure a decision-model key, `KibitzerAdapter.recall()` and the MCP tool
+`memory_kibitzer_candidates` rerank automatically. Without a key nothing leaves
+the machine and you get the usual BM25 ranking. `select()`, `search()` and the
+stdlib core never call a model.
 
-```python
-from birkin_mnemosyne import KibitzerAdapter, get_completer, opengateway_decider, translate_views
-
-adapter = KibitzerAdapter("my_vault")
-query = "클러스터 오토스케일러는 언제 노드를 추가하나요?"
-views = translate_views(query, "ko", get_completer("api"))   # English view
-decide = opengateway_decider()          # OPENGATEWAY_API_KEY, sionic-ai/jev-omni
-for hit in adapter.select_crosslingual(query, decide=decide, views=views):
-    print(hit.path, hit.score)          # lower score is better
+```bash
+export MNEMOSYNE_RERANK_API_KEY=...        # OpenGateway key; turns the rerank on
+export MNEMOSYNE_RERANK_TRANSLATOR=api     # optional: English and Korean query views
+export MNEMOSYNE_RERANK=off                # explicit off switch; wins over the key
 ```
 
-The pipeline has five steps:
+```python
+from birkin_mnemosyne import KibitzerAdapter
 
-1. Take the top 32 notes for the original query and for each translated view,
+result = KibitzerAdapter("my_vault").recall("클러스터 오토스케일러는 언제 노드를 추가하나요?")
+print(result.selector, result.fallback)    # "crosslingual-rerank", None when it ran
+for hit in result.candidates:
+    print(hit.path, hit.score)             # lower score is better
+```
+
+| Setting | Effect |
+|---|---|
+| `MNEMOSYNE_RERANK_API_KEY` | Enables the hosted judge (`sionic-ai/jev-omni` on OpenGateway). The generic `OPENGATEWAY_API_KEY` is ignored on purpose, so a key exported for another tool never starts sending notes. |
+| `MNEMOSYNE_RERANK_TRANSLATOR` | A `get_completer` provider (`claude`, `codex`, `api`, `gemini`, `local`) that writes English and Korean views of the query. The measured configuration used views; without this setting the rerank uses the original query only, which was not measured. |
+| `MNEMOSYNE_RERANK=off` | Off switch (`0`, `false` and `no` also work). Nothing is sent and no warning is logged. `recall(rerank=False)` turns it off for one call. |
+| `MNEMOSYNE_RERANK_TIMEOUT` | Seconds per judge request; default 30. |
+
+You can also pass a client in code: `KibitzerAdapter(vault, decide=..., complete=...)`.
+
+**When it falls back.** `recall()` returns the BM25 ranking and says why in
+`result.fallback`:
+
+- `no-key`: no key configured. One warning per adapter.
+- `error`: a judge or translation request failed, timed out or broke the
+  response contract, or a setting is invalid. One warning for that call. A
+  partial rerank is never returned, and queued requests are cancelled after
+  the first failure.
+- `off` or `disabled`: the off switch is set. No warning.
+- `limit`: the rerank keeps five notes, so a limit above 5 uses BM25 without
+  any request.
+
+`select_crosslingual(query, decide=..., views=...)` stays available when you
+want the strict form that raises `RerankError` instead of falling back.
+
+**What is sent.** Only the original query and, for each candidate note, its
+description and a 1,500-character excerpt go to the judge. Translation
+requests send the query only. Notes in `system/`, `_archive/`, expired notes
+and surfaced or excluded paths are removed before anything is sent, and
+secret-looking strings are redacted as in normal recall. There is no automatic
+retry.
+
+**How it ranks.**
+
+1. Take the top 32 notes for the original query and each translated view,
    once with BM25 and once with TF-IDF cosine. Keep the original query's notes
    first and drop repeats.
-2. Score every card with the judge in packets of at most 8. A card is the
-   note description plus the 1,500-character excerpt richest in the query's
-   rare terms. The judge only sees the original query.
+2. Score every card with the judge in packets of at most 8. The judge sees
+   only the original query.
 3. Average the two retrievers' scores and keep five notes.
 4. Compare every pair of the five in both orders and sort by the summed,
    order-symmetrised preference. Exact ties keep the step-3 order.
-5. Raise `RerankError` on any malformed or failed judge response. There is no
-   partial fallback and no automatic retry.
 
-A query costs `ceil(n_bm25/8) + ceil(n_cosine/8) + 20` judge requests.
+At most five judge requests run at once, as in the study.
 
-**Measured result (kib-bm25 study, October 2026).** The research harness ran
-this method on a fixed set of 2,400 questions in six languages (zh, ja, ko, es,
-fr, en; 400 per language, half native and half cross-language). A labeled
-relevant document appeared among the five initial candidates for 1,602
-questions, up from 485 for the installed Kibitzer recall baseline. That is
-3.30x, with a grouped 95% ratio interval of 3.05 to 3.58. Every language rose,
-and so did every native-language subset. On older top-2 checks it reached
+**Confirmed result (unseen holdout, October 25, 2026).** The research harness
+ran this method once on 1,440 new questions in six languages (zh, ja, ko, es,
+fr, en; half native, half cross-language). The question IDs and texts do not
+overlap any question used to choose the method. Before scoring, two source
+questions whose translations failed the quality check were removed with all
+their copies: 8 cases per arm, leaving **1,432 of 1,440** and slightly unequal
+language counts. A relevant document was among the first five candidates for
+**1,028 questions, up from 298** for the installed Kibitzer recall. The
+equal-language average went from 20.8% to 71.8%: **3.45x, grouped 95% interval
+3.14-3.81**. The preregistered rule (at least 3x, lower bound at least 3x, no
+language or native subset falling) passed in all six languages.
+
+| Query language | Before | After |
+|---|---:|---:|
+| zh | 38/239 | 151/239 |
+| ja | 52/239 | 172/239 |
+| ko | 75/238 | 184/238 |
+| es | 46/239 | 176/239 |
+| fr | 25/239 | 156/239 |
+| en | 62/238 | 189/238 |
+
+Read these limits with the result: the metric is whether a relevant document
+is among five candidates, not answer accuracy. The questions are new, but the
+documents come from the same public corpus family, and 64 questions share an
+article with earlier questions. The numbers come from the research harness.
+Replaying its 58,498 saved judge answers through this package's card, packet,
+merge and pairwise code reproduced the same five notes in the same order for
+all 1,432 questions, with no request differing byte for byte. Retrieval is
+not covered by that check: the package uses its own tokenizer, while the study
+used the research retrievers.
+
+An earlier result on 2,400 questions (485 to 1,602, 3.30x, interval
+3.05-3.58) reused questions while the method was being chosen, so it is
+selection evidence, not confirmation. On older top-2 checks the method reached
 452/524 (floor 425), SciFact 231/300 (floor 224) and Korean MIRACL 137/213
-(floor 107).
+(floor 107); the earlier method without the pairwise step scored 142 on that
+Korean set but failed SciFact.
 
-The earlier method without the pairwise step scored 142 on that Korean set but
-failed SciFact with 215. So the pairwise step costs five Korean hits while
-clearing every floor.
-
-The extra pairwise requests over all 3,437 cases cost an estimated $1.85
-(68,600 requests at $0.0000000378 per input token). That is not an invoice,
-and it excludes the earlier pointwise stage.
-
-These figures come from the research harness and its retrievers, not from
-rerunning this module. The module ports the union, excerpt, packet, merge and
-pairwise stages exactly, but uses this package's tokenizer for retrieval.
-The question sets were reused during method selection, so they are not
-untouched holdouts.
+**Cost and latency.** A query makes `ceil(n_bm25/8) + ceil(n_cosine/8) + 20`
+judge requests, about 41 on the holdout (21 pointwise, 20 pairwise). The judge
+cost averaged **$0.0081 per query** (estimate from token counts at
+$0.0000000378 per input token, not an invoice). The two translation requests
+are billed by your translation provider. Measured judge requests took 0.77 s
+(pointwise) and 0.20 s (pairwise) on average. With five in flight that is
+roughly 4 s per query before translation, about 20 s if run one at a time.
+That is an estimate from request timings, not a measured end-to-end time for
+this module.
 
 ## Always-loaded memory INDEX (opt-in)
 
@@ -1346,7 +1403,8 @@ from birkin_mnemosyne import (
     validate_clamp,     # the gate, if you want to inspect a plan without applying
     build_plan_prompt, extract_plan, mechanical_catalog,
     slug, tokenize, bm25_scores,
-    KibitzerAdapter,    # Kibitzer-shaped recall; select_crosslingual() is opt-in
+    KibitzerAdapter,    # Kibitzer-shaped recall; recall() reranks when a key is set
+    RecallResult,       # recall() candidates plus selector and fallback reason
     opengateway_decider, translate_views, RerankError,  # hosted reranking parts
 )
 ```

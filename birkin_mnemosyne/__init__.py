@@ -63,6 +63,7 @@ _EXPORTS = {
     "KibitzerAdapter": "birkin_mnemosyne.kibitzer",
     "RecallDocument": "birkin_mnemosyne.kibitzer",
     "RecallCandidate": "birkin_mnemosyne.kibitzer",
+    "RecallResult": "birkin_mnemosyne.kibitzer",
     "RecallNudge": "birkin_mnemosyne.kibitzer",
     "Admission": "birkin_mnemosyne.kibitzer",
     "admit": "birkin_mnemosyne.kibitzer",

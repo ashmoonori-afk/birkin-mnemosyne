@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,11 +13,14 @@ import pytest
 
 from birkin_mnemosyne import RerankError, opengateway_decider, translate_views
 from birkin_mnemosyne.crosslingual import (
+    CONCURRENCY,
     EXCERPT_CHARS,
     MAX_CARDS,
     MODEL,
     Card,
+    _map,
     aggregate_preferences,
+    configured,
     expanded_union,
     merge_top,
     pair_packet,
@@ -291,3 +295,144 @@ def test_opengateway_decider_requires_a_key(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("OPENGATEWAY_API_KEY", raising=False)
     with pytest.raises(RerankError):
         opengateway_decider()
+
+
+_RERANK_ENV = ("MNEMOSYNE_RERANK", "MNEMOSYNE_RERANK_API_KEY", "MNEMOSYNE_RERANK_TIMEOUT",
+               "MNEMOSYNE_RERANK_TRANSLATOR")
+_QUERY = "When does the cluster autoscaler add nodes"
+_RELEVANCE = {"autoscale.md": 0.9, "korean.md": 0.95, "rollout.md": 0.4,
+              "garbage.md": 0.3, "ingress.md": 0.35, "quota.md": 0.2, "private.md": 0.1}
+_STRENGTH = {"autoscale.md": 8.0, "korean.md": 2.0, "rollout.md": 1.5,
+             "garbage.md": 1.0, "ingress.md": 1.2, "quota.md": 0.5, "private.md": 0.2}
+
+
+@pytest.fixture
+def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    for name in (*_RERANK_ENV, "OPENGATEWAY_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    return monkeypatch
+
+
+def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records
+            if r.levelno == logging.WARNING and r.name == "birkin_mnemosyne.kibitzer"]
+
+
+def test_recall_reranks_automatically_with_a_configured_client(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch) -> None:
+    judge = Judge(_RELEVANCE, _STRENGTH)
+    adapter = KibitzerAdapter(_vault(tmp_path), decide=judge)
+    result = adapter.recall(_QUERY, limit=5)
+    assert (result.selector, result.fallback) == ("crosslingual-rerank", None)
+    strict = adapter.select_crosslingual(_QUERY, decide=Judge(_RELEVANCE, _STRENGTH))
+    assert result.candidates == strict
+    assert result.candidates[0].path == "autoscale.md"
+    assert len([p for p in judge.packets if len(p["questions"]) == 1
+                and len(p["state"]["cards"]) == 2]) == 20
+
+
+def test_recall_without_a_key_sends_nothing_and_warns_once(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture) -> None:
+    # A key exported for another tool must not enable the rerank.
+    clean_env.setenv("OPENGATEWAY_API_KEY", "other-tool-key")
+    adapter = KibitzerAdapter(_vault(tmp_path))
+    with caplog.at_level(logging.WARNING):
+        first = adapter.recall(_QUERY)
+        second = adapter.recall(_QUERY)
+    assert first == second
+    assert (first.selector, first.fallback) == ("mnemosyne-bm25", "no-key")
+    assert first.candidates == adapter.select(_QUERY)
+    assert len(_warnings(caplog)) == 1 and "MNEMOSYNE_RERANK_API_KEY" in _warnings(caplog)[0]
+
+
+@pytest.mark.parametrize("failure", [RerankError("bad answer"), TimeoutError("timed out"),
+                                     OSError("connection reset")],
+                         ids=["contract", "timeout", "network"])
+def test_recall_falls_back_cleanly_on_any_judge_failure(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+        failure: Exception) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def broken(packet: dict[str, Any]) -> dict[str, Any]:
+        calls.append(packet)
+        raise failure
+
+    adapter = KibitzerAdapter(_vault(tmp_path), decide=broken)
+    with caplog.at_level(logging.WARNING):
+        result = adapter.recall(_QUERY, limit=5)
+    assert (result.selector, result.fallback) == ("mnemosyne-bm25", "error")
+    assert result.candidates == adapter.select(_QUERY, limit=5)
+    assert len(_warnings(caplog)) == 1 and type(failure).__name__ in _warnings(caplog)[0]
+    # The first failure cancels queued requests: at most one batch was attempted.
+    assert 1 <= len(calls) <= CONCURRENCY
+
+
+def test_recall_falls_back_when_translation_fails(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    judge = Judge(_RELEVANCE, _STRENGTH)
+    adapter = KibitzerAdapter(_vault(tmp_path), decide=judge, complete=lambda prompt: " ")
+    with caplog.at_level(logging.WARNING):
+        result = adapter.recall(_QUERY)
+    assert result.fallback == "error" and judge.packets == []
+    assert len(_warnings(caplog)) == 1
+
+
+def test_off_switch_and_limits_never_call_the_judge(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    judge = Judge(_RELEVANCE, _STRENGTH)
+    adapter = KibitzerAdapter(_vault(tmp_path), decide=judge)
+    with caplog.at_level(logging.WARNING):
+        assert adapter.recall(_QUERY, rerank=False).fallback == "disabled"
+        assert adapter.recall(_QUERY, limit=6).fallback == "limit"
+        assert adapter.recall(_QUERY, limit=0).candidates == ()
+        for value in ("off", "0", "FALSE", " no "):
+            clean_env.setenv("MNEMOSYNE_RERANK", value)
+            clean_env.setenv("MNEMOSYNE_RERANK_API_KEY", "configured-key")
+            off = adapter.recall(_QUERY)
+            assert (off.selector, off.fallback) == ("mnemosyne-bm25", "off")
+            assert off.candidates == adapter.select(_QUERY)
+    assert judge.packets == []
+    assert _warnings(caplog) == []
+
+
+def test_configured_reads_only_mnemosyne_settings(clean_env: pytest.MonkeyPatch) -> None:
+    assert configured({}).status == "no-key"
+    assert configured({"OPENGATEWAY_API_KEY": "k"}).status == "no-key"
+    assert configured({"MNEMOSYNE_RERANK": "off", "MNEMOSYNE_RERANK_API_KEY": "k"}).status == "off"
+    enabled = configured({"MNEMOSYNE_RERANK_API_KEY": "k", "MNEMOSYNE_RERANK": "on"})
+    assert enabled.status == "configured" and callable(enabled.decide)
+    assert enabled.complete is None
+    for timeout in ("soon", "0", "-1", "nan"):
+        with pytest.raises(RerankError):
+            configured({"MNEMOSYNE_RERANK_API_KEY": "k", "MNEMOSYNE_RERANK_TIMEOUT": timeout})
+
+
+def test_misconfigured_environment_falls_back_with_one_warning(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    clean_env.setenv("MNEMOSYNE_RERANK_API_KEY", "k")
+    clean_env.setenv("MNEMOSYNE_RERANK_TIMEOUT", "soon")
+    adapter = KibitzerAdapter(_vault(tmp_path))
+    with caplog.at_level(logging.WARNING):
+        result = adapter.recall(_QUERY)
+    assert result.fallback == "error" and result.candidates == adapter.select(_QUERY)
+    assert len(_warnings(caplog)) == 1
+
+
+def test_parallel_judge_calls_are_bounded_and_keep_order() -> None:
+    barrier = threading.Barrier(CONCURRENCY, timeout=10)
+    lock, active, peak = threading.Lock(), [0], [0]
+
+    def call(item: int) -> int:
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        barrier.wait()  # proves CONCURRENCY calls were in flight together
+        with lock:
+            active[0] -= 1
+        return item * item
+
+    assert _map(call, list(range(2 * CONCURRENCY)), CONCURRENCY) == \
+        [i * i for i in range(2 * CONCURRENCY)]
+    assert peak[0] == CONCURRENCY
+    assert _map(lambda x: x + 1, [1, 2, 3], 1) == [2, 3, 4]

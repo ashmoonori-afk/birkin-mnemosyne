@@ -4,25 +4,53 @@
 
 ### Added
 
-- Opt-in cross-language recall reranking:
-  `KibitzerAdapter.select_crosslingual()` and `birkin_mnemosyne.crosslingual`
-  (`opengateway_decider`, `translate_views`, `RerankError`). It takes the top-32
-  BM25 and TF-IDF cosine notes for the original and translated queries, scores
-  them pointwise in packets of eight with a hosted judge, averages the scores
-  to five, then orders the five by symmetric pairwise preference. The method
-  never runs without an explicit `decide` client; the core stays stdlib-only and
-  offline.
+- Cross-language recall reranking: `KibitzerAdapter.select_crosslingual()` and
+  `birkin_mnemosyne.crosslingual` (`opengateway_decider`, `translate_views`,
+  `RerankError`), from #90. It takes the top-32 BM25 and TF-IDF cosine notes
+  for the original and translated queries, scores them pointwise in packets of
+  eight with a hosted judge, averages the scores to five, then orders the five
+  by symmetric pairwise preference.
+- `KibitzerAdapter.recall()` and the MCP tool `memory_kibitzer_candidates`
+  rerank automatically when a judge is configured, through
+  `MNEMOSYNE_RERANK_API_KEY` or `KibitzerAdapter(vault, decide=...)`.
+  `MNEMOSYNE_RERANK_TRANSLATOR` adds English and Korean query views,
+  `MNEMOSYNE_RERANK_TIMEOUT` sets seconds per request. The generic
+  `OPENGATEWAY_API_KEY` does not enable it.
+- `RecallResult` reports the `selector` used and the `fallback` reason; the
+  MCP response gains a `fallback` field.
+
+### Changed
+
+- Judge requests run at most five at a time (they ran one at a time in #90),
+  with results kept in input order. After the first failure, queued requests
+  are cancelled.
+
+### Safety
+
+- Without a configured key nothing leaves the machine; `recall()` returns the
+  BM25 ranking and logs one warning per adapter. A failed, timed-out or
+  malformed judge or translation response returns the BM25 ranking with one
+  warning, never a partial rerank. `MNEMOSYNE_RERANK=off` (or
+  `recall(rerank=False)`) is an explicit off switch that sends nothing.
+  `select()`, `search()` and the stdlib core still never call a model.
 
 ### Measurement
 
-- In the kib-bm25 research harness, initial-candidate Hit@5 on a fixed
-  2,400-question six-language set rose from 485 to 1,602. That is 3.30x, with a
-  grouped 95% ratio interval of 3.05-3.58, and every language and native subset
-  rose. Historical Hit@2 was 452/524, 231/300 and 137/213 against floors of
-  425/224/107. The Korean MIRACL result is five below the earlier non-pairwise
-  method's 142.
-- The question sets were reused during method selection. The numbers come
-  from the research harness, not from a rerun of this module.
+- Confirmed on an unseen holdout (research harness, October 25, 2026):
+  initial-candidate Hit@5 rose from 298 to 1,028 of 1,432 six-language
+  questions; equal-language macro 20.8% -> 71.8%, 3.45x, grouped 95% ratio
+  interval 3.14-3.81. Every language and native subset passed the
+  preregistered no-decline rule. Before scoring, two source questions whose
+  translations failed the quality check were removed with all their copies,
+  leaving 1,432 of 1,440 with unequal language counts.
+- The earlier 2,400-question result (485 -> 1,602, 3.30x) reused questions
+  during method selection and is selection evidence only.
+- Judge cost averaged an estimated $0.0081 per query (not an invoice).
+- Replaying all 58,498 saved holdout judge answers through this package's card,
+  packet, merge and pairwise code gave the same five notes in the same order
+  for 1,432 of 1,432 questions, every request byte-identical. Retrieval is not
+  covered: the package uses its own tokenizer, the study the research
+  retrievers.
 
 ## 0.7.2 - 2026-10-15
 

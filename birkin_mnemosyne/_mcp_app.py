@@ -799,10 +799,14 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         Lower score is better, excerpt <=200 UTF-16 units. Description and body
         are ranked; system/archive/expired and surfaced/excluded paths are
         removed before the final cap. A host still judges relevance and submits
-        a factual nudge through its own offered-path/admission gate.
+        a factual nudge through its own offered-path/admission gate. When the
+        server has MNEMOSYNE_RERANK_API_KEY and limit <= 5, candidates are
+        reranked across languages by a hosted judge (selector
+        "crosslingual-rerank"); otherwise, or on any judge failure, BM25 is
+        used and `fallback` says why. MNEMOSYNE_RERANK=off disables it.
         """
         try:
-            candidates = kibitzer.select(
+            result = kibitzer.recall(
                 query, limit=limit, surfaced=surfaced or (),
                 exclude_paths=exclude_paths or (), force_refresh=force_refresh,
             )
@@ -810,8 +814,8 @@ def create_server(vault: Path, *, evidence_required: bool = False,
             raise ToolError(f"cannot read vault: {exc.strerror}") from exc
         except UnicodeError as exc:
             raise ToolError(str(exc)) from exc
-        return {"selector": "mnemosyne-bm25", "snapshot": "live",
-                "candidates": [asdict(candidate) for candidate in candidates]}
+        return {"selector": result.selector, "fallback": result.fallback, "snapshot": "live",
+                "candidates": [asdict(candidate) for candidate in result.candidates]}
     @server.tool(annotations=_mutating("Register INDEX entry", destructive=False,
                                        idempotent=True))
     def memory_index_register(
