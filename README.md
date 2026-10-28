@@ -12,28 +12,9 @@ search notes. Notes stay readable, greppable and diffable; an optional MCP
 server connects the vault to agent clients, and an opt-in semantic mode adds
 meaning-based retrieval.
 
-## 0.7.2: keep same-name notes searchable
+## 0.8.0: opt-in cross-language recall.
 
-Notes in different folders no longer disappear from the index when they share
-a filename stem, such as `index.md` or `README.md`. The newest keeps the bare
-stem; the others use their relative path without `.md` as an index key
-(`./name` for a root note). Equal timestamps keep the existing sorted-path
-tie-break. The fix does not rename or rewrite notes.
-
-On the public round-two corpus of 20,000 documents, heldout known-gold recall@2
-rose from **270/1,011 (26.71%) to 537/1,011 (53.12%)**, +26.41 percentage points:
-274 paired gains and seven losses. Development recall rose from 231/524 to
-263/524, but the already-indexed development slice fell from **231/405 to
-224/405**. More indexed candidates can still displace a previously found note.
-
-The 69 preselected independent source anchors had 28 gains and no losses
-(exact two-sided p=7.45e-9). A preregistered family-interval criterion was
-**not computable** because some strata had only one source family. The owner
-decided to ship on the paired evidence, explicitly waiving that criterion;
-it is not reported as passed. This is a reused question set with incomplete
-alternative-answer coverage, not proof of semantic answer accuracy.
-Only the indexing fix ships; the experimental ranking correction and taxonomy
-features do not. [Release evidence and limits](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/docs/releases/0.7.2.md).
+Set `MNEMOSYNE_RERANK_API_KEY` and `recall()` (and the MCP tool `memory_kibitzer_candidates`) also searches translated queries and reorders candidates with a hosted judge: on 1,432 unseen questions in six languages, Hit@5 rose from 298 to 1,028 (3.45x, October 25, 2026, PR #91). It costs an estimated $0.0081 and about 4 s per query; without a key, or with `MNEMOSYNE_RERANK=off`, recall stays local as before.
 
 ## 0.7.1: nested folders and terminal reads
 
@@ -54,7 +35,7 @@ a model requirement or turn labels into ranking terms.
 Requires Python >= 3.10. Install from PyPI:
 
 ```bash
-pip install "birkin-mnemosyne==0.7.2"
+pip install "birkin-mnemosyne==0.8.0"
 ```
 
 From a checkout, the existing development and benchmark commands are:
@@ -72,12 +53,12 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## Quick start for agent users
 
-The commands below ship in 0.7.2. Install the published MCP extra to connect
+The commands below ship in 0.8.0. Install the published MCP extra to connect
 your agent; a source checkout is not required.
 Give your coding agent a memory, then check from a terminal what it stored:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]==0.7.2"
+pip install "birkin-mnemosyne[mcp]==0.8.0"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # Start a new agent session and ask it to remember a note titled

@@ -11,14 +11,14 @@ The plugin and core library declare Python 3.10 or later. Hermes itself
 requires Python 3.11 or later, so use a Python version supported by your
 Hermes installation when loading the plugin.
 
-Plugin 0.2.3 pins the published `birkin-mnemosyne==0.7.2` core, including
+Plugin 0.8.0 pins the published `birkin-mnemosyne==0.8.0` core, including
 nested-folder recall, task-bound reads, complete topic expansion, scoped
-handoffs and note labels. Use the `v0.7.2` checkout for the installation below.
+handoffs and note labels. Use the `v0.8.0` checkout for the installation below.
 The core `v0.7.0` tag retains the earlier plugin 0.1.0 manifest.
 
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
-`birkin-mnemosyne==0.7.2` dependency through Hermes' package manager:
+`birkin-mnemosyne==0.8.0` dependency through Hermes' package manager:
 
 ```text
 hermes plugins validate ./integrations/hermes --install-deps
@@ -36,7 +36,7 @@ separate vault. A default profile is not consulted when another profile is activ
 
 ## Use
 
-The 0.7.2 provider source exposes four memory-provider tools:
+The 0.8.0 provider source exposes four memory-provider tools:
 
 - `birkin_memory_remember`: create a durable note with `title` and `body`. An existing
   title cannot be overwritten.
