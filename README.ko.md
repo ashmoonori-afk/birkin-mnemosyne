@@ -1410,7 +1410,7 @@ Windows 리파스 포인트도 같은 규칙을 따릅니다.
 `_archive`는 활성 큐레이션 영역이 아닙니다. 사용 상태를 버리지 않고 캐시를 다시
 만들 수 있으며, 레거시 `.mnemosyne-index.json` 캐시는 다음 저장 때 제거됩니다.
 한 볼트에 여러 버전의 라이브러리를 섞어 쓰면 캐시를 반복해서 다시 만듭니다.
-MCP 경로와 증거 설정은 [MCP 서버 레퍼런스](#mcp-server-claude-code-claude-desktop-codex-cli-cursor)에 있습니다.
+MCP 경로와 증거 설정은 [MCP 서버 레퍼런스](#mcp-서버claude-code-claude-desktop-codex-cli-cursor)에 있습니다.
 
 ## 업스트림 기여
 
