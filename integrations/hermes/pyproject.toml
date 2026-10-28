@@ -1,5 +1,5 @@
 [project]
 name = "hermes-plugin-birkin-mnemosyne"
-version = "0.2.3"
+version = "0.8.0"
 requires-python = ">=3.10"
-dependencies = ["birkin-mnemosyne==0.7.2"]
+dependencies = ["birkin-mnemosyne==0.8.0"]

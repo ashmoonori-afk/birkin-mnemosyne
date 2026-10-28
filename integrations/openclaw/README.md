@@ -14,7 +14,7 @@ environment's Python on `PATH`:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install "birkin-mnemosyne[mcp]==0.7.2"
+python -m pip install "birkin-mnemosyne[mcp]==0.8.0"
 openclaw plugins install --force --accept-capabilities ./integrations/openclaw
 openclaw plugins inspect birkin-mnemosyne
 ```
