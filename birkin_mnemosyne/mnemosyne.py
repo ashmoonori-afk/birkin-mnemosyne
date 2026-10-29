@@ -1323,7 +1323,7 @@ class Mnemosyne:
 
     # -- placement ------------------------------------------------------------
 
-    def rezone(self, s: str, zone: str) -> Path:
+    def rezone(self, s: str, zone: str, *, dry_run: bool = False) -> Path:
         """Move a note into another zone directory and update the index.
 
         ``zone`` may be a normal zone (nested or human-named folder paths
@@ -1332,7 +1332,9 @@ class Mnemosyne:
         relative subpath (``knowledge/note.md`` -> ``_archive/knowledge/
         note.md``); any other zone is the complete new parent. Raises
         ValueError on unknown notes, invalid names, the zone cap, or a
-        destination file that already exists (it is never overwritten)."""
+        destination file that already exists (it is never overwritten).
+        ``dry_run=True`` runs these same checks and returns the destination
+        without moving a file or changing its index entry."""
         z = normalize_zone(str(zone), allow_archive=True)
         with VaultLock(self.vault).hold(), self._lock:
             self.refresh()
@@ -1362,13 +1364,15 @@ class Mnemosyne:
             old = checked_note_path(self.vault, str(e["rel"]))
             rel = f"{new_zone}/{old.name}" if new_zone else old.name
             new = checked_note_path(self.vault, rel)
+            # Never overwrite another file, including a same-stem note.
+            if old != new and new.exists() and not (
+                    old.exists() and os.path.samefile(old, new)):
+                raise ValueError(
+                    f"cannot move {e['rel']} to {rel}: destination "
+                    "already exists; merge or rename one of them first")
+            if dry_run:
+                return new
             if old != new:
-                # Never overwrite another file, including a same-stem note.
-                if new.exists() and not (old.exists()
-                                         and os.path.samefile(old, new)):
-                    raise ValueError(
-                        f"cannot move {e['rel']} to {rel}: destination "
-                        "already exists; merge or rename one of them first")
                 new.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(old, new)
             try:

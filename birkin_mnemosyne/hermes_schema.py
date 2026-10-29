@@ -81,7 +81,7 @@ def tool_schemas() -> list[dict[str, Json]]:
         },
         {
             "name": "birkin_memory_get_note",
-            "description": "Read a local note by title/slug or an exact registered INDEX path.",
+            "description": "Read a local note by title/slug, exact indexed vault-relative path or registered INDEX path.",
             "parameters": {
                 "type": "object",
                 "properties": {"title": {"type": "string", "minLength": 1}},

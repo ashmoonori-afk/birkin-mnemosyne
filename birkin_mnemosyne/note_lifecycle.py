@@ -46,14 +46,15 @@ def exact_note_key(dex: Mnemosyne, note: str) -> str:
 
 
 def forget_note(
-    dex: Mnemosyne, note: str, *, reason: str = "", confirm: bool = False,
+    dex: Mnemosyne, key: str, *, reason: str = "", confirm: bool = False,
 ) -> MutationResult:
-    """Archive an exact note through the curation gate; preview by default."""
+    """Archive a resolved key through the gate, including its unknown-key result.
+
+    Host adapters resolve their own identities before calling this helper.
+    """
     with VaultLock(dex.vault).hold():
-        key = exact_note_key(dex, note)
         meta = dex.note_meta(key)
-        assert meta is not None
-        if archived_zone(meta["zone"]):
+        if meta is not None and archived_zone(meta["zone"]):
             raise NoteLifecycleError(f"note {key!r} is already forgotten "
                                      f"(zone {meta['zone']!r})")
         plan = {"plan_version": PLAN_VERSION, "summary": reason,
@@ -65,14 +66,19 @@ def forget_note(
         archived = any(o.get("op") == "archive" and "error" not in o
                        for o in out.effected)
         if archived:
+            assert meta is not None
             moved = dex.key_for_path(dex.vault / ARCHIVE_ZONE / meta["rel"])
             assert moved is not None
             key = moved
-    return {"slug": key, "allowed": allowed, "archived": archived,
-            "dry_run": out.dry_run, "archive_cap": out.archive_cap,
-            "accepted": out.accepted, "dropped": out.dropped,
-            "effected": out.effected, "plan_ops": out.plan_ops,
-            "dense_links": out.dense_links}
+    result: MutationResult = {
+        "slug": key, "allowed": allowed, "archived": archived,
+        "dry_run": out.dry_run, "archive_cap": out.archive_cap,
+        "accepted": out.accepted, "dropped": out.dropped,
+        "effected": out.effected, "plan_ops": out.plan_ops,
+        "dense_links": out.dense_links}
+    if meta is not None:
+        result["path"] = (Path(ARCHIVE_ZONE) / meta["rel"]).as_posix() if archived else meta["rel"]
+    return result
 
 
 def restore_note(
@@ -81,7 +87,10 @@ def restore_note(
     """Restore an exact archived note; the target is its complete new parent."""
     if zone.strip().casefold() == ARCHIVE_ZONE:
         raise NoteLifecycleError("restore target cannot be _archive")
-    target = normalize_zone(zone, allow_archive=False)
+    try:
+        target = normalize_zone(zone, allow_archive=False)
+    except ValueError as exc:
+        raise NoteLifecycleError(str(exc)) from exc
     with VaultLock(dex.vault).hold():
         key = exact_note_key(dex, note)
         meta = dex.note_meta(key)
@@ -89,9 +98,11 @@ def restore_note(
         if not archived_zone(meta["zone"]):
             raise NoteLifecycleError(f"note {key!r} is not archived "
                                      f"(zone {meta['zone'] or 'inbox'!r})")
-        path = dex.vault / target / Path(meta["rel"]).name
+        try:
+            path = dex.rezone(key, target, dry_run=not confirm)
+        except ValueError as exc:
+            raise NoteLifecycleError(str(exc)) from exc
         if confirm:
-            path = dex.rezone(key, target)
             restored = dex.key_for_path(path)
             assert restored is not None
             key = restored

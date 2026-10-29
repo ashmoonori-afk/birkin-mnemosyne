@@ -301,6 +301,22 @@ def test_forget_is_dry_run_then_archive_then_restore(tmp_path):
                                  {"note": "tax-filing"})
 
 
+@pytest.mark.parametrize("confirm", [False, True])
+def test_forget_missing_note_keeps_normal_gate_result(tmp_path, confirm):
+    _seed(tmp_path)
+    before = _files(tmp_path)
+    result = ok(tmp_path, "memory_forget", {"note": "Missing note", "confirm": confirm})
+    assert result["slug"] == "missing-note"
+    assert result["allowed"] is False and result["archived"] is False
+    assert result["dry_run"] is (not confirm)
+    assert result["accepted"] == [] and result["effected"] == []
+    assert result["dropped"] == [{
+        "op": {"op": "archive", "slug": "missing-note", "reason": ""},
+        "reason": "unknown slug",
+    }]
+    assert _files(tmp_path) == before
+
+
 def test_forget_never_overwrites_an_existing_archive_file(tmp_path):
     _seed(tmp_path)
     live = tmp_path / "tax-filing.md"

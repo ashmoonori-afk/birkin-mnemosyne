@@ -63,7 +63,8 @@ def test_forget_archives_bytes_and_hides_search_but_allows_direct_read(provider,
     assert (vault_home(tmp_path) / "_archive/knowledge/cleanup-probe.md").read_bytes() == original
     assert call(provider, "birkin_memory_search", query="zirconium")["results"] == []
     assert provider.prefetch("zirconium") == ""
-    assert call(provider, "birkin_memory_get_note", title=result["slug"])["body"] == "Synthetic zirconium probe."
+    assert result["path"] == "_archive/knowledge/cleanup-probe.md"
+    assert call(provider, "birkin_memory_get_note", title=result["path"])["body"] == "Synthetic zirconium probe."
 
 
 @pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])
@@ -106,6 +107,29 @@ def test_forget_requires_path_when_same_title_is_ambiguous(provider, tmp_path):
     assert (vault / "_archive/other/cleanup-probe.md").is_file()
 
 
+def test_archive_path_still_targets_original_after_a_newer_same_name_note(provider, tmp_path):
+    seed_cleanup_notes(provider)
+    forgotten = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    vault = vault_home(tmp_path)
+    archive = vault / forgotten["path"]
+    original = archive.read_bytes()
+    newer = vault / "newer/cleanup-probe.md"
+    newer.parent.mkdir()
+    newer.write_text("Newer unrelated note.", encoding="utf-8")
+    timestamp = archive.stat().st_mtime + 100
+    os.utime(newer, (timestamp, timestamp))
+    assert call(provider, "birkin_memory_get_note", title="cleanup-probe")["body"] == "Newer unrelated note."
+    assert call(provider, "birkin_memory_get_note", title=forgotten["path"])["body"] == "Synthetic zirconium probe."
+    repeated = call(provider, "birkin_memory_forget", note=forgotten["path"], confirm=True)
+    assert not repeated["success"] and "already forgotten" in repeated["error"]
+    restored = call(provider, "birkin_memory_restore",
+                    note=forgotten["path"], zone="restored", confirm=True)
+    assert restored["success"] and restored["path"] == "restored/cleanup-probe.md"
+    assert (vault / restored["path"]).read_bytes() == original
+    assert newer.read_text(encoding="utf-8") == "Newer unrelated note."
+    assert not archive.exists()
+
+
 @pytest.mark.parametrize("attributes", [
     {"polarity": "negative"}, {"note_type": "preference"},
     {"zone": "identity", "note_type": "identity"},
@@ -136,6 +160,32 @@ def test_forget_retains_the_core_last_active_note_cap(provider):
     assert not result["archived"]
 
 
+def test_forget_refuses_hermes_note_with_body_wikilink(provider):
+    seed_cleanup_notes(provider)
+    created = call(provider, "birkin_memory_remember",
+                   title="Linked canary", body="See [[retained]] for the control.")
+    result = call(provider, "birkin_memory_forget", note=created["path"], confirm=True)
+    assert not result["success"] and result["error"] == "protected note"
+    assert not result["archived"]
+    assert call(provider, "birkin_memory_get_note", title=created["path"])["body"] == "See [[retained]] for the control."
+
+
+def test_two_consecutive_canaries_succeed_with_unique_titles(provider, tmp_path):
+    call(provider, "birkin_memory_remember", title="Retained", body="A retained control.")
+    for run_id in ("run-0001", "run-0002"):
+        title = f"Cleanup probe {run_id}"
+        created = call(provider, "birkin_memory_remember", title=title, body="Synthetic canary.")
+        assert created["success"]
+        assert call(provider, "birkin_memory_get_note", title=created["title"])["body"] == "Synthetic canary."
+        forgotten = call(provider, "birkin_memory_forget", note=created["path"], confirm=True)
+        assert forgotten["success"] and forgotten["archived"]
+        assert call(provider, "birkin_memory_search", query=run_id)["results"] == []
+        reused = call(provider, "birkin_memory_remember", title=title, body="Do not overwrite.")
+        assert not reused["success"] and reused["error"] == "A note with this title already exists"
+    archived = list((vault_home(tmp_path) / "_archive/knowledge").glob("cleanup-probe-*.md"))
+    assert len(archived) == 2
+
+
 @pytest.mark.parametrize("zone", ["inbox", "projects/cleanup"])
 def test_restore_previews_then_roundtrips_bytes_and_recall(provider, tmp_path, zone):
     seed_cleanup_notes(provider)
@@ -158,23 +208,60 @@ def test_restore_active_note_errors(provider):
     assert not result["success"] and "not archived" in result["error"]
 
 
-@pytest.mark.parametrize("zone", ["_archive", "_archive/nested", "../outside", "/absolute"])
-def test_restore_rejects_unsafe_or_archive_target(provider, zone):
+@pytest.mark.parametrize("zone, error", [
+    ("_archive", "restore target cannot be _archive"),
+    ("_archive/nested", "cannot write a new note into the archive zone"),
+    ("../outside", "invalid zone name"),
+    ("/absolute", "invalid zone name"),
+])
+def test_restore_rejects_unsafe_or_archive_target(provider, tmp_path, zone, error):
     seed_cleanup_notes(provider)
     archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
-    result = call(provider, "birkin_memory_restore", note=archived["slug"], zone=zone, confirm=True)
-    assert not result["success"] and result["error"] != "Unknown Mnemosyne tool"
+    assert archived["success"] and archived["archived"]
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*.md")}
+    target = str(tmp_path / "absolute-outside") if zone == "/absolute" else zone
+    result = call(provider, "birkin_memory_restore",
+                  note=archived["path"], zone=target, confirm=True)
+    assert not result["success"] and result["error"].startswith(error)
+    assert (vault_home(tmp_path) / archived["path"]).is_file()
+    assert {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*.md")} == before
+    assert not (vault_home(tmp_path).parent / "outside").exists()
+    assert not (tmp_path / "absolute-outside").exists()
 
 
-def test_restore_never_overwrites_existing_destination(provider, tmp_path):
+@pytest.mark.parametrize("confirm", [False, True])
+def test_restore_never_overwrites_existing_destination(provider, tmp_path, confirm):
     seed_cleanup_notes(provider)
     archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
     destination = vault_home(tmp_path) / "cleanup-probe.md"
     destination.write_text("Unrelated existing note.", encoding="utf-8")
+    archive = vault_home(tmp_path) / "_archive/knowledge/cleanup-probe.md"
+    before = archive.read_bytes()
     result = call(provider, "birkin_memory_restore",
-                  note="_archive/knowledge/cleanup-probe.md", confirm=True)
+                  note="_archive/knowledge/cleanup-probe.md", confirm=confirm)
     assert archived["archived"] and not result["success"] and "already exists" in result["error"]
     assert destination.read_text() == "Unrelated existing note."
+    assert archive.read_bytes() == before
+
+
+@pytest.mark.parametrize("confirm", [False, True])
+def test_restore_preview_and_apply_enforce_zone_cap(provider, tmp_path, confirm):
+    from birkin_mnemosyne.mnemosyne import MAX_ZONES
+
+    seed_cleanup_notes(provider)
+    call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    vault = vault_home(tmp_path)
+    for number in range(MAX_ZONES - 1):
+        zone = vault / f"zone-{number}"
+        zone.mkdir()
+        (zone / f"control-{number}.md").write_text("Retained control.", encoding="utf-8")
+    archive = vault / "_archive/knowledge/cleanup-probe.md"
+    before = archive.read_bytes()
+    result = call(provider, "birkin_memory_restore",
+                  note="_archive/knowledge/cleanup-probe.md", zone="new-zone", confirm=confirm)
+    assert not result["success"] and result["error"].startswith(f"zone cap reached ({MAX_ZONES})")
+    assert archive.read_bytes() == before
+    assert not (vault / "new-zone").exists()
 
 
 @pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])
@@ -185,6 +272,15 @@ def test_cleanup_rejects_invalid_arguments(provider, tool, arguments):
     result = call(provider, tool, note="missing", **arguments)
     assert not result["success"]
     assert result["error"].startswith(("confirm:", "arguments:"))
+
+
+def test_unrelated_search_value_error_is_not_hidden_by_cleanup_error_handler(provider, monkeypatch):
+    def broken_search(*_args, **_kwargs):
+        raise ValueError("invalid index record")
+
+    monkeypatch.setattr(module.VaultMemory, "search", broken_search)
+    with pytest.raises(ValueError, match="invalid index record"):
+        call(provider, "birkin_memory_search", query="query")
 
 
 @pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])

@@ -19,8 +19,15 @@ from birkin_mnemosyne.hermes_schema import tool_schemas
 from birkin_mnemosyne.label_values import LabelError, normalize_labels
 from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
-from birkin_mnemosyne.note_lifecycle import MutationResult, forget_note, restore_note
+from birkin_mnemosyne.note_lifecycle import (
+    MutationResult,
+    NoteLifecycleError,
+    exact_note_key,
+    forget_note,
+    restore_note,
+)
 from birkin_mnemosyne.startup import StartupReader
+from birkin_mnemosyne.vault_lock import VaultLock
 
 ToolArguments: TypeAlias = dict[str, Json]
 ToolSchema: TypeAlias = dict[str, Json]
@@ -212,7 +219,7 @@ class VaultProvider:
                 result = {"success": False, "error": str(exc)}
             except VersionMismatchError:
                 result = {"success": False, "error": "A note with this title already exists"}
-            except ValueError as exc:
+            except NoteLifecycleError as exc:
                 result = {"success": False, "error": str(exc)}
             return json.dumps(result, ensure_ascii=False)
 
@@ -226,7 +233,9 @@ class VaultProvider:
         confirm = args.get("confirm", False)
         if type(confirm) is not bool:
             raise InvalidArgument("confirm", "must be a boolean")
-        out = forget_note(memory.dex, note, reason=reason, confirm=confirm)
+        with VaultLock(memory.vault).hold():
+            key = exact_note_key(memory.dex, note)
+            out = forget_note(memory.dex, key, reason=reason, confirm=confirm)
         result: ToolResponse = {"success": out["allowed"], **out}
         if not out["allowed"]:
             result["error"] = str(out["dropped"][0]["reason"])
@@ -299,8 +308,12 @@ class VaultProvider:
             except (OSError, UnicodeError) as exc:
                 raise MemoryIndexError(f"cannot read INDEX document: {title!r}") from exc
         else:
-            title = _text(title, "title", 200, single_line=True)
-            note = memory.get_note(title)
+            key = memory.dex.key_for_path(memory.vault / title)
+            if key is not None:
+                note = memory.get_note(key)
+            else:
+                title = _text(title, "title", 200, single_line=True)
+                note = memory.get_note(title)
         if note is None:
             return {"success": False, "error": "Note not found"}
         _, body = parse(note)

@@ -561,7 +561,7 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         confirm=true."""
         with lock.hold():
             try:
-                return {**forget_note(dex, dex.key_for(note) or note,
+                return {**forget_note(dex, dex.key_for(note) or slug(note),
                                       reason=reason, confirm=confirm)}
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
