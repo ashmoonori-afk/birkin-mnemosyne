@@ -36,7 +36,9 @@ separate vault. A default profile is not consulted when another profile is activ
 
 ## Use
 
-The 0.8.0 provider source exposes four memory-provider tools:
+The current provider source exposes six memory-provider tools. The two cleanup
+tools below are unreleased: use matching provider and core source from this
+checkout when testing them; the pinned v0.8.0 installation above has four tools.
 
 - `birkin_memory_remember`: create a durable note with `title` and `body`. An existing
   title cannot be overwritten.
@@ -47,6 +49,85 @@ The 0.8.0 provider source exposes four memory-provider tools:
 - `birkin_memory_get_note`: read the full body of a selected `title`.
 - `birkin_memory_index`: read the resident INDEX or expand a complete `topic`
   copied from its topic map.
+- `birkin_memory_forget`: archive one exact `note`, with an optional `reason`.
+  Preview by default; only `confirm=true` moves the file.
+- `birkin_memory_restore`: restore an archived `note` to `zone` (default `inbox`).
+  Preview by default; only `confirm=true` moves it back. A nested zone is the
+  complete new parent, not a prefix for the original directory.
+
+## Cleaning up test notes
+
+Use the same primary-agent context and Hermes profile that created the note.
+There is no provider-created disposable namespace or hard-delete boundary.
+A separate Hermes profile supplies a separate vault for smoke tests, but notes
+in that vault are still durable and subject to the same safeguards.
+Never select a cleanup target by a fuzzy match: `note` accepts only an exact
+index key, vault-relative path (as returned by remember), or stored title.
+An ambiguous title is refused; use its exact path or key instead.
+Every run needs a unique title: generate a fresh UUID, for example with
+`uuid.uuid4().hex` in the host, and include it in the title. Forgetting never
+deletes the file or frees its title/slug: each run leaves an archive file,
+and remembering the same title again is refused even after forgetting.
+
+1. Remember a synthetic note with `title="Cleanup probe <fresh UUID>"` and
+   `body="Synthetic zirconium probe."`, substituting a newly generated UUID.
+   Save its returned `path`, for example `knowledge/cleanup-probe-<uuid>.md`.
+2. Preview with `birkin_memory_forget(note=<remember path>)`.
+   Inspect `allowed`, `archive_cap` and `dropped`, then repeat with `confirm=true`.
+   Check `success=true` and `archived=true`; keep the returned vault-relative
+   `path` as the undo handle. Unlike a bare slug, it still names this archive
+   file if another writer later creates a newer same-name note.
+3. Verify with `birkin_memory_search(query="zirconium")`: the archived note is
+   excluded from ordinary search and lexical prefetch. This is soft forgetting,
+   not erasure: `birkin_memory_get_note(title=<archive path>)` can still read
+   its full body. The file remains at `_archive/knowledge/cleanup-probe-<uuid>.md`.
+4. Optionally preview `birkin_memory_restore(note=<archive path>)`, then repeat
+   with `confirm=true`. The default destination is `cleanup-probe-<uuid>.md` at the
+   vault root; pass `zone="knowledge"` to return to its original parent.
+   The body is unchanged and ordinary search includes it again.
+   Preview runs the same destination-collision and zone-cap checks as apply;
+   a failed preview reports the error without moving the archive file.
+
+Missing targets and already-forgotten notes return `success=false` with an
+error. Restoring an active note also errors. Protected notes are refused with
+`allowed=false`, `archived=false` and the gate's reason: negative-polarity notes,
+identity/preference types, and notes that are both filed and linked are protected.
+Hermes creates notes in `knowledge/`, so notes whose body contains
+`[[wikilinks]]` are filed and linked and cannot be forgotten through this gate.
+The same core curation cap applies: at most
+`max(2, ceil(0.20 * active_notes))`, additionally limited to `active_notes - 1`
+(`ARCHIVE_CAP_MIN`, `ARCHIVE_CAP_FRACTION` in
+[`curation_contract.py`](../../birkin_mnemosyne/curation_contract.py), enforced in
+[`curation_gate.py`](../../birkin_mnemosyne/curation_gate.py)).
+Consequently the sole remaining active note cannot be forgotten; do not create
+extra notes just to bypass this safeguard. Refusals and destination collisions
+leave files intact. Neither tool hard-deletes anything.
+
+## Decay changes ranking, not storage
+
+In [`mnemosyne.py`](../../birkin_mnemosyne/mnemosyne.py), each note's Ebbinghaus
+effective strength is `max(EFF_FLOOR, strength * exp(-days / stability))`.
+`EFF_FLOOR=0.05` keeps effective strength from reaching zero;
+`STABILITY_INIT=7.0` days is the initial decay time constant.
+Note reads and writes call Hebbian potentiation; search and prefetch do not.
+Each recorded access adds `STRENGTH_STEP=0.25`
+up to `STRENGTH_CAP=5.0`; accesses spaced by at least `SPACING_HOURS=1.0`
+multiply stability by `STABILITY_GROWTH=1.5`, up to `STABILITY_CAP=365.0` days.
+Zone access EMA (a running activity score) decays lazily by
+`ZONE_EMA_DECAY ** days`, with `ZONE_EMA_DECAY=0.9` per day.
+
+These dynamics affect search ranking, and zone priority also orders the prompt
+digest. Decay never deletes or archives files.
+`Mnemosyne.stale()` flags notes with effective strength below `STALE_EFF=0.1`
+and unused for more than `STALE_DAYS=90` days, excluding identity-zone,
+already-archived and expired notes.
+[`curation_prompt.py`](../../birkin_mnemosyne/curation_prompt.py) puts those
+`stale_candidates` into the curator's prompt; any proposed archive still goes
+through the safety gate. An unused test note therefore fades in ranking but
+stays on disk until explicitly forgotten (or separately curated into the archive);
+forgetting moves it on disk rather than deleting it.
+
+## Recall and context
 
 With a managed INDEX, `prefetch(query)` reads every task-matched
 document and its complete topic view. The system prompt retains every topic;

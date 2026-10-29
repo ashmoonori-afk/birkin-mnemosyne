@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Hermes `birkin_memory_forget` and `birkin_memory_restore` share the MCP
+  archive/restore core and default to preview unless `confirm=true`.
+  Forget returns a vault-relative archive path for unambiguous read-back and
+  restoration even if another writer creates a newer same-name note.
+  Existing protected-note and archive-cap safeguards remain enforced.
+- `Mnemosyne.rezone(..., dry_run=True)` checks the same destination and zone
+  limits as a move without changing the file or its index entry; Hermes
+  restore previews use this path.
+
+### Fixed
+
+- Preserve MCP `memory_forget`'s normal `allowed=false` / `unknown slug`
+  result for missing notes; Hermes cleanup keeps its own not-found error.
+- Validate restore previews for destination collisions and the zone cap,
+  and limit provider error conversion to lifecycle errors.
+- Document unique canary titles, archive-file retention and title reservation,
+  durable profile isolation, decay and wikilink protection; use absolute
+  links in both README translations.
+
 ## 0.8.0 - 2026-10-28
 
 ### Added

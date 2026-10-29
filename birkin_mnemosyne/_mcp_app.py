@@ -37,6 +37,7 @@ from .memory_index import JsonValue, MemoryIndex, MemoryIndexError
 from .memory_index_integrity import check_index
 from .memory_index_migration import split_note
 from .mnemosyne import ARCHIVE_ZONE, expansion_weights, normalize_zone, slug, tokenize
+from .note_lifecycle import forget_note, restore_note
 from .review_journal import ReviewError
 from .startup import StartupError, StartupReader
 from .vault_lock import LOCK_FILE, VaultLock
@@ -559,25 +560,11 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         notes) and the per-call archive cap are enforced. Dry run unless
         confirm=true."""
         with lock.hold():
-            s = dex.key_for(note) or slug(note)
-            meta = dex.note_meta(s)
-            if meta is not None and archived_zone(meta["zone"]):
-                raise ToolError(f"note {s!r} is already forgotten "
-                                f"(zone {meta['zone'] or 'inbox'!r})")
-            plan = {"plan_version": PLAN_VERSION, "summary": reason,
-                    "ops": [{"op": "archive", "slug": s, "reason": reason}]}
-            out = evaluate_plan(vault, plan, apply=confirm)
-            if confirm:
-                dex.refresh()
-            allowed = any(o.get("op") == "archive" for o in out.accepted)
-            archived = any(o.get("op") == "archive" and "error" not in o
-                           for o in out.effected)
-            if archived:
-                assert meta is not None
-                s = dex.key_for_path(vault / ARCHIVE_ZONE / meta["rel"])
-                assert s is not None
-        return {"slug": s, "allowed": allowed,
-                "archived": archived, **_outcome(out)}
+            try:
+                return {**forget_note(dex, dex.key_for(note) or slug(note),
+                                      reason=reason, confirm=confirm)}
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
 
     @server.tool(annotations=_mutating("Restore", destructive=False,
                                        idempotent=True))
@@ -588,22 +575,12 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         """Move a forgotten note out of _archive into a zone (default inbox).
         The default goes to the vault root; an explicit nested zone restores
         to that complete parent."""
-        if zone.strip().casefold() == ARCHIVE_ZONE:
-            raise ToolError("restore target cannot be _archive")
-        target = _zone_name(zone, allow_archive=False)
         with lock.hold():
-            key, meta = _require_note(note)
-            if not archived_zone(meta["zone"]):
-                raise ToolError(f"note {key!r} is not archived "
-                                f"(zone {meta['zone'] or 'inbox'!r})")
             try:
-                path = dex.rezone(key, target or "")
+                return {**restore_note(dex, dex.key_for(note) or note,
+                                       zone=zone, confirm=True)}
             except ValueError as exc:
                 raise ToolError(str(exc)) from exc
-            key = dex.key_for_path(path)
-            assert key is not None
-        return {"slug": key, "zone": target or "inbox",
-                "path": path.relative_to(vault).as_posix()}
 
     @server.tool(annotations=_READ)
     def memory_curation_catalog() -> dict[str, Any]:

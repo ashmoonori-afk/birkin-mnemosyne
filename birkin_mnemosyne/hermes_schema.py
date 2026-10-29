@@ -22,6 +22,37 @@ def tool_schemas() -> list[dict[str, Json]]:
             },
         },
         {
+            "name": "birkin_memory_forget",
+            "description": "Archive one exact note (never delete); protected notes and the archive cap still apply.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note": {"type": "string", "minLength": 1,
+                             "description": "Exact key, vault-relative path or stored title; no fuzzy matching."},
+                    "reason": {"type": "string", "maxLength": 500, "default": ""},
+                    "confirm": {"type": "boolean", "default": False,
+                                "description": "False previews; true archives now."},
+                },
+                "required": ["note"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "birkin_memory_restore",
+            "description": "Restore one exact archived note to inbox or a complete target zone; preview by default.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "note": {"type": "string", "minLength": 1},
+                    "zone": {"type": "string", "minLength": 1, "default": "inbox"},
+                    "confirm": {"type": "boolean", "default": False,
+                                "description": "False previews; true restores now."},
+                },
+                "required": ["note"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "birkin_memory_search",
             "description": "Recall local notes by multilingual lexical keywords.",
             "parameters": {
@@ -50,7 +81,7 @@ def tool_schemas() -> list[dict[str, Json]]:
         },
         {
             "name": "birkin_memory_get_note",
-            "description": "Read a local note by title/slug or an exact registered INDEX path.",
+            "description": "Read a local note by title/slug, exact indexed vault-relative path or registered INDEX path.",
             "parameters": {
                 "type": "object",
                 "properties": {"title": {"type": "string", "minLength": 1}},

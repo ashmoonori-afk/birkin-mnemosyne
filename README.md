@@ -662,6 +662,15 @@ are retained.
 
 ### Hermes
 
+The current source adds `birkin_memory_forget` and `birkin_memory_restore`
+(unreleased; not in the pinned v0.8.0 provider/core). Both preview by default
+and require `confirm=true` to move a file. Forget uses the core curation safety
+gate and archives rather than deletes; restore defaults to inbox.
+See [Cleaning up test notes](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#cleaning-up-test-notes)
+for the exact-note recipe, safety refusals and undo, and
+[Decay changes ranking, not storage](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#decay-changes-ranking-not-storage)
+for why an unused test note stays on disk even as its ranking fades.
+
 The Hermes provider's `birkin_memory_search` also accepts an optional
 `labels` array: an AND filter, where `null` or `[]` leaves recall unfiltered.
 Install, selection and lifecycle follow the existing 0.7.0 guidance in the
