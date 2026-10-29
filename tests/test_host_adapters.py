@@ -30,6 +30,175 @@ def call(provider, name, **arguments):
     return json.loads(provider.handle_tool_call(name, arguments))
 
 
+def seed_cleanup_notes(provider):
+    call(provider, "birkin_memory_remember", title="Cleanup probe", body="Synthetic zirconium probe.")
+    call(provider, "birkin_memory_remember", title="Retained", body="Keep this other note.")
+
+
+def test_cleanup_schemas_are_exact_and_confirm_defaults_false(provider):
+    schemas = {s["name"]: s["parameters"] for s in provider.get_tool_schemas()}
+    for name in ("birkin_memory_forget", "birkin_memory_restore"):
+        schema = schemas[name]
+        assert schema["required"] == ["note"]
+        assert schema["properties"]["confirm"]["type"] == "boolean"
+        assert schema["properties"]["confirm"]["default"] is False
+        assert schema["additionalProperties"] is False
+
+
+def test_forget_previews_without_moving_note(provider, tmp_path):
+    seed_cleanup_notes(provider)
+    result = call(provider, "birkin_memory_forget", note="knowledge/cleanup-probe.md")
+    assert result["success"] and result["allowed"] and result["dry_run"]
+    assert not result["archived"] and result["effected"] == []
+    assert (vault_home(tmp_path) / "knowledge/cleanup-probe.md").is_file()
+
+
+def test_forget_archives_bytes_and_hides_search_but_allows_direct_read(provider, tmp_path):
+    seed_cleanup_notes(provider)
+    source = vault_home(tmp_path) / "knowledge/cleanup-probe.md"
+    original = source.read_bytes()
+    result = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    assert result["success"] and result["archived"] and not result["dry_run"]
+    assert not source.exists()
+    assert (vault_home(tmp_path) / "_archive/knowledge/cleanup-probe.md").read_bytes() == original
+    assert call(provider, "birkin_memory_search", query="zirconium")["results"] == []
+    assert provider.prefetch("zirconium") == ""
+    assert call(provider, "birkin_memory_get_note", title=result["slug"])["body"] == "Synthetic zirconium probe."
+
+
+@pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])
+def test_cleanup_missing_note_is_an_error(provider, tool):
+    result = call(provider, tool, note="missing", confirm=True)
+    assert not result["success"] and "Note not found" in result["error"]
+
+
+@pytest.mark.parametrize("note", ["Cleanup Probe", "cleanup", "zirconium", "knowledge/../knowledge/cleanup-probe.md"])
+def test_forget_never_uses_query_or_normalized_title_matching(provider, tmp_path, note):
+    seed_cleanup_notes(provider)
+    result = call(provider, "birkin_memory_forget", note=note, confirm=True)
+    assert "Note not found" in result["error"]
+    assert (vault_home(tmp_path) / "knowledge/cleanup-probe.md").exists()
+
+
+def test_forget_already_archived_note_errors(provider):
+    seed_cleanup_notes(provider)
+    archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    result = call(provider, "birkin_memory_forget", note=archived["slug"], confirm=True)
+    assert not result["success"] and "already forgotten" in result["error"]
+
+
+def test_forget_accepts_exact_stored_title(provider):
+    seed_cleanup_notes(provider)
+    result = call(provider, "birkin_memory_forget", note="Cleanup probe", confirm=True)
+    assert result["success"] and result["archived"]
+
+
+def test_forget_requires_path_when_same_title_is_ambiguous(provider, tmp_path):
+    seed_cleanup_notes(provider)
+    vault = vault_home(tmp_path)
+    (vault / "other").mkdir()
+    shutil.copyfile(vault / "knowledge/cleanup-probe.md", vault / "other/cleanup-probe.md")
+    result = call(provider, "birkin_memory_forget", note="Cleanup probe", confirm=True)
+    assert not result["success"] and "ambiguous note" in result["error"]
+    result = call(provider, "birkin_memory_forget", note="other/cleanup-probe.md", confirm=True)
+    assert result["success"] and result["archived"]
+    assert (vault / "knowledge/cleanup-probe.md").is_file()
+    assert (vault / "_archive/other/cleanup-probe.md").is_file()
+
+
+@pytest.mark.parametrize("attributes", [
+    {"polarity": "negative"}, {"note_type": "preference"},
+    {"zone": "identity", "note_type": "identity"},
+    {"zone": "filed", "links": ["retained"]},
+])
+def test_forget_refuses_core_protected_notes(provider, tmp_path, attributes):
+    from birkin_mnemosyne import VaultMemory
+
+    seed_cleanup_notes(provider)
+    memory = VaultMemory({"vault_path": str(vault_home(tmp_path))})
+    # Identity is a frontmatter type understood by the curation gate, not write_note.
+    if attributes.get("note_type") == "identity":
+        path = memory.write_note("Protected", "Keep this.", zone="identity")
+        path.write_text(path.read_text().replace("type: topic", "type: identity"))
+    else:
+        memory.write_note("Protected", "Keep this.", **attributes)
+    result = call(provider, "birkin_memory_forget", note="protected", confirm=True)
+    assert not result["success"] and result["error"] == "protected note"
+    assert not result["archived"] and not result["allowed"]
+    assert memory.get_note("protected") is not None
+
+
+def test_forget_retains_the_core_last_active_note_cap(provider):
+    call(provider, "birkin_memory_remember", title="Only", body="The sole active note.")
+    result = call(provider, "birkin_memory_forget", note="only", confirm=True)
+    assert not result["success"] and result["archive_cap"] == 0
+    assert result["error"] == "archive_capped (>0)"
+    assert not result["archived"]
+
+
+@pytest.mark.parametrize("zone", ["inbox", "projects/cleanup"])
+def test_restore_previews_then_roundtrips_bytes_and_recall(provider, tmp_path, zone):
+    seed_cleanup_notes(provider)
+    original = (vault_home(tmp_path) / "knowledge/cleanup-probe.md").read_bytes()
+    archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    arguments = {} if zone == "inbox" else {"zone": zone}
+    dry = call(provider, "birkin_memory_restore", note=archived["slug"], **arguments)
+    assert dry["success"] and dry["dry_run"]
+    assert (vault_home(tmp_path) / "_archive/knowledge/cleanup-probe.md").is_file()
+    result = call(provider, "birkin_memory_restore", note=archived["slug"], confirm=True, **arguments)
+    expected = "cleanup-probe.md" if zone == "inbox" else f"{zone}/cleanup-probe.md"
+    assert result["success"] and not result["dry_run"] and result["path"] == expected
+    assert (vault_home(tmp_path) / expected).read_bytes() == original
+    assert call(provider, "birkin_memory_search", query="zirconium")["results"][0]["title"] == "cleanup-probe"
+
+
+def test_restore_active_note_errors(provider):
+    seed_cleanup_notes(provider)
+    result = call(provider, "birkin_memory_restore", note="cleanup-probe", confirm=True)
+    assert not result["success"] and "not archived" in result["error"]
+
+
+@pytest.mark.parametrize("zone", ["_archive", "_archive/nested", "../outside", "/absolute"])
+def test_restore_rejects_unsafe_or_archive_target(provider, zone):
+    seed_cleanup_notes(provider)
+    archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    result = call(provider, "birkin_memory_restore", note=archived["slug"], zone=zone, confirm=True)
+    assert not result["success"] and result["error"] != "Unknown Mnemosyne tool"
+
+
+def test_restore_never_overwrites_existing_destination(provider, tmp_path):
+    seed_cleanup_notes(provider)
+    archived = call(provider, "birkin_memory_forget", note="cleanup-probe", confirm=True)
+    destination = vault_home(tmp_path) / "cleanup-probe.md"
+    destination.write_text("Unrelated existing note.", encoding="utf-8")
+    result = call(provider, "birkin_memory_restore",
+                  note="_archive/knowledge/cleanup-probe.md", confirm=True)
+    assert archived["archived"] and not result["success"] and "already exists" in result["error"]
+    assert destination.read_text() == "Unrelated existing note."
+
+
+@pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])
+@pytest.mark.parametrize("arguments", [
+    {"confirm": "true"}, {"confirm": 1}, {"confirm": None}, {"extra": True},
+])
+def test_cleanup_rejects_invalid_arguments(provider, tool, arguments):
+    result = call(provider, tool, note="missing", **arguments)
+    assert not result["success"]
+    assert result["error"].startswith(("confirm:", "arguments:"))
+
+
+@pytest.mark.parametrize("tool", ["birkin_memory_forget", "birkin_memory_restore"])
+@pytest.mark.parametrize("context", ["subagent", "cron", "flush"])
+def test_cleanup_cannot_mutate_outside_primary_context(provider, tmp_path, tool, context):
+    seed_cleanup_notes(provider)
+    result = json.loads(provider.handle_tool_call(
+        tool, {"note": "cleanup-probe", "confirm": True}, agent_context=context))
+    assert result["error"] == "Memory writes require a primary agent context"
+    provider.initialize("readonly", hermes_home=str(tmp_path), agent_context=context)
+    result = call(provider, tool, note="cleanup-probe", confirm=True)
+    assert result["error"] == "Memory writes require a primary agent context"
+
+
 def test_recall_finds_note_written_through_provider(provider):
     # Given an explicit durable memory.
     call(provider, "birkin_memory_remember", title="Tea order", body="The usual drink is jasmine tea.")

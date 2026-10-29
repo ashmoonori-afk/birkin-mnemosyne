@@ -623,6 +623,15 @@ INDEX 라우트는 정확한 상대 경로와 그룹 카탈로그를 유지합�
 
 ### Hermes에서
 
+현재 소스에는 `birkin_memory_forget`과 `birkin_memory_restore`가 추가되어 있습니다.
+아직 출시 전이며 고정된 v0.8.0 제공자와 코어에는 없습니다. 두 도구 모두 기본값은
+미리보기이고, 파일을 옮기려면 `confirm=true`가 필요합니다. Forget은 코어의 보호
+규칙을 거쳐 삭제 대신 보관하며, restore의 기본 복원 위치는 inbox입니다.
+[테스트 노트 정리법](integrations/hermes/README.md#cleaning-up-test-notes)에서
+정확한 노트 지정, 거부 조건과 복원을 확인할 수 있습니다.
+[감쇠 설명](integrations/hermes/README.md#decay-changes-ranking-not-storage)처럼
+사용하지 않는 테스트 노트는 검색 순위가 낮아져도 디스크에서 사라지지 않습니다.
+
 Hermes 제공자의 `birkin_memory_search`에도 선택적 `labels` 배열이 있습니다.
 AND 필터이며 `null`이나 `[]`는 필터를 켜지 않습니다. 설치·활성화·라이프사이클
 지침은 [통합 Hermes README](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md)의

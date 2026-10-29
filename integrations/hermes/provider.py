@@ -8,7 +8,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Final, Literal, TypeAlias, TypedDict
+from typing import Final, Literal, TypeAlias
 
 from birkin_mnemosyne.frontmatter import parse
 from birkin_mnemosyne.handoff_records import HandoffError, HandoffReceipt
@@ -19,15 +19,14 @@ from birkin_mnemosyne.hermes_schema import tool_schemas
 from birkin_mnemosyne.label_values import LabelError, normalize_labels
 from birkin_mnemosyne.memory import VaultMemory, VersionMismatchError
 from birkin_mnemosyne.memory_index import MemoryIndex, MemoryIndexError
+from birkin_mnemosyne.note_lifecycle import MutationResult, forget_note, restore_note
 from birkin_mnemosyne.startup import StartupReader
-
-
 
 ToolArguments: TypeAlias = dict[str, Json]
 ToolSchema: TypeAlias = dict[str, Json]
 
 
-class ToolResponse(TypedDict, total=False):
+class ToolResponse(MutationResult, total=False):
     success: bool
     error: str
     title: str
@@ -193,6 +192,8 @@ class VaultProvider:
             "birkin_memory_search": self._search,
             "birkin_memory_index": self._index_read,
             "birkin_memory_get_note": self._get_note,
+            "birkin_memory_forget": self._forget,
+            "birkin_memory_restore": self._restore,
         }
         handler = handlers.get(tool_name)
         if handler is None:
@@ -200,7 +201,10 @@ class VaultProvider:
         with self._lock:
             if self._memory is None:
                 return json.dumps({"success": False, "error": "Provider is not initialized"})
-            if tool_name == "birkin_memory_remember" and context.get("agent_context", self._context) != "primary":
+            if tool_name in {
+                "birkin_memory_remember", "birkin_memory_forget", "birkin_memory_restore",
+            } and (self._context != "primary"
+                   or context.get("agent_context", self._context) != "primary"):
                 return json.dumps({"success": False, "error": "Memory writes require a primary agent context"})
             try:
                 result = handler(self._memory, args)
@@ -208,7 +212,39 @@ class VaultProvider:
                 result = {"success": False, "error": str(exc)}
             except VersionMismatchError:
                 result = {"success": False, "error": "A note with this title already exists"}
+            except ValueError as exc:
+                result = {"success": False, "error": str(exc)}
             return json.dumps(result, ensure_ascii=False)
+
+    def _forget(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
+        if set(args) - {"note", "reason", "confirm"}:
+            raise InvalidArgument("arguments", "unknown forget field")
+        note = _text(args.get("note"), "note", None, single_line=True)
+        reason = args.get("reason", "")
+        if not isinstance(reason, str) or len(reason) > 500:
+            raise InvalidArgument("reason", "must be a string of at most 500 characters")
+        confirm = args.get("confirm", False)
+        if type(confirm) is not bool:
+            raise InvalidArgument("confirm", "must be a boolean")
+        out = forget_note(memory.dex, note, reason=reason, confirm=confirm)
+        result: ToolResponse = {"success": out["allowed"], **out}
+        if not out["allowed"]:
+            result["error"] = str(out["dropped"][0]["reason"])
+        elif confirm and not out["archived"]:
+            result["success"] = False
+            result["error"] = str(out["effected"][0]["error"])
+        return result
+
+    def _restore(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
+        if set(args) - {"note", "zone", "confirm"}:
+            raise InvalidArgument("arguments", "unknown restore field")
+        note = _text(args.get("note"), "note", None, single_line=True)
+        zone = _text(args.get("zone", "inbox"), "zone", None, single_line=True)
+        confirm = args.get("confirm", False)
+        if type(confirm) is not bool:
+            raise InvalidArgument("confirm", "must be a boolean")
+        return {"success": True, **restore_note(
+            memory.dex, note, zone=zone, confirm=confirm)}
 
     def _remember(self, memory: VaultMemory, args: ToolArguments) -> ToolResponse:
         if self._context != "primary":
@@ -256,6 +292,7 @@ class VaultProvider:
             raise InvalidArgument("arguments", "unknown note field")
         title = _text(args.get("title"), "title", None, single_line=True)
         index = self._index
+        note: str | None
         if index is not None and any(entry.document == title for entry in index.read().entries):
             try:
                 note = index.document_path(title).read_bytes().decode("utf-8")
