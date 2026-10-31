@@ -206,7 +206,7 @@ See the [usage guide](memory-index-guide.md) for the required-INDEX guard,
 exact-trigger behavior, error handling, filesystem hard-link requirement,
 and journal/captured-source recovery.
 
-## Unreleased task reads and two-level indexes
+## Task reads and two-level indexes (available since 0.7.0)
 
 ### Task matching on the replacement snapshot (2026-10-11)
 
@@ -264,14 +264,14 @@ each task requires an independently complete full-body response.
 ### Historical two-level-index comparison
 
 These later measurements compare the already-managed 0.6.0 INDEX with the
-unreleased implementation, not with the original 45,128-token full-note
+candidate implementation, unreleased at the time of measurement, not with the original 45,128-token full-note
 baseline. The measured production tree is
 `de9b03bdaace85a3054d9299733baf0f821186fe`; its Python source SHA-256 is
 `e59696724cc428308cc9c385fc68da1d6e464b31c82928bd8d889ee2f9b65ce5`.
 Measurements ran on commit `c88383dad2ff9ae4f9e439a75b6ed9ac34d0fbef`.
 No package version, release, or runtime dependency changed.
 
-| Corpus and identical scope | Managed 0.6.0 | Unreleased | Change |
+| Corpus and identical scope | Managed 0.6.0 | Candidate at measurement time | Change |
 |---|---:|---:|---:|
 | Existing large-note whole startup | 1,781 | 1,297 | -27.2% |
 | Existing large-note resident INDEX | 630 | 144 | -77.1% |
@@ -294,7 +294,7 @@ the matching registered 2,425-token envelope, not with that smaller original.
 Only anonymous private aggregates are reported; source contents are not
 reproducible from this repository.
 
-| Frozen delivery cases | Release automatic delivery | Unreleased automatic delivery |
+| Frozen delivery cases | Release automatic delivery | Candidate automatic delivery at measurement time |
 |---|---:|---:|
 | Public positives | 0/12 | 12/12 |
 | Public negatives correctly empty | 4/4 | 4/4 |

@@ -11,14 +11,15 @@ The plugin and core library declare Python 3.10 or later. Hermes itself
 requires Python 3.11 or later, so use a Python version supported by your
 Hermes installation when loading the plugin.
 
-Plugin 0.8.0 pins the published `birkin-mnemosyne==0.8.0` core, including
+Plugin 0.9.0 pins the published `birkin-mnemosyne==0.9.0` core, including
 nested-folder recall, task-bound reads, complete topic expansion, scoped
-handoffs and note labels. Use the `v0.8.0` checkout for the installation below.
+handoffs, note labels and reversible note cleanup. Use the `v0.9.0` checkout for
+the installation below.
 The core `v0.7.0` tag retains the earlier plugin 0.1.0 manifest.
 
 This directory is the plugin source, not an addition to Hermes' built-in provider
 tree. Use the Hermes plugin installer so it prepares the declared
-`birkin-mnemosyne==0.8.0` dependency through Hermes' package manager:
+`birkin-mnemosyne==0.9.0` dependency through Hermes' package manager:
 
 ```text
 hermes plugins validate ./integrations/hermes --install-deps
@@ -36,9 +37,10 @@ separate vault. A default profile is not consulted when another profile is activ
 
 ## Use
 
-The current provider source exposes six memory-provider tools. The two cleanup
-tools below are unreleased: use matching provider and core source from this
-checkout when testing them; the pinned v0.8.0 installation above has four tools.
+The 0.9.0 provider exposes six memory-provider tools. The two cleanup tools,
+`birkin_memory_forget` and `birkin_memory_restore`, are new in 0.9.0; plugin
+0.8.0 and earlier have only the first four. Like `birkin_memory_remember`, the
+cleanup tools run only in a primary agent context.
 
 - `birkin_memory_remember`: create a durable note with `title` and `body`. An existing
   title cannot be overwritten.

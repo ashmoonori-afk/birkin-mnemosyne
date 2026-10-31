@@ -36,14 +36,14 @@
   <main id="main" data-bg-content>
     <section class="container hero" aria-labelledby="hero-title" data-section="hero" data-bg-node-id="hero">
       <div class="hero-copy">
-        <p class="eyebrow" data-bg-node-id="hero-eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.8.0</a></p>
+        <p class="eyebrow" data-bg-node-id="hero-eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.9.0</a></p>
         <h1 id="hero-title" data-bg-node-id="hero-title">Memory that survives the session.</h1>
         <p class="lead" data-bg-node-id="hero-lead">Your agent starts over. Your notes shouldn't. Keep memory as local Markdown, load the map at startup, and open the details when they're needed.</p>
         <div class="actions">
           <a class="button" href="#install">Get started <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">Read the evidence</a>
         </div>
-        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.8.0</code></p>
+        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.9.0</code></p>
       </div>
       <figure class="ledger" data-loop data-bg-node-id="hero-ledger">
         <div class="ledger-top"><strong class="mono">your vault/</strong><span class="small">Markdown on disk</span></div>
@@ -201,8 +201,8 @@
         </div>
         <div class="measure-note" data-reveal id="cross-language-recall">
           <h3>0.8.0</h3>
-          <p>Cross-language recall: with a judge key, Hit@5 rose from 298 to 1,028 of 1,432 unseen questions in six languages (3.45x, October 25, 2026).</p>
-          <p>Off by default: without a key, or with MNEMOSYNE_RERANK=off, recall stays on your machine.</p>
+          <p>Cross-language recall: in the research setup with a judge and translated queries, Hit@5 rose from 298 to 1,028 of 1,432 unseen questions in six languages (3.45x, October 25, 2026). The key-only setup was not measured.</p>
+          <p>Off by default: MNEMOSYNE_RERANK_API_KEY turns on reranking, and translated queries also need MNEMOSYNE_RERANK_TRANSLATOR. Without a key, or with MNEMOSYNE_RERANK=off, recall stays on your machine.</p>
           <p>When on, a query costs an estimated $0.0081 and about 4 s.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/5945d84f6c36c9d1156f94f1eb002ff71470f9c5/docs/releases/0.8.0.md">0.8.0</a>
         </div>
@@ -263,7 +263,7 @@
         </article>
         <article class="reference" data-reveal>
           <h3>Hermes</h3>
-          <p>The external memory provider uses local Markdown with a separate vault per Hermes profile. Scoped handoff capture at session end and before compression is opt-in.</p>
+          <p>The external memory provider uses local Markdown with a separate vault per Hermes profile. Scoped handoff capture at session end and before compression is opt-in. Since 0.9.0, <code>birkin_memory_forget</code> and <code>birkin_memory_restore</code> archive and restore notes, previewing unless <code>confirm=true</code>; nothing is deleted.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md">Set up the Hermes provider ↗</a>
         </article>
         <article class="reference" data-reveal>
@@ -283,7 +283,7 @@
       <div class="install-grid">
         <article data-reveal>
           <h3>Install the core</h3>
-          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.8.0</span>
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.9.0</span>
 
 mnemosyne init <span class="code-token">--vault</span> my_vault
 mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>
@@ -292,7 +292,7 @@ mnemosyne init <span class="code-token">--vault</span> my_vault <span class="cod
         </article>
         <article data-reveal>
           <h3>Connect an MCP client</h3>
-          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]==0.8.0"</span> \
+          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]==0.9.0"</span> \
   <span class="code-token">mnemosyne-mcp</span> <span class="code-token">--vault</span> ~/mnemosyne</code></pre>
           <p>The MCP extra downloads the official SDK on first launch. Configure this stdio command in your client. Point clients at the same vault to share memory.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#mcp-server-claude-code-claude-desktop-codex-cli-cursor">Read the full setup instructions ↗</a>

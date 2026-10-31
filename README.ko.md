@@ -12,9 +12,13 @@ BM25 검색, 사용 기반 감쇠(decay)와 영역(zone) 우선순위, 그리고
 MCP 서버가 볼트를 에이전트 클라이언트에 연결하고, 옵트인 의미 모드(opt-in
 semantic mode)가 의미 기반 검색을 더해 줍니다.
 
-## 0.8.0: 다른 언어로 물어도 맞는 노트를 찾아요(키를 넣었을 때만).
+## 0.9.0: Hermes에서 노트를 보관하고 되돌릴 수 있어요
 
-`MNEMOSYNE_RERANK_API_KEY`를 넣으면 `recall()`(MCP 도구 `memory_kibitzer_candidates` 포함)이 번역한 질문으로도 후보를 찾고, 외부 판정 모델로 순서를 다시 매겨요. 처음 보는 6개 언어 질문 1,432개에서 정답이 5위 안에 든 질문이 298개에서 1,028개로 늘었어요(3.45배, 2026년 10월 25일 측정, PR #91). 질문 하나에 약 0.0081달러와 약 4초가 드는 것으로 추정되고, 키가 없거나 `MNEMOSYNE_RERANK=off`면 지금처럼 내 컴퓨터 안에서만 돌아요.
+Hermes 제공자에 `birkin_memory_forget`과 `birkin_memory_restore`가 생겼어요. 기본은 미리보기이고 `confirm=true`일 때만 노트를 `_archive`로 옮기거나 되돌리며, 파일을 지우지는 않아요. 검색과 순위는 그대로이고 Hermes 제공자는 여전히 API 키나 네트워크 없이 동작해요.
+
+## 0.8.0: 다른 언어로 물어도 맞는 노트를 찾게 돕는 재정렬(켰을 때만).
+
+`MNEMOSYNE_RERANK_API_KEY`를 넣으면 `recall()`(MCP 도구 `memory_kibitzer_candidates` 포함)의 후보 순서를 외부 판정 모델이 다시 매겨요. 번역한 질문으로도 찾으려면 `MNEMOSYNE_RERANK_TRANSLATOR`도 설정해야 해요. 번역 질문을 쓴 연구 환경에서 처음 보는 6개 언어 질문 1,432개 중 정답이 5위 안에 든 질문이 298개에서 1,028개로 늘었고(3.45배, 2026년 10월 25일 측정, PR #91), 키만 넣은 구성은 측정하지 않았어요. 질문 하나에 약 0.0081달러와 약 4초가 드는 것으로 추정되고, 키가 없거나 `MNEMOSYNE_RERANK=off`면 지금처럼 내 컴퓨터 안에서만 돌아요.
 
 ## 0.7.1: 중첩 폴더와 터미널 읽기
 
@@ -35,7 +39,7 @@ semantic mode)가 의미 기반 검색을 더해 줍니다.
 Python >= 3.10이 필요합니다. PyPI에서 설치하세요:
 
 ```bash
-pip install "birkin-mnemosyne==0.8.0"
+pip install "birkin-mnemosyne==0.9.0"
 ```
 
 체크아웃 상태에서 쓰는 개발·벤치마크 명령은 다음과 같습니다:
@@ -53,12 +57,12 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 
 ## 에이전트 사용자를 위한 빠른 시작
 
-아래 명령은 0.8.0에 포함됩니다. 배포된 MCP 추가 패키지를 설치하면
+아래 명령은 0.9.0에 포함됩니다. 배포된 MCP 추가 패키지를 설치하면
 소스 체크아웃 없이 에이전트에 연결할 수 있습니다.
 코딩 에이전트에 기억을 연결하고, 무엇을 저장했는지 터미널에서 확인하세요:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]==0.8.0"
+pip install "birkin-mnemosyne[mcp]==0.9.0"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # 새 에이전트 세션을 열고 "Release checklist"라는 제목으로
@@ -623,8 +627,8 @@ INDEX 라우트는 정확한 상대 경로와 그룹 카탈로그를 유지합�
 
 ### Hermes에서
 
-현재 소스에는 `birkin_memory_forget`과 `birkin_memory_restore`가 추가되어 있습니다.
-아직 출시 전이며 고정된 v0.8.0 제공자와 코어에는 없습니다. 두 도구 모두 기본값은
+0.9.0부터 제공자에 `birkin_memory_forget`과 `birkin_memory_restore`가 추가되었습니다.
+기본 에이전트(primary) 컨텍스트에서만 쓸 수 있습니다. 두 도구 모두 기본값은
 미리보기이고, 파일을 옮기려면 `confirm=true`가 필요합니다. Forget은 코어의 보호
 규칙을 거쳐 삭제 대신 보관하며, restore의 기본 복원 위치는 inbox입니다.
 [테스트 노트 정리법](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#cleaning-up-test-notes)에서

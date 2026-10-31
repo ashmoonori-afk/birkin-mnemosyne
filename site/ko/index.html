@@ -36,14 +36,14 @@
   <main id="main">
     <section class="container hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow">로컬 MARKDOWN 메모리 / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.8.0</a></p>
+        <p class="eyebrow">로컬 MARKDOWN 메모리 / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.9.0</a></p>
         <h1 id="hero-title">다음 세션에도<br>이어지는 기억.</h1>
         <p class="lead">에이전트가 새로 시작해도 노트까지 잊을 필요는 없습니다. 로컬 Markdown에 기억을 남기고, 시작할 때는 지도를, 필요할 때는 상세 문서를 읽으세요.</p>
         <div class="actions">
           <a class="button" href="#install">설치하기 <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">측정 근거 보기</a>
         </div>
-        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.8.0</code></p>
+        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.9.0</code></p>
       </div>
       <figure class="ledger" data-loop>
         <div class="ledger-top"><strong class="mono">your vault/</strong><span class="small">디스크 위의 Markdown</span></div>
@@ -200,9 +200,9 @@
           <p>문서에 공개된 실험 결과입니다. 사용자의 저장소나 에이전트 답변에 대한 보장은 아닙니다.</p>
         </div>
         <div class="measure-note" data-reveal id="cross-language-recall">
-          <h3>0.8.0: 다른 언어로 물어도 맞는 노트를 찾아요(키를 넣었을 때만).</h3>
-          <p><code>MNEMOSYNE_RERANK_API_KEY</code>를 넣으면 <code>recall()</code>(MCP 도구 <code>memory_kibitzer_candidates</code> 포함)이 번역한 질문으로도 후보를 찾고, 외부 판정 모델로 순서를 다시 매겨요.</p>
-          <p>처음 보는 6개 언어 질문 1,432개에서 정답이 5위 안에 든 질문이 298개에서 1,028개로 늘었어요(3.45배, 2026년 10월 25일 측정, PR #91).</p>
+          <h3>0.8.0: 다른 언어로 물어도 맞는 노트를 찾게 돕는 재정렬(켰을 때만).</h3>
+          <p><code>MNEMOSYNE_RERANK_API_KEY</code>를 넣으면 <code>recall()</code>(MCP 도구 <code>memory_kibitzer_candidates</code> 포함)의 후보 순서를 외부 판정 모델이 다시 매겨요. 번역한 질문으로도 찾으려면 <code>MNEMOSYNE_RERANK_TRANSLATOR</code>도 설정해야 해요.</p>
+          <p>번역 질문을 쓴 연구 환경에서 처음 보는 6개 언어 질문 1,432개 중 정답이 5위 안에 든 질문이 298개에서 1,028개로 늘었어요(3.45배, 2026년 10월 25일 측정, PR #91). 키만 넣은 구성은 측정하지 않았어요.</p>
           <p>질문 하나에 약 0.0081달러와 약 4초가 드는 것으로 추정되고, 키가 없거나 <code>MNEMOSYNE_RERANK=off</code>면 지금처럼 내 컴퓨터 안에서만 돌아요.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/5945d84f6c36c9d1156f94f1eb002ff71470f9c5/docs/releases/0.8.0.md">0.8.0</a>
         </div>
@@ -263,7 +263,7 @@
         </article>
         <article class="reference" data-reveal>
           <h3>Hermes</h3>
-          <p>외부 메모리 제공자는 Hermes 프로필별 별도 저장소에 로컬 Markdown을 씁니다. 세션 종료·압축 전의 범위별 인계 캡처는 선택 기능입니다.</p>
+          <p>외부 메모리 제공자는 Hermes 프로필별 별도 저장소에 로컬 Markdown을 씁니다. 세션 종료·압축 전의 범위별 인계 캡처는 선택 기능입니다. 0.9.0부터 <code>birkin_memory_forget</code>과 <code>birkin_memory_restore</code>로 노트를 보관하고 되돌릴 수 있으며, <code>confirm=true</code>가 아니면 미리보기만 하고 아무것도 지우지 않습니다.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md">Hermes 제공자 설정하기 ↗</a>
         </article>
         <article class="reference" data-reveal>
@@ -283,7 +283,7 @@
       <div class="install-grid">
         <article data-reveal>
           <h3>코어 설치</h3>
-          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.8.0</span>
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.9.0</span>
 
 mnemosyne init <span class="code-token">--vault</span> my_vault
 mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>
@@ -292,7 +292,7 @@ mnemosyne init <span class="code-token">--vault</span> my_vault <span class="cod
         </article>
         <article data-reveal>
           <h3>MCP 클라이언트 연결</h3>
-          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]==0.8.0"</span> \
+          <pre><code>uvx <span class="code-token">--from</span> <span class="code-token">"birkin-mnemosyne[mcp]==0.9.0"</span> \
   <span class="code-token">mnemosyne-mcp</span> <span class="code-token">--vault</span> ~/mnemosyne</code></pre>
           <p>MCP 추가 패키지는 처음 실행할 때 공식 SDK를 내려받습니다. 클라이언트에 이 stdio 명령을 설정하세요. 같은 저장소를 지정하면 클라이언트끼리 기억을 공유합니다.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/README.md#mcp-server-claude-code-claude-desktop-codex-cli-cursor">전체 설정 방법 읽기 ↗</a>
