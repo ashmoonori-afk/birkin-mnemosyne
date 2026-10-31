@@ -201,8 +201,8 @@
         </div>
         <div class="measure-note" data-reveal id="cross-language-recall">
           <h3>0.8.0</h3>
-          <p>Cross-language recall: with a judge key, Hit@5 rose from 298 to 1,028 of 1,432 unseen questions in six languages (3.45x, October 25, 2026).</p>
-          <p>Off by default: without a key, or with MNEMOSYNE_RERANK=off, recall stays on your machine.</p>
+          <p>Cross-language recall: in the research setup with a judge and translated queries, Hit@5 rose from 298 to 1,028 of 1,432 unseen questions in six languages (3.45x, October 25, 2026). The key-only setup was not measured.</p>
+          <p>Off by default: MNEMOSYNE_RERANK_API_KEY turns on reranking, and translated queries also need MNEMOSYNE_RERANK_TRANSLATOR. Without a key, or with MNEMOSYNE_RERANK=off, recall stays on your machine.</p>
           <p>When on, a query costs an estimated $0.0081 and about 4 s.</p>
           <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/5945d84f6c36c9d1156f94f1eb002ff71470f9c5/docs/releases/0.8.0.md">0.8.0</a>
         </div>

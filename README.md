@@ -18,7 +18,7 @@ The Hermes provider adds `birkin_memory_forget` and `birkin_memory_restore`: bot
 
 ## 0.8.0: opt-in cross-language recall.
 
-Set `MNEMOSYNE_RERANK_API_KEY` and `recall()` (and the MCP tool `memory_kibitzer_candidates`) also searches translated queries and reorders candidates with a hosted judge: on 1,432 unseen questions in six languages, Hit@5 rose from 298 to 1,028 (3.45x, October 25, 2026, PR #91). It costs an estimated $0.0081 and about 4 s per query; without a key, or with `MNEMOSYNE_RERANK=off`, recall stays local as before.
+Set `MNEMOSYNE_RERANK_API_KEY` and `recall()` (and the MCP tool `memory_kibitzer_candidates`) reorders candidates with a hosted judge; translated query views also need `MNEMOSYNE_RERANK_TRANSLATOR`. In the research setup, which used translated views, Hit@5 on 1,432 unseen questions in six languages rose from 298 to 1,028 (3.45x, October 25, 2026, PR #91); the key-only setup was not measured. It costs an estimated $0.0081 and about 4 s per query; without a key, or with `MNEMOSYNE_RERANK=off`, recall stays local as before.
 
 ## 0.7.1: nested folders and terminal reads
 
