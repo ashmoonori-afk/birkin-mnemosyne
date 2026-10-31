@@ -12,6 +12,10 @@ search notes. Notes stay readable, greppable and diffable; an optional MCP
 server connects the vault to agent clients, and an opt-in semantic mode adds
 meaning-based retrieval.
 
+## 0.9.0: reversible note cleanup in Hermes
+
+The Hermes provider adds `birkin_memory_forget` and `birkin_memory_restore`: both preview by default, move a note to or from `_archive` only with `confirm=true`, and never delete files. Recall and ranking are unchanged, and the Hermes provider still needs no API key or network call.
+
 ## 0.8.0: opt-in cross-language recall.
 
 Set `MNEMOSYNE_RERANK_API_KEY` and `recall()` (and the MCP tool `memory_kibitzer_candidates`) also searches translated queries and reorders candidates with a hosted judge: on 1,432 unseen questions in six languages, Hit@5 rose from 298 to 1,028 (3.45x, October 25, 2026, PR #91). It costs an estimated $0.0081 and about 4 s per query; without a key, or with `MNEMOSYNE_RERANK=off`, recall stays local as before.
@@ -35,7 +39,7 @@ a model requirement or turn labels into ranking terms.
 Requires Python >= 3.10. Install from PyPI:
 
 ```bash
-pip install "birkin-mnemosyne==0.8.0"
+pip install "birkin-mnemosyne==0.9.0"
 ```
 
 From a checkout, the existing development and benchmark commands are:
@@ -53,12 +57,12 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## Quick start for agent users
 
-The commands below ship in 0.8.0. Install the published MCP extra to connect
+The commands below ship in 0.9.0. Install the published MCP extra to connect
 your agent; a source checkout is not required.
 Give your coding agent a memory, then check from a terminal what it stored:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]==0.8.0"
+pip install "birkin-mnemosyne[mcp]==0.9.0"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # Start a new agent session and ask it to remember a note titled
@@ -662,8 +666,8 @@ are retained.
 
 ### Hermes
 
-The current source adds `birkin_memory_forget` and `birkin_memory_restore`
-(unreleased; not in the pinned v0.8.0 provider/core). Both preview by default
+Since 0.9.0 the provider also has `birkin_memory_forget` and
+`birkin_memory_restore`, available in primary agent contexts only. Both preview by default
 and require `confirm=true` to move a file. Forget uses the core curation safety
 gate and archives rather than deletes; restore defaults to inbox.
 See [Cleaning up test notes](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/integrations/hermes/README.md#cleaning-up-test-notes)
