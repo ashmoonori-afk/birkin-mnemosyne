@@ -47,8 +47,7 @@ def _tokenize_span(job: tuple[str, str, str, int, int, int, int]) -> list[tuple[
     sys.path.insert(0, repo)
     from birkin_mnemosyne.mnemosyne import tokenize
     lengths = []
-    files = [open(f"{scratch}/{part}.{i}", "w", encoding="utf-8", errors="surrogatepass")
-             for i in range(SHARDS)]
+    rows: list[list[str]] = [[] for _ in range(SHARDS)]
     with open(corpus, "rb") as handle:
         handle.seek(start)
         for doc, raw in enumerate(handle.read(end - start).splitlines(True), first):
@@ -56,15 +55,18 @@ def _tokenize_span(job: tuple[str, str, str, int, int, int, int]) -> list[tuple[
             terms = tokenize(row["description"] + " " + row["body"])
             lengths.append((doc, len(terms)))
             for term, count in Counter(terms).items():
-                files[_shard(term)].write(f"{term}\t{doc}\t{count}\n")
-    for file in files:
-        file.close()
+                rows[_shard(term)].append(f"{term}\t{doc}\t{count}\n")
+    for shard, lines in enumerate(rows):
+        path = Path(f"{scratch}/{part}.{shard}")
+        with path.open("w", encoding="utf-8", errors="surrogatepass") as file:
+            file.writelines(lines)
     return lengths
 
 
 def _merge_shard(job: tuple[str, str, int, int]) -> int:
     scratch, out, shard, parts = job
-    postings: dict[str, tuple[array, array]] = defaultdict(lambda: (array("I"), array("I")))
+    postings: dict[str, tuple[array[int], array[int]]] = defaultdict(
+        lambda: (array("I"), array("I")))
     for part in range(parts):
         path = Path(f"{scratch}/{part}.{shard}")
         with path.open(encoding="utf-8", errors="surrogatepass") as handle:
@@ -137,8 +139,8 @@ def load_snapshot(root: str) -> Any:
             row = json.loads(line)
             documents.append(RecallDocument(row["path"], row["description"], row["body"]))
     paths = [doc.path for doc in documents]
-    return _Snapshot((), date.today(), tuple(documents), LazyPostings(root, paths),
-                     dict(zip(paths, lengths_raw)))
+    postings: Any = LazyPostings(root, paths)
+    return _Snapshot((), date.today(), tuple(documents), postings, dict(zip(paths, lengths_raw)))
 
 
 if __name__ == "__main__":
