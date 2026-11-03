@@ -268,9 +268,9 @@ def score_cards(decide: Decide, query: str, cards: Sequence[Card],
     return [score for chunk_scores in results for score in chunk_scores]
 
 
-def merge_top(bm25: Sequence[Card], bm25_scores_: Sequence[float],
-              cosine: Sequence[Card], cosine_scores: Sequence[float],
-              keep: int = FINAL) -> list[Card]:
+def merge_scored(bm25: Sequence[Card], bm25_scores_: Sequence[float],
+                 cosine: Sequence[Card], cosine_scores: Sequence[float],
+                 keep: int = FINAL) -> list[tuple[Card, float]]:
     """Mean score per note; ties by BM25 position, cosine position, then path."""
     union: dict[str, dict[str, Any]] = {}
     for side, (cards, scores) in enumerate(((bm25, bm25_scores_), (cosine, cosine_scores))):
@@ -290,7 +290,15 @@ def merge_top(bm25: Sequence[Card], bm25_scores_: Sequence[float],
     ranked = sorted(union.values(), key=lambda it: (
         -(sum(it["scores"]) / len(it["scores"])), it["ranks"][0], it["ranks"][1],
         it["card"].path))
-    return [item["card"] for item in ranked[:keep]]
+    return [(item["card"], sum(item["scores"]) / len(item["scores"]))
+            for item in ranked[:keep]]
+
+
+def merge_top(bm25: Sequence[Card], bm25_scores_: Sequence[float],
+              cosine: Sequence[Card], cosine_scores: Sequence[float],
+              keep: int = FINAL) -> list[Card]:
+    """The cards of :func:`merge_scored`, best first."""
+    return [card for card, _ in merge_scored(bm25, bm25_scores_, cosine, cosine_scores, keep)]
 
 
 def aggregate_preferences(count: int,
@@ -325,6 +333,42 @@ def pairwise_order(decide: Decide, query: str, cards: Sequence[Card],
     return [(cards[i], total) for i, total in aggregate_preferences(len(cards), preferences)]
 
 
+def scored_top(adapter: KibitzerAdapter, query: str, *, decide: Decide,
+               views: Sequence[str] = (), surfaced: Collection[str] = (),
+               exclude_paths: Collection[str] = (), model: str = MODEL,
+               force_refresh: bool = False, workers: int = CONCURRENCY,
+               cosine_index: _CosineIndex | None = None,
+               ) -> tuple[list[tuple[Card, float]], dict[str, RecallDocument]]:
+    """Stages one to four: the kept notes with their merged judge scores."""
+    texts = [query]
+    for view in views:
+        if not isinstance(view, str) or not view.strip():
+            raise ValueError("every view must be non-empty text")
+        if view not in texts:
+            texts.append(view)
+    snapshot = adapter._snapshot(force_refresh)
+    excluded = {*surfaced, *exclude_paths}
+    by_path = {doc.path: doc for doc in snapshot.documents}
+    eligible = {path for path in by_path if path not in excluded}
+    size = len(snapshot.documents)
+    cosine_index = cosine_index or _CosineIndex(snapshot.postings, size)
+    bm25_union = expanded_union([_bm25_ranking(text, snapshot.postings, snapshot.lengths,
+                                               size, eligible, WIDTH) for text in texts])
+    cosine_union = expanded_union([cosine_index.rank(text, eligible, WIDTH) for text in texts])
+    if not bm25_union and not cosine_union:
+        return [], by_path
+    df, sample = document_frequencies(snapshot.documents)
+
+    def cards(paths: Sequence[str]) -> list[Card]:
+        return [Card(p, by_path[p].description, passage(query, by_path[p].body, df, sample))
+                for p in paths]
+
+    bm25_cards, cosine_cards = cards(bm25_union), cards(cosine_union)
+    return merge_scored(bm25_cards, score_cards(decide, query, bm25_cards, model, workers),
+                        cosine_cards, score_cards(decide, query, cosine_cards, model, workers),
+                        ), by_path
+
+
 def rerank(adapter: KibitzerAdapter, query: str, *, decide: Decide,
            views: Sequence[str] = (), limit: int = FINAL,
            surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
@@ -340,33 +384,12 @@ def rerank(adapter: KibitzerAdapter, query: str, *, decide: Decide,
         raise ValueError("query is required")
     if not 0 <= limit <= FINAL:
         raise ValueError(f"limit must be between 0 and {FINAL}")
-    texts = [query]
-    for view in views:
-        if not isinstance(view, str) or not view.strip():
-            raise ValueError("every view must be non-empty text")
-        if view not in texts:
-            texts.append(view)
-    snapshot = adapter._snapshot(force_refresh)
-    excluded = {*surfaced, *exclude_paths}
-    by_path = {doc.path: doc for doc in snapshot.documents}
-    eligible = {path for path in by_path if path not in excluded}
-    size = len(snapshot.documents)
-    cosine_index = _CosineIndex(snapshot.postings, size)
-    bm25_union = expanded_union([_bm25_ranking(text, snapshot.postings, snapshot.lengths,
-                                               size, eligible, WIDTH) for text in texts])
-    cosine_union = expanded_union([cosine_index.rank(text, eligible, WIDTH) for text in texts])
-    if not bm25_union and not cosine_union:
+    scored, by_path = scored_top(adapter, query, decide=decide, views=views, surfaced=surfaced,
+                                 exclude_paths=exclude_paths, model=model,
+                                 force_refresh=force_refresh, workers=workers)
+    if not scored:
         return ()
-    df, sample = document_frequencies(snapshot.documents)
-
-    def cards(paths: Sequence[str]) -> list[Card]:
-        return [Card(p, by_path[p].description, passage(query, by_path[p].body, df, sample))
-                for p in paths]
-
-    bm25_cards, cosine_cards = cards(bm25_union), cards(cosine_union)
-    top = merge_top(bm25_cards, score_cards(decide, query, bm25_cards, model, workers),
-                    cosine_cards, score_cards(decide, query, cosine_cards, model, workers))
-    ordered = pairwise_order(decide, query, top, model, workers)
+    ordered = pairwise_order(decide, query, [card for card, _ in scored], model, workers)
     return tuple(RecallCandidate(card.path, card.title,
                                  _excerpt(by_path[card.path].body, query), 1 / (1 + total))
                  for card, total in ordered[:limit])
