@@ -238,13 +238,14 @@ class KibitzerAdapter:
         views: Sequence[str] = (), limit: int = 5,
         surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
         model: str | None = None, force_refresh: bool = False,
+        min_relevance: float | None = None,
     ) -> tuple[RecallCandidate, ...]:
         """Opt-in hosted reranking; see :mod:`birkin_mnemosyne.crosslingual`."""
         from . import crosslingual
         return crosslingual.rerank(
             self, query, decide=decide, views=views, limit=limit, surfaced=surfaced,
             exclude_paths=exclude_paths, model=model or crosslingual.MODEL,
-            force_refresh=force_refresh,
+            force_refresh=force_refresh, min_relevance=min_relevance,
         )
 
     def recall(

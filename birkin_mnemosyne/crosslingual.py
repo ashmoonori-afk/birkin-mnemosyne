@@ -50,6 +50,7 @@ ENDPOINT = "https://apis.opengateway.ai/v1/decisions"
 WIDTH = 32               # notes per view and retriever entering the union
 MAX_CARDS = 8            # cards per pointwise judge request
 FINAL = 5                # notes kept after the mean merge
+RELEVANCE_FLOOR = 0.5    # merged pointwise score a note needs before it is surfaced
 EXCERPT_CHARS = 1500     # Unicode code points per card excerpt
 EXCERPT_STRIDE = 300
 DF_SAMPLE = 4000         # notes used for excerpt-window term weights
@@ -373,20 +374,28 @@ def rerank(adapter: KibitzerAdapter, query: str, *, decide: Decide,
            views: Sequence[str] = (), limit: int = FINAL,
            surfaced: Collection[str] = (), exclude_paths: Collection[str] = (),
            model: str = MODEL, force_refresh: bool = False,
-           workers: int = CONCURRENCY) -> tuple[RecallCandidate, ...]:
+           workers: int = CONCURRENCY,
+           min_relevance: float | None = None) -> tuple[RecallCandidate, ...]:
     """Run the full five-stage pipeline over a Kibitzer vault snapshot.
 
     ``views`` are additional query texts (translations); the original ``query``
     is always the first view and the only text the judge sees. Exclusions
     apply before retrieval. Scores are ``1 / (1 + preference)``: lower is better.
+    Notes whose merged judge score is below ``min_relevance`` (default
+    :data:`RELEVANCE_FLOOR`) are dropped before the pairwise step, so a query
+    that no note answers returns nothing; pass ``0`` to keep all five.
     """
     if not isinstance(query, str) or not query.strip():
         raise ValueError("query is required")
     if not 0 <= limit <= FINAL:
         raise ValueError(f"limit must be between 0 and {FINAL}")
+    floor = RELEVANCE_FLOOR if min_relevance is None else min_relevance
+    if isinstance(floor, bool) or not 0 <= floor <= 1:
+        raise ValueError("min_relevance must be between 0 and 1")
     scored, by_path = scored_top(adapter, query, decide=decide, views=views, surfaced=surfaced,
                                  exclude_paths=exclude_paths, model=model,
                                  force_refresh=force_refresh, workers=workers)
+    scored = [(card, value) for card, value in scored if value >= floor]
     if not scored:
         return ()
     ordered = pairwise_order(decide, query, [card for card, _ in scored], model, workers)

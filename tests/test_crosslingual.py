@@ -190,14 +190,15 @@ def test_select_crosslingual_runs_all_stages_and_honours_exclusions(tmp_path: Pa
 
     # Given only the Korean query, the English-only notes never become candidates.
     native = Judge(relevance, strength)
-    alone = adapter.select_crosslingual(query, decide=native, surfaced={"private.md"})
+    alone = adapter.select_crosslingual(query, decide=native, surfaced={"private.md"},
+                                        min_relevance=0)
     assert [c.path for c in alone] == ["korean.md"]
 
     # When the English view is added, the union reaches English notes, and the
     # pairwise stage overrides the pointwise winner.
     judge = Judge(relevance, strength)
     ranked = adapter.select_crosslingual(query, decide=judge, views=[english],
-                                         surfaced={"private.md"})
+                                         surfaced={"private.md"}, min_relevance=0)
     assert ranked[0].path == "autoscale.md"
     assert "korean.md" in [c.path for c in ranked]
     assert [c.score for c in ranked] == sorted(c.score for c in ranked)
@@ -212,10 +213,45 @@ def test_select_crosslingual_runs_all_stages_and_honours_exclusions(tmp_path: Pa
     assert all(len(p["state"]["cards"]) <= MAX_CARDS for p in pointwise)
 
     assert adapter.select_crosslingual(query, decide=judge, views=[english], limit=2,
-                                       surfaced={"private.md"})[0].path == "autoscale.md"
+                                       surfaced={"private.md"},
+                                       min_relevance=0)[0].path == "autoscale.md"
     with pytest.raises(ValueError):
         adapter.select_crosslingual(query, decide=judge, limit=6)
     assert adapter.select_crosslingual("zzzz qqqq", decide=judge) == ()
+
+
+def test_floor_keeps_only_clearly_relevant_notes_and_pairs_only_them(tmp_path: Path) -> None:
+    adapter = KibitzerAdapter(_vault(tmp_path))
+    relevance = {"autoscale.md": 0.99, "korean.md": 0.97, "rollout.md": 0.4, "quota.md": 0.2}
+    judge = Judge(relevance, {"autoscale.md": 3.0, "korean.md": 1.0})
+    kept = adapter.select_crosslingual("cluster autoscaler nodes", decide=judge,
+                                       views=["클러스터 오토스케일러 노드"])
+    assert [c.path for c in kept] == ["autoscale.md", "korean.md"]
+    pairs = [p for p in judge.packets if len(p["questions"]) == 1 and len(p["state"]["cards"]) == 2]
+    assert len(pairs) == 2
+
+
+def test_floor_says_nothing_and_skips_pairs_when_no_note_is_relevant(tmp_path: Path) -> None:
+    adapter = KibitzerAdapter(_vault(tmp_path))
+    names = ("autoscale.md", "rollout.md", "garbage.md", "ingress.md", "quota.md",
+             "private.md", "korean.md")
+    judge = Judge(dict.fromkeys(names, 0.3), dict.fromkeys(names, 1.0))
+    assert adapter.select_crosslingual("cluster autoscaler nodes", decide=judge) == ()
+    assert judge.packets and all(len(p["questions"]) == len(p["state"]["cards"])
+                                 for p in judge.packets)
+    assert len(adapter.select_crosslingual("cluster autoscaler nodes", decide=judge,
+                                           min_relevance=0)) == 5
+    for bad in (-0.1, 1.5, True):
+        with pytest.raises(ValueError):
+            adapter.select_crosslingual("cluster", decide=judge, min_relevance=bad)
+
+
+def test_recall_returns_nothing_when_the_judge_finds_no_relevant_note(
+        tmp_path: Path, clean_env: pytest.MonkeyPatch) -> None:
+    adapter = KibitzerAdapter(_vault(tmp_path), decide=Judge({}, {}))
+    result = adapter.recall(_QUERY, limit=3)
+    assert (result.candidates, result.selector, result.fallback) == (
+        (), "crosslingual-rerank", None)
 
 
 def test_translate_views_skips_the_source_language_and_duplicates() -> None:
@@ -320,6 +356,7 @@ def _warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
 
 def test_recall_reranks_automatically_with_a_configured_client(
         tmp_path: Path, clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setattr("birkin_mnemosyne.crosslingual.RELEVANCE_FLOOR", 0.0)
     judge = Judge(_RELEVANCE, _STRENGTH)
     adapter = KibitzerAdapter(_vault(tmp_path), decide=judge)
     result = adapter.recall(_QUERY, limit=5)

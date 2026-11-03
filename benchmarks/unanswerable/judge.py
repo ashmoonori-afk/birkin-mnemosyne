@@ -51,8 +51,8 @@ class BudgetStop(RuntimeError):
 class Meter:
     """Cached, counted and budget-capped access to the judge."""
 
-    def __init__(self, cache: str, budget: float) -> None:
-        self.path, self.budget = Path(cache), budget
+    def __init__(self, cache: str, budget: float, reuse: bool = True) -> None:
+        self.path, self.budget, self.reuse = Path(cache), budget, reuse
         self.lock = threading.Lock()
         self.answers: dict[str, dict[str, Any]] = {}
         self.spent_tokens = self.new_tokens = self.requests = self.hits = 0
@@ -80,7 +80,7 @@ class Meter:
         text = json.dumps(packet, ensure_ascii=False, sort_keys=True)
         key = hashlib.sha256(text.encode()).hexdigest()
         with self.lock:
-            known = self.answers.get(key)
+            known = self.answers.get(key) if self.reuse else None
             if known is not None:
                 self.hits += 1
                 return known
@@ -226,6 +226,125 @@ def sweep(args: argparse.Namespace) -> None:
             for size in sizes])
 
 
+def five(args: argparse.Namespace) -> None:
+    from birkin_mnemosyne.kibitzer import RecallDocument
+    questions_ = json.loads(Path(args.questions).read_text(encoding="utf-8"))
+    labels = {row["key"]: row for row in json.loads(Path(args.labels).read_text(encoding="utf-8"))}
+    picked_rows = json.loads(Path(args.picked).read_text(encoding="utf-8"))["predictions"]
+    picked = {row["key"]: row["picked"] for row in picked_rows}
+    wanted = {path for key in picked for path in picked[key]}
+    documents: dict[str, RecallDocument] = {}
+    sample: list[RecallDocument] = []
+    with open(args.corpus, encoding="utf-8") as handle:
+        for line in handle:
+            row = json.loads(line)
+            doc = RecallDocument(row["path"], row["description"], row["body"])
+            if len(sample) < crosslingual.DF_SAMPLE:
+                sample.append(doc)
+            if doc.path in wanted:
+                documents[doc.path] = doc
+    df, size = crosslingual.document_frequencies(sample)
+    meter = Meter(args.cache, args.budget)
+    lock = threading.Lock()
+
+    def one(question: dict[str, Any]) -> dict[str, Any]:
+        query, label = question["query"], labels[question["key"]]
+        scored = []
+        for path in picked[question["key"]]:
+            doc = documents[path]
+            card = crosslingual.Card(path, doc.description,
+                                     crosslingual.passage(query, doc.body, df, size))
+            scored.append([path, crosslingual.score_cards(meter, query, [card])[0]])
+        return {"set": args.name, "key": question["key"], "stratum": label["stratum"],
+                "queryLanguage": question["queryLanguage"], "gold": label["gold"],
+                "top": scored}
+
+    with ThreadPoolExecutor(args.threads) as pool, open(args.out, "w", encoding="utf-8") as out:
+        for row in pool.map(one, questions_):
+            with lock:
+                out.write(json.dumps(row, ensure_ascii=True) + "\n")
+    print(args.name, len(questions_), f"new={meter.requests} spent={meter.spent():.4f}")
+
+
+def large_rows(args: argparse.Namespace) -> None:
+    out = []
+    for row in load(args.scores):
+        paths = [path for path, value in row["top"] if value >= args.threshold]
+        hit = any(path in row["gold"] for path in paths)
+        out.append({"key": row["key"], "stratum": row["stratum"],
+                    "queryLanguage": row["queryLanguage"], "rank": 1 if hit else None,
+                    "surfaced": len(paths)})
+    Path(args.out).write_text(json.dumps({"threshold": args.threshold, "rows": out}) + "\n",
+                              encoding="utf-8")
+    print(args.out, len(out), sum(row["rank"] is not None for row in out))
+
+
+def latency(args: argparse.Namespace) -> None:
+    import bench_retrieval as br
+    import retrieval_corpus as rc
+    unanswerable = sorted((item for item in json.loads(QUESTIONS.read_text(encoding="utf-8"))
+                           if item["split"] == "tune"), key=lambda item: item["id"])[:20]
+    dev = [q for q in rc.queries() if q.split == "dev"][:20]
+    texts = [item["text"] for item in unanswerable] + [q.text for q in dev]
+    meter = Meter(args.cache, args.budget, reuse=False)
+    report: dict[str, Any] = {}
+    for size in args.sizes:
+        with tempfile.TemporaryDirectory(prefix="mnemosyne-latency-") as directory:
+            vault = Path(directory)
+            br.write_vault(vault, rc.corpus(size))
+            plain = KibitzerAdapter(vault)
+            _ = plain.recall(texts[0], rerank=False)
+            nokey = []
+            for text in texts:
+                start = time.perf_counter()
+                _ = plain.recall(text, limit=3, rerank=False)
+                nokey.append((time.perf_counter() - start) * 1000)
+            report[f"{size}:no-key"] = {"p50_ms": br.percentile(nokey, 50),
+                                        "p95_ms": br.percentile(nokey, 95)}
+            for arm, floor in (("ungated", 0.0), ("gated", args.floor)):
+                crosslingual.RELEVANCE_FLOOR = floor
+                adapter = KibitzerAdapter(vault, decide=meter)
+                walls, requests, tokens, surfaced = [], [], [], []
+                for text in texts:
+                    before_requests, before_tokens = meter.requests, meter.new_tokens
+                    start = time.perf_counter()
+                    result = adapter.recall(text, limit=3)
+                    walls.append((time.perf_counter() - start) * 1000)
+                    assert result.fallback is None, result.fallback
+                    requests.append(meter.requests - before_requests)
+                    tokens.append(meter.new_tokens - before_tokens)
+                    surfaced.append(len(result.candidates))
+                cold = [cold_probe(vault, texts[0], floor) for _ in range(5)]
+                mean_tokens = sum(tokens) / len(tokens)
+                report[f"{size}:{arm}"] = {
+                    "p50_ms": br.percentile(walls, 50), "p95_ms": br.percentile(walls, 95),
+                    "cold_ms": cold, "requests_per_query": sum(requests) / len(requests),
+                    "tokens_per_query": mean_tokens, "usd_per_query": mean_tokens * PRICE,
+                    "usd_per_query_list": mean_tokens * LIST_PRICE,
+                    "silent_share": sum(n == 0 for n in surfaced) / len(surfaced)}
+                print(size, arm, json.dumps(report[f"{size}:{arm}"])[:300], flush=True)
+    Path(args.out).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    print("spent", round(meter.spent(), 4))
+
+
+def cold_probe(vault: Path, text: str, floor: float) -> float:
+    import subprocess
+    done = subprocess.run([sys.executable, __file__, "cold", "--vault", str(vault),
+                           "--text", text, "--floor", str(floor)],
+                          capture_output=True, text=True, check=True)
+    return float(done.stdout.strip().splitlines()[-1])
+
+
+def cold(args: argparse.Namespace) -> None:
+    crosslingual.RELEVANCE_FLOOR = args.floor
+    start = time.perf_counter()
+    result = KibitzerAdapter(args.vault, decide=crosslingual.opengateway_decider()).recall(
+        args.text, limit=3)
+    elapsed = (time.perf_counter() - start) * 1000
+    assert result.fallback is None
+    print(elapsed)
+
+
 def rows(args: argparse.Namespace) -> None:
     out = to_rows(load(args.scores), args.threshold, args.exact)
     Path(args.out).write_text(json.dumps({"threshold": args.threshold, "rows": out},
@@ -252,8 +371,28 @@ def main() -> None:
     output.add_argument("--threshold", type=float, required=True)
     output.add_argument("--exact", action="store_true")
     output.add_argument("--out", required=True)
+    big = commands.add_parser("five")
+    for name in ("name", "questions", "labels", "picked", "corpus", "cache", "out"):
+        big.add_argument(f"--{name}", required=True)
+    big.add_argument("--budget", type=float, default=3.15)
+    big.add_argument("--threads", type=int, default=12)
+    big_rows = commands.add_parser("large-rows")
+    big_rows.add_argument("--scores", nargs="+", required=True)
+    big_rows.add_argument("--threshold", type=float, required=True)
+    big_rows.add_argument("--out", required=True)
+    timing = commands.add_parser("latency")
+    timing.add_argument("--sizes", nargs="+", type=int, default=[1000, 10000])
+    timing.add_argument("--floor", type=float, required=True)
+    timing.add_argument("--cache", required=True)
+    timing.add_argument("--budget", type=float, default=3.15)
+    timing.add_argument("--out", required=True)
+    probe = commands.add_parser("cold")
+    probe.add_argument("--vault", required=True)
+    probe.add_argument("--text", required=True)
+    probe.add_argument("--floor", type=float, required=True)
     args = parser.parse_args()
-    {"score": score, "sweep": sweep, "rows": rows}[args.command](args)
+    {"score": score, "sweep": sweep, "rows": rows, "five": five, "large-rows": large_rows,
+     "latency": latency, "cold": cold}[args.command](args)
 
 
 if __name__ == "__main__":
