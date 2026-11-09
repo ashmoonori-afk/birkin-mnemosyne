@@ -7,7 +7,7 @@ atomic commits and a pull request, including the earlier B1-B6 changes.
 Tier: HEAVY, because this covers persistence, multiple clients and recovery.
 The prior G001 evidence is retained; G002 in the ulw-loop ledger owns this work.
 
-Working checkout: `C:/Users/lg/OmO Projects/bm-wt`.
+Working checkout: `C:/Users/user/OmO Projects/bm-wt`.
 Branch: `ulw/user-journey-gaps`.
 Original base: `4b258d8`; refreshed origin/main: `08e518d` (labels, PR #80).
 The previous work is not committed yet. Preserve it before integrating main.

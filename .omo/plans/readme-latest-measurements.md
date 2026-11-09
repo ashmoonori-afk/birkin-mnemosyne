@@ -115,7 +115,7 @@ dedicated final-head worktree; it cannot edit the implementation.
 
 Evidence root: /home/hp/work/mn-readme-results/evidence/.
 Notepad: /tmp/ulw-20261011-140613.cj7cIo.md.
-Owner report: append-only /mnt/c/Users/HP/jarvis/mnreadme/status.md.
+Owner report: append-only <owner-status-file>.
 Record exact commands, SHA, pass/fail, output paths, cleanup and reviewer model.
 Final includes PR, old->new headline numbers, reruns, no open items if complete.
 
