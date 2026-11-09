@@ -1,16 +1,16 @@
 # mn-070-features - Work Plan
 
-Canonical task/plan root: `/Volumes/toshiba/work/mn-070-features`.
+Canonical task/plan root: `<work-dir>/mn-070-features`.
 Implementation references below are relative to the Feature A worktree
-`/Volumes/toshiba/work/mn-070-features/handoff`, unless an absolute path is given.
-The unchanged baseline is `/Volumes/toshiba/work/mn-070-features/repo`.
+`<work-dir>/mn-070-features/handoff`, unless an absolute path is given.
+The unchanged baseline is `<work-dir>/mn-070-features/repo`.
 After plan approval, export an identical reviewed copy into the feature PR's
 `.omo/plans/` directory; this task-root file remains the canonical plan.
 
 Execution checkpoint: Item A merged as PR #79 at
 `4b258d8a8bce95ec115d7a2537f5a24bbe07b98a`, after exact-head Sol approval and
 all 21 CI jobs passed. Item B references now resolve against
-`/Volumes/toshiba/work/mn-070-features/labeling` on branch `mn-070-labels`.
+`<work-dir>/mn-070-features/labeling` on branch `mn-070-labels`.
 The baseline checkout remains unchanged. Routine label interfaces are specified
 in the task evidence file `evidence/labeling-contract.md`.
 
@@ -80,7 +80,7 @@ session continuity and useful, reversible label suggestions without a model.
 
 ### Must have
 
-Every requirement from `/Volumes/toshiba/work/mn-070-features/BRIEF.md`, Items A
+Every requirement from `<work-dir>/mn-070-features/BRIEF.md`, Items A
 and B. One PR per item, A before B. Preserve stdlib-only Python >=3.10 core and
 existing optional provider/MCP patterns. Optional richer provider summaries or
 labels may use the current registry, but no model is required.
@@ -111,7 +111,7 @@ or broad cleanup.
 - Test decision: read the existing pytest cases first, add behavioral regression
   cases that fail without the feature, then implement and run the related tests.
   Pure prose receives QA-by-read, not prose-pinning tests.
-- Evidence root: `/Volumes/toshiba/work/mn-070-features/evidence/`, as required by
+- Evidence root: `<work-dir>/mn-070-features/evidence/`, as required by
   the owner. Reference these real artifacts in the ulw-loop ledger/criteria.
 - Every write scope gets LSP diagnostics and a diff review. No unrun check is
   labeled passing. Existing required CI is the 21-job core/MCP/semantic matrix
@@ -123,9 +123,9 @@ or broad cleanup.
   engines (bm25, hybrid, expanded-claude, expanded-gpt), sizes 160/1,000/10,000,
   1,440 queries per row, three authors and both dev/test splits. No fixtures
   changed. Reuse the same pinned semantic model and environment for the candidate.
-- Export `PATH=/Users/MoonGwanghoon/.local/bin:$PATH`,
-  `UV_CACHE_DIR=/Volumes/toshiba/work/mn-070-features/.uv-cache` and
-  `TMPDIR=/Volumes/toshiba/work/mn-070-features/qa-temp`. Set pytest `--basetemp`
+- Export `PATH=$HOME/.local/bin:$PATH`,
+  `UV_CACHE_DIR=<work-dir>/mn-070-features/.uv-cache` and
+  `TMPDIR=<work-dir>/mn-070-features/qa-temp`. Set pytest `--basetemp`
   to a unique task-owned path. Limit benchmark compute threads to one.
 - Capture CLI subprocess stdout/stderr and JSON; these are first-class
   auxiliary surfaces for this CLI/data product. MCP proof uses actual
@@ -135,10 +135,10 @@ or broad cleanup.
   and captures durable notes plus returned startup context. Do not claim a
   nonexistent generic pre-compaction hook.
 - Handoff channel invocations:
-  `uv run --extra dev --extra mcp python /Volumes/toshiba/work/mn-070-features/evidence/qa_handoff.py --scenario capture-resume`
+  `uv run --extra dev --extra mcp python <work-dir>/mn-070-features/evidence/qa_handoff.py --scenario capture-resume`
   and the same command with `--scenario retention-hosts`.
 - Label channel invocations:
-  `uv run --extra dev --extra mcp python /Volumes/toshiba/work/mn-070-features/evidence/qa_labels.py --scenario write-import-init`
+  `uv run --extra dev --extra mcp python <work-dir>/mn-070-features/evidence/qa_labels.py --scenario write-import-init`
   and the same command with `--scenario search-topics`.
 - Benchmark candidate runs the production labeling transform on only its
   disposable measurement vaults before using the frozen runner. Compare every
@@ -590,7 +590,7 @@ required but opt-in; default routing remains compatible.
   Closes: GAP-8. Parallelization: after 22.
   References: benchmarks/retrieval/bench_retrieval.py:210-343, compare.py; evidence/retrieval-before.json.
   Acceptance criteria: candidate JSON has 12 rows and 1,440 ranks each; every rank array and every stored metric slice equals the same-environment baseline; fixture SHA-256s unchanged; comparison exits 0.
-  QA: `uv run --extra dev --extra mcp --extra semantic python /Volumes/toshiba/work/mn-070-features/evidence/qa_label_benchmark.py` labels real measurement files, runs bm25/hybrid/expanded-claude/expanded-gpt at 160/1000/10000 and fails on any changed rank/metric/fixture.
+  QA: `uv run --extra dev --extra mcp --extra semantic python <work-dir>/mn-070-features/evidence/qa_label_benchmark.py` labels real measurement files, runs bm25/hybrid/expanded-claude/expanded-gpt at 160/1000/10000 and fails on any changed rank/metric/fixture.
   Evidence: evidence/labeling/{retrieval-after,ranking-comparison,fixture-hashes}.json and benchmark transcript; record labeling duration. Commit: N, external evidence; no fixture edits.
 
 - [ ] 24. Document labels imports filtering and measured 0.7.0 results
@@ -647,7 +647,7 @@ reviewable; final feature commit footer:
 `Plan: .omo/plans/mn-070-features.md`.
 
 Feature A branch/worktree: `mn-070-handoff` at
-`/Volumes/toshiba/work/mn-070-features/handoff`. Baseline clone remains `repo/`.
+`<work-dir>/mn-070-features/handoff`. Baseline clone remains `repo/`.
 Feature B branches from the refreshed merged main in a new task-owned worktree.
 Create one PR per item. Refresh PR head/check state before every gated action,
 freeze the reviewed head, and merge only with `--match-head-commit <that SHA>`.

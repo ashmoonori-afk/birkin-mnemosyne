@@ -24,5 +24,5 @@ Record `source` (model invocation/date) and `license` (publication permission).
 Use fictional original material. Suggested fixture license: CC0-1.0.
 
 Drop into `benchmarks/round3/frozen_claude_identity.json` in
-`C:/Users/HP/work/birkin-mnemosyne`, or supply it to 폴라리스. No universal-win
+`C:/Users/user/work/birkin-mnemosyne`, or supply it to the orchestrator. No universal-win
 claim: gains must hold separately on both authors; disclose every regression.

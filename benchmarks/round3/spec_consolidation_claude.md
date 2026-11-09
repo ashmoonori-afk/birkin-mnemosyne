@@ -17,5 +17,5 @@ Use fictional original material; do not copy third-party private questions.
 Suggested license: CC0-1.0 for model-authored fictional fixture data.
 
 Drop this set into `benchmarks/round3/frozen_claude_consolidation.json` in
-`C:/Users/HP/work/birkin-mnemosyne`, or supply it to 폴라리스. Gain counts only
+`C:/Users/user/work/birkin-mnemosyne`, or supply it to the orchestrator. Gain counts only
 when the unchanged test protocol shows it on both Sol and Claude sets.

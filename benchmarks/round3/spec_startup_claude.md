@@ -34,6 +34,6 @@ required item, not just answers. No generative-model compliance claim.
 
 Use original fictional material; record source and license (MIT or CC0-1.0 is
 suitable if publication is permitted). Freeze before evaluation tuning.
-Drop into `C:/Users/HP/work/birkin-mnemosyne/benchmarks/round3/frozen_claude_startup.json`.
+Drop into `C:/Users/user/work/birkin-mnemosyne/benchmarks/round3/frozen_claude_startup.json`.
 Gains count only when they hold independently on both author sets; expose all
 regressions and limits.

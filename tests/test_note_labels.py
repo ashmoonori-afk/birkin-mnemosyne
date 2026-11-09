@@ -45,19 +45,19 @@ def test_create_infers_deterministic_labels_from_completed_note(tmp_path, monkey
     monkeypatch.setattr(memory, "date", FixedDate)
     monkeypatch.setattr(memory, "_now_iso", lambda: "2026-10-11T12:00:00+00:00")
     m = _mem(tmp_path)
-    m.write_note("FlowerPlus GTM", "Corporate welfare flowers plan.",
+    m.write_note("Northwind GTM", "Office snack subscriptions plan.",
                  note_type="project", zone="projects")
-    labels = _labels(m, "FlowerPlus GTM")
+    labels = _labels(m, "Northwind GTM")
     assert labels is not None
     assert "type:project" in labels
-    assert "project:FlowerPlus GTM" in labels
+    assert "project:Northwind GTM" in labels
     assert "zone:projects" in labels
     assert any(label.startswith("date:") for label in labels)
     assert not any(label.startswith("lang:") for label in labels)
     m2 = VaultMemory({"vault_path": str(tmp_path / "w")})
-    m2.write_note("FlowerPlus GTM", "Corporate welfare flowers plan.",
+    m2.write_note("Northwind GTM", "Office snack subscriptions plan.",
                   note_type="project", zone="projects")
-    assert _labels(m2, "FlowerPlus GTM") == labels
+    assert _labels(m2, "Northwind GTM") == labels
 
 
 def test_inference_uses_metadata_body_path_and_index_triggers(tmp_path):
