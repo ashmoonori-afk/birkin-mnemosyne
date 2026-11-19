@@ -36,14 +36,14 @@
   <main id="main">
     <section class="container hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow">로컬 MARKDOWN 메모리 / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.9.0</a></p>
+        <p class="eyebrow">로컬 MARKDOWN 메모리 / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.10.0</a></p>
         <h1 id="hero-title">다음 세션에도<br>이어지는 기억.</h1>
         <p class="lead">에이전트가 새로 시작해도 노트까지 잊을 필요는 없습니다. 로컬 Markdown에 기억을 남기고, 시작할 때는 지도를, 필요할 때는 상세 문서를 읽으세요.</p>
         <div class="actions">
           <a class="button" href="#install">설치하기 <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">측정 근거 보기</a>
         </div>
-        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.9.0</code></p>
+        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.10.0</code></p>
       </div>
       <figure class="ledger" data-loop>
         <div class="ledger-top"><strong class="mono">your vault/</strong><span class="small">디스크 위의 Markdown</span></div>
@@ -199,6 +199,12 @@
           <h2>검색과 시작 비용,<br>측정값과 한계.</h2>
           <p>문서에 공개된 실험 결과입니다. 사용자의 저장소나 에이전트 답변에 대한 보장은 아닙니다.</p>
         </div>
+        <div class="measure-note" data-reveal id="say-nothing">
+          <h3>0.10.0: 맞는 노트가 없으면 아무것도 꺼내지 않아요</h3>
+          <p>재정렬 키가 있으면 판정 점수 0.5 미만인 노트를 뺍니다. 노트 1,000개 시험 저장소가 답할 수 없는 처음 보는 메시지 337개 중 노트가 나온 경우는 <strong>325개에서 116개</strong>로 줄었어요(64% 감소). 답이 있는 질문 972개에서는 정답 784개 중 781개가 남았고, 질문당 보여 주는 노트는 4.25개에서 1.00개로 줄었어요(2026년 11월 3일).</p>
+          <p>키가 있어야 작동해요. 키가 없으면 지금처럼 내 컴퓨터 안에서 그대로 돌아요. 키가 있을 때 질문 하나에 2.4초 대신 1.6초가 걸렸고, 그날 할인 가격으로 약 0.00036달러, 정가로 약 0.0071달러예요.</p>
+          <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md">결과와 한계 보기 ↗</a>
+        </div>
         <div class="measure-note" data-reveal id="cross-language-recall">
           <h3>0.8.0: 다른 언어로 물어도 맞는 노트를 찾게 돕는 재정렬(켰을 때만).</h3>
           <p><code>MNEMOSYNE_RERANK_API_KEY</code>를 넣으면 <code>recall()</code>(MCP 도구 <code>memory_kibitzer_candidates</code> 포함)의 후보 순서를 외부 판정 모델이 다시 매겨요. 번역한 질문으로도 찾으려면 <code>MNEMOSYNE_RERANK_TRANSLATOR</code>도 설정해야 해요.</p>
@@ -283,7 +289,7 @@
       <div class="install-grid">
         <article data-reveal>
           <h3>코어 설치</h3>
-          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.9.0</span>
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.10.0</span>
 
 mnemosyne init <span class="code-token">--vault</span> my_vault
 mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>

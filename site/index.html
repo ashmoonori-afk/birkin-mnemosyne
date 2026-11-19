@@ -36,14 +36,14 @@
   <main id="main" data-bg-content>
     <section class="container hero" aria-labelledby="hero-title" data-section="hero" data-bg-node-id="hero">
       <div class="hero-copy">
-        <p class="eyebrow" data-bg-node-id="hero-eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.9.0</a></p>
+        <p class="eyebrow" data-bg-node-id="hero-eyebrow">LOCAL MARKDOWN MEMORY / <a href="https://github.com/ashmoonori-afk/birkin-mnemosyne/releases">v0.10.0</a></p>
         <h1 id="hero-title" data-bg-node-id="hero-title">Memory that survives the session.</h1>
         <p class="lead" data-bg-node-id="hero-lead">Your agent starts over. Your notes shouldn't. Keep memory as local Markdown, load the map at startup, and open the details when they're needed.</p>
         <div class="actions">
           <a class="button" href="#install">Get started <span aria-hidden="true">&nbsp;↓</span></a>
           <a class="button secondary" href="#measurements">Read the evidence</a>
         </div>
-        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.9.0</code></p>
+        <p class="hero-install"><span aria-hidden="true">$</span><code>pip install birkin-mnemosyne==0.10.0</code></p>
       </div>
       <figure class="ledger" data-loop data-bg-node-id="hero-ledger">
         <div class="ledger-top"><strong class="mono">your vault/</strong><span class="small">Markdown on disk</span></div>
@@ -199,6 +199,12 @@
           <h2 data-bg-node-id="measure-title">Measured changes.<br>With explicit limits.</h2>
           <p data-bg-node-id="measure-copy">These are documented experiments, not a promise about your vault or your agent's answers.</p>
         </div>
+        <div class="measure-note" data-reveal id="say-nothing">
+          <h3>0.10.0: recall says nothing when no note is relevant</h3>
+          <p>With a rerank key, notes the judge scores below 0.5 are dropped. On 337 held-out messages the 1,000-note benchmark vault cannot answer, a note still surfaced for <strong>116, down from 325</strong> (64% fewer). On 972 answerable questions the right note stayed for 781 of 784, and notes shown per question fell from 4.25 to 1.00 (November 3, 2026).</p>
+          <p>It needs the key. Without one, recall stays local and unchanged. With it, a question took 1.6 s instead of 2.4 s and cost about $0.00036 at that day's discounted price, about $0.0071 at list.</p>
+          <a class="text-link" href="https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md">Read the results and limits ↗</a>
+        </div>
         <div class="measure-note" data-reveal id="cross-language-recall">
           <h3>0.8.0</h3>
           <p>Cross-language recall: in the research setup with a judge and translated queries, Hit@5 rose from 298 to 1,028 of 1,432 unseen questions in six languages (3.45x, October 25, 2026). The key-only setup was not measured.</p>
@@ -283,7 +289,7 @@
       <div class="install-grid">
         <article data-reveal>
           <h3>Install the core</h3>
-          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.9.0</span>
+          <pre><code>pip install <span class="code-token">birkin-mnemosyne==0.10.0</span>
 
 mnemosyne init <span class="code-token">--vault</span> my_vault
 mnemosyne init <span class="code-token">--vault</span> my_vault <span class="code-token">--apply</span></code></pre>

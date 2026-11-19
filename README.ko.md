@@ -12,6 +12,10 @@ BM25 검색, 사용 기반 감쇠(decay)와 영역(zone) 우선순위, 그리고
 MCP 서버가 볼트를 에이전트 클라이언트에 연결하고, 옵트인 의미 모드(opt-in
 semantic mode)가 의미 기반 검색을 더해 줍니다.
 
+## 0.10.0: 맞는 노트가 없으면 아무것도 꺼내지 않아요
+
+재정렬 키를 넣으면 `recall()`과 MCP 도구 `memory_kibitzer_candidates`가 판정 모델 점수 0.5 미만인 노트를 모두 뺍니다. 그래서 노트로 답할 수 없는 질문에는 관련 없는 노트 다섯 개 대신 빈 결과를 돌려줘요. 노트 1,000개 시험 저장소가 답할 수 없는 처음 보는 메시지 337개 중 노트가 나온 경우는 325개에서 116개로 줄었어요(64% 감소, 2026년 11월 3일 측정). 답이 있는 처음 보는 질문 972개에서는 상위 5개 안에 있던 정답 784개 중 781개가 그대로 남았고, 질문당 보여 주는 노트는 4.25개에서 1.00개로 줄었어요. 키가 있어야 작동해요. 키가 없으면 `select()`과 내 컴퓨터 안의 BM25 경로는 그대로이고, 빈 결과를 내지 않아요. [결과와 한계](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md).
+
 ## 0.9.0: Hermes에서 노트를 보관하고 되돌릴 수 있어요
 
 Hermes 제공자에 `birkin_memory_forget`과 `birkin_memory_restore`가 생겼어요. 기본은 미리보기이고 `confirm=true`일 때만 노트를 `_archive`로 옮기거나 되돌리며, 파일을 지우지는 않아요. 검색과 순위는 그대로이고 Hermes 제공자는 여전히 API 키나 네트워크 없이 동작해요.
@@ -39,7 +43,7 @@ Hermes 제공자에 `birkin_memory_forget`과 `birkin_memory_restore`가 생겼�
 Python >= 3.10이 필요합니다. PyPI에서 설치하세요:
 
 ```bash
-pip install "birkin-mnemosyne==0.9.0"
+pip install "birkin-mnemosyne==0.10.0"
 ```
 
 체크아웃 상태에서 쓰는 개발·벤치마크 명령은 다음과 같습니다:
@@ -57,12 +61,12 @@ pip install -e ".[semantic]"     # 선택 사항인 의미 기반 검색
 
 ## 에이전트 사용자를 위한 빠른 시작
 
-아래 명령은 0.9.0에 포함됩니다. 배포된 MCP 추가 패키지를 설치하면
+아래 명령은 0.10.0에 포함됩니다. 배포된 MCP 추가 패키지를 설치하면
 소스 체크아웃 없이 에이전트에 연결할 수 있습니다.
 코딩 에이전트에 기억을 연결하고, 무엇을 저장했는지 터미널에서 확인하세요:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]==0.9.0"
+pip install "birkin-mnemosyne[mcp]==0.10.0"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # 새 에이전트 세션을 열고 "Release checklist"라는 제목으로
@@ -228,6 +232,18 @@ for hit in result.candidates:
   않고, 첫 실패 뒤 대기 중인 요청은 취소합니다.
 - `off`, `disabled`: 끄기 스위치가 켜짐. 경고 없음.
 - `limit`: 재정렬은 노트 다섯 개를 남기므로, 5보다 큰 limit은 요청 없이 BM25를 씁니다.
+
+맞는 노트가 없을 때(0.10.0): 하나씩 점수를 매긴 뒤 판정 점수가
+`crosslingual.RELEVANCE_FLOOR`(0.5)보다 낮은 노트는 빼고, 남은 노트끼리만 짝 비교를 합니다.
+남은 노트가 없으면 `recall()`은 후보 없이 `selector="crosslingual-rerank"`,
+`fallback=None`을 돌려줍니다. 판정 모델이 돌았고 보여 줄 노트가 없었다는 뜻이에요.
+다섯 개를 모두 받으려면 `select_crosslingual()`이나 `crosslingual.rerank()`에
+`min_relevance=0`을 넘기세요. 이 문턱은 판정 모델이 있어야 하고, 내 컴퓨터 안의 BM25 경로에는 없습니다.
+
+실제 요청으로 고정된 질문 40개를 잰 결과(2026년 11월 3일): 노트 1,000개에서 `recall()` 중간값이
+2.4초에서 1.6초로 줄었어요. 짝 비교로 넘어가는 노트가 줄어 질문당 판정 요청이 23.3개에서 6.7개가 됐기 때문이에요.
+질문 하나에 그날 카탈로그 가격(95% 할인)으로 약 0.00036달러, 정가로 약 0.0071달러가 들어요.
+키가 없을 때 `recall()`은 노트 1,000개에서 32밀리초였어요. [전체 결과](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md).
 
 실패하면 기존 순위 대신 `RerankError`를 받고 싶다면
 `select_crosslingual(query, decide=..., views=...)`를 그대로 쓸 수 있습니다.

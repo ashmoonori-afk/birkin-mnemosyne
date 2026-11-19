@@ -780,7 +780,9 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         server has MNEMOSYNE_RERANK_API_KEY and limit <= 5, candidates are
         reranked across languages by a hosted judge (selector
         "crosslingual-rerank"); otherwise, or on any judge failure, BM25 is
-        used and `fallback` says why. MNEMOSYNE_RERANK=off disables it.
+        used and `fallback` says why. MNEMOSYNE_RERANK=off disables it. With the
+        judge, notes it scores below 0.5 are dropped, so an empty list means no
+        note looked relevant.
         """
         try:
             result = kibitzer.recall(

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.10.0 - 2026-11-03
+
+### Added
+
+- With a configured judge, `KibitzerAdapter.recall()` and the MCP tool
+  `memory_kibitzer_candidates` drop notes whose merged pointwise judge score is
+  below `crosslingual.RELEVANCE_FLOOR` (0.5). A question no note answers now
+  returns no candidates, with `selector="crosslingual-rerank"` and
+  `fallback=None`. The pairwise step compares only the remaining notes.
+- `min_relevance` on `crosslingual.rerank()` and
+  `KibitzerAdapter.select_crosslingual()`; `min_relevance=0` keeps all five.
+  `crosslingual.scored_top()` and `crosslingual.merge_scored()` expose the
+  merged scores.
+- `benchmarks/unanswerable`: 560 frozen messages the retrieval benchmark vault
+  cannot answer, with a tune/test split, plus the harnesses used for this release.
+
+### Unchanged
+
+- `select()`, `search()`, the stdlib core and `recall()` without a key have no
+  gate and make no requests.
+
+### Documentation
+
+- README, README.ko, the landing page and release notes describe the floor, the
+  measured effect on held-out data, latency, cost and the key requirement.
+
 ## 0.9.0 - 2026-10-31
 
 ### Added

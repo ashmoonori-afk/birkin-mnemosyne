@@ -12,6 +12,10 @@ search notes. Notes stay readable, greppable and diffable; an optional MCP
 server connects the vault to agent clients, and an opt-in semantic mode adds
 meaning-based retrieval.
 
+## 0.10.0: recall says nothing when no note is relevant
+
+With a rerank key set, `recall()` and the MCP tool `memory_kibitzer_candidates` now drop every note the hosted judge scores below 0.5, so a question your notes cannot answer returns no candidates instead of five unrelated notes. On 337 held-out messages the 1,000-note benchmark vault cannot answer, a note still surfaced for 116, down from 325 (64% fewer, November 3, 2026). On 972 answerable held-out questions the right note stayed in the top five for 781 of 784, and notes shown per question fell from 4.25 to 1.00. It needs the key: without one, `select()` and the local BM25 path are unchanged and never stay silent. [Results and limits](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md).
+
 ## 0.9.0: reversible note cleanup in Hermes
 
 The Hermes provider adds `birkin_memory_forget` and `birkin_memory_restore`: both preview by default, move a note to or from `_archive` only with `confirm=true`, and never delete files. Recall and ranking are unchanged, and the Hermes provider still needs no API key or network call.
@@ -39,7 +43,7 @@ a model requirement or turn labels into ranking terms.
 Requires Python >= 3.10. Install from PyPI:
 
 ```bash
-pip install "birkin-mnemosyne==0.9.0"
+pip install "birkin-mnemosyne==0.10.0"
 ```
 
 From a checkout, the existing development and benchmark commands are:
@@ -57,12 +61,12 @@ not enable semantic retrieval. See below for explicit semantic preparation.
 
 ## Quick start for agent users
 
-The commands below ship in 0.9.0. Install the published MCP extra to connect
+The commands below ship in 0.10.0. Install the published MCP extra to connect
 your agent; a source checkout is not required.
 Give your coding agent a memory, then check from a terminal what it stored:
 
 ```bash
-pip install "birkin-mnemosyne[mcp]==0.9.0"
+pip install "birkin-mnemosyne[mcp]==0.10.0"
 claude mcp add --scope user mnemosyne -- mnemosyne-mcp --vault ~/mnemosyne
 
 # Start a new agent session and ask it to remember a note titled
@@ -239,6 +243,21 @@ You can also pass a client in code: `KibitzerAdapter(vault, decide=..., complete
 
 `select_crosslingual(query, decide=..., views=...)` stays available when you
 want the strict form that raises `RerankError` instead of falling back.
+
+**When no note is relevant (0.10.0).** After the pointwise stage, notes whose
+merged judge score is below `crosslingual.RELEVANCE_FLOOR` (0.5) are dropped, and
+the pairwise step compares only the notes that remain. If none remain,
+`recall()` returns no candidates with `selector="crosslingual-rerank"` and
+`fallback=None`: the judge ran and found nothing worth showing. Pass
+`min_relevance=0` to `select_crosslingual()` or `crosslingual.rerank()` to keep all
+five. The floor needs the judge; the local BM25 path has no gate.
+
+Measured on a fixed 40-question sample with real requests (November 3, 2026):
+at 1,000 notes the median `recall()` took 1.6 s instead of 2.4 s, because fewer
+notes reach the pairwise step (6.7 judge requests per question instead of
+23.3). A question cost about USD 0.00036 at the catalog price on that day, a
+95% discount, or about USD 0.0071 at list price. Without a key, `recall()` took
+32 ms at 1,000 notes. [Full results](https://github.com/ashmoonori-afk/birkin-mnemosyne/blob/main/benchmarks/unanswerable/RESULTS.md).
 
 **What is sent.** Only the original query and, for each candidate note, its
 description and a 1,500-character excerpt go to the judge. Translation
