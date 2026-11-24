@@ -157,9 +157,11 @@ def register_handoff_tools(server: MCPServer, vault: Path) -> None:
                                Field(description=_PROJECT_KEY)] = None,
         task_key: Annotated[str | None, Field(description=_TASK_KEY)] = None,
     ) -> dict[str, JsonValue]:
-        """Latest active handoff capture, active record count and soft
-        warnings. latest carries every captured field verbatim, never
-        truncated; missing history returns count 0 / latest null."""
+        """Resume work from the latest active capture for a project and optional task.
+
+        A project key must be supplied or configured. Returns the full capture,
+        active record count and warnings; no history gives count 0 and latest
+        null. Use memory_startup_read for a full session-start context instead."""
         try:
             scope = required_scope(project_key, task_key)
             latest = store.latest(scope)

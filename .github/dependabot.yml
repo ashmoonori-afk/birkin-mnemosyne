@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /integrations/hermes
+    schedule:
+      interval: weekly
+    # The release checklist updates the Hermes core pin with the plugin version.
+    ignore:
+      - dependency-name: birkin-mnemosyne
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
