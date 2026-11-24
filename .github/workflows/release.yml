@@ -79,7 +79,7 @@ jobs:
           PY
           PYTHONPATH="$PWD/wheel-guard" "$RUNNER_TEMP/wheel-venv/bin/python" -m pytest -q \
             -p no:cacheprovider -p wheel_guard "$CHECKOUT/tests"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
