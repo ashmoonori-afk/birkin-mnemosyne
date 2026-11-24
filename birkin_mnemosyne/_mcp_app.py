@@ -535,11 +535,14 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_related(
-        note: Annotated[str, Field(min_length=1, max_length=200)],
-        limit: Annotated[int, Field(ge=1, le=20)] = 5,
+        note: Annotated[str, Field(min_length=1, max_length=200, description="Source note slug")],
+        limit: Annotated[int, Field(ge=1, le=20, description="Maximum unlinked candidates to return")] = 5,
     ) -> dict[str, Any]:
-        """Mechanical link candidates for a note (similar, not yet linked).
-        Decide yourself which are genuinely related."""
+        """Suggest links for an existing note using its top terms as a search.
+
+        Already-linked notes are excluded. Review the candidate summaries for
+        a meaningful connection before linking. Use memory_search to look up
+        notes by your own query instead."""
         key, _ = _require_note(note)
         return {"candidates": [
             {"slug": h["slug"], "title": h["title"],
@@ -710,9 +713,15 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_mutating("Undo review answer", destructive=True))
     def memory_review_undo(
-        transaction_id: str, confirm: bool = False,
+        transaction_id: Annotated[str, Field(description="Transaction ID from memory_review_apply")],
+        confirm: Annotated[bool, Field(description="True to restore; false makes no changes")] = False,
     ) -> dict[str, Any]:
-        """Restore byte-exact originals only if every post-image is unchanged."""
+        """Undo a memory_review_apply transaction and restore byte-exact originals.
+
+        Without confirmation, this only echoes the transaction ID and does not
+        check whether undo is possible. With confirmation, if any edited file
+        has changed since the transaction, the call errors without restoring
+        any files."""
         if not confirm:
             return {"dry_run": True, "transaction_id": transaction_id}
         try:
@@ -766,12 +775,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_kibitzer_candidates(
-        query: str, limit: Annotated[int, Field(ge=1, le=50)] = 3,
-        surfaced: list[str] | None = None,
-        exclude_paths: list[str] | None = None,
-        force_refresh: bool = False,
+        query: Annotated[str, Field(description="Current task text to match against notes")],
+        limit: Annotated[int, Field(ge=1, le=50, description="Maximum candidates to return")] = 3,
+        surfaced: Annotated[list[str] | None, Field(description="Note paths already shown by the host")] = None,
+        exclude_paths: Annotated[list[str] | None, Field(description="Additional note paths to omit")] = None,
+        force_refresh: Annotated[bool, Field(description="Rebuild the live snapshot instead of reusing it")] = False,
     ) -> dict[str, Any]:
-        """Kibitzer-shaped live candidates, not autonomous resident nudges.
+        """Find live note candidates for a host to review before offering a nudge.
 
         Lower score is better, excerpt <=200 UTF-16 units. Description and body
         are ranked; system/archive/expired and surfaced/excluded paths are
@@ -814,8 +824,13 @@ def create_server(vault: Path, *, evidence_required: bool = False,
         return asdict(view)
 
     @server.tool(annotations=_READ)
-    def memory_index_read(topic: str | None = None) -> dict[str, Any]:
-        """Read all INDEX entries or one complete topic without a ranked cutoff."""
+    def memory_index_read(
+        topic: Annotated[str | None, Field(description="INDEX topic name; omit to read all routes")] = None,
+    ) -> dict[str, Any]:
+        """Read INDEX routing entries, not note bodies, without a ranked cutoff.
+
+        An unknown topic returns a tool error. Use memory_open_trigger to read
+        the notes linked to a trigger instead."""
         try:
             view = index.read(topic=topic)
         except MemoryIndexError as exc:
@@ -937,13 +952,24 @@ def create_server(vault: Path, *, evidence_required: bool = False,
 
     @server.tool(annotations=_READ)
     def memory_startup_verify(
-        context: str,
-        paths: Annotated[list[str], Field(default_factory=list, max_length=64)],
-        task: str | None = None,
-        project_key: str | None = None,
-        task_key: str | None = None,
+        context: Annotated[str, Field(description="Unmodified context string from memory_startup_read")],
+        paths: Annotated[list[str], Field(
+            default_factory=list, max_length=64,
+            description="Same startup paths relative to the identity root, if supplied to read")],
+        task: Annotated[str | None, Field(
+            description="Same task text used by read to select matching INDEX notes")] = None,
+        project_key: Annotated[str | None, Field(
+            description="Same project scope used by read to include its active handoff")] = None,
+        task_key: Annotated[str | None, Field(
+            description="Same task scope within the project, if supplied to read")] = None,
     ) -> dict[str, Any]:
-        """Re-read the requested closure and independently verify returned context."""
+        """Check memory_startup_read output against fresh sources without writing.
+
+        Pass its context string and the same paths, task and scope inputs.
+        Unlike memory_startup_read, this returns a coverage check, not new
+        context. Do not rely on the context if complete is false or the call
+        errors because a source cannot be read.
+        """
         try:
             scope = scope_from_defaults(project_key, task_key)
             coverage = startup.verify(
