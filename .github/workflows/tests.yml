@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   core:
     name: core (stdlib only, ${{ matrix.os }}, py${{ matrix.python }})
